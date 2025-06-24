@@ -90,6 +90,18 @@ const MoonIcon = ({ className = "w-4 h-4" }) => (
   </svg>
 );
 
+const AuditIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+  </svg>
+);
+
+const LogsIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+  </svg>
+);
+
 const ChevronRightIcon = ({ className = "w-4 h-4" }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -98,8 +110,16 @@ const ChevronRightIcon = ({ className = "w-4 h-4" }) => (
 
 const navigation = [
   { name: "Dashboard", icon: DashboardIcon, href: "/dashboard" },
-  { name: "POS", icon: POSIcon, href: "/pos" },
-  { name: "Sales", icon: SalesIcon, href: "/sales" },
+  { 
+    name: "Sales & POS", 
+    icon: POSIcon, 
+    href: "/pos",
+    submenu: [
+      { name: "Point of Sale", href: "/pos" },
+      { name: "Sales History", href: "/sales" },
+      { name: "Refunds", href: "/sales/refund" }
+    ]
+  },
   { 
     name: "Products", 
     icon: ProductsIcon, 
@@ -119,13 +139,21 @@ const navigation = [
       { name: "Adjustments", href: "/inventory/adjustments" }
     ]
   },
-  { name: "Customers", icon: CustomersIcon, href: "/customers" },
+  { 
+    name: "Customers", 
+    icon: CustomersIcon, 
+    href: "/customers",
+    submenu: [
+      { name: "All Customers", href: "/customers" },
+      { name: "Purchase History", href: "/customers/history" }
+    ]
+  },
   { 
     name: "Reports", 
     icon: ReportsIcon, 
     href: "/reports",
     submenu: [
-      { name: "Dashboard", href: "/reports" },
+      { name: "Overview", href: "/reports" },
       { name: "Sales Reports", href: "/reports/sales" },
       { name: "Product Reports", href: "/reports/products" },
       { name: "Inventory Reports", href: "/reports/inventory" },
@@ -133,13 +161,20 @@ const navigation = [
       { name: "Financial Reports", href: "/reports/financial" }
     ]
   },
-  { name: "Users", icon: UsersIcon, href: "/users" },
+  { 
+    name: "Users", 
+    icon: UsersIcon, 
+    href: "/users",
+    submenu: [
+      { name: "All Users", href: "/users" },
+      { name: "Roles & Permissions", href: "/users/roles" }
+    ]
+  },
   { 
     name: "Settings", 
     icon: SettingsIcon, 
     href: "/settings",
     submenu: [
-      { name: "General", href: "/settings" },
       { name: "Store Information", href: "/settings/store" },
       { name: "Tax Configuration", href: "/settings/tax" },
       { name: "Payment Methods", href: "/settings/payments" },
@@ -238,14 +273,11 @@ export default function Layout() {
 
   const isItemActive = (item: any) => {
     if (item.submenu) {
-      return item.submenu.some((subItem: any) => 
-        location.pathname === subItem.href || 
-        location.pathname.startsWith(subItem.href + '/')
-      );
+      // For items with submenu, don't highlight parent unless exactly matching
+      return location.pathname === item.href;
     }
     return location.pathname === item.href || 
-           (item.href === '/dashboard' && location.pathname === '/') ||
-           location.pathname.startsWith(item.href + '/');
+           (item.href === '/dashboard' && location.pathname === '/');
   };
 
   const isSubmenuItemActive = (href: string) => {
@@ -257,26 +289,25 @@ export default function Layout() {
       {/* Sidebar */}
       <div className={`${sidebarCollapsed ? "w-16" : "w-64"} bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ease-in-out flex flex-col`}>
         {/* Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            {!sidebarCollapsed && (
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">POS</span>
-                </div>
-                <span className="font-bold text-gray-900 dark:text-white">Point of Sale</span>
-              </div>
-            )}
-            {sidebarCollapsed && (
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mx-auto">
+        <div className="h-14 flex items-center px-3 border-b border-gray-200 dark:border-gray-700">
+          {!sidebarCollapsed && (
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">POS</span>
               </div>
-            )}
-          </div>
+              <span className="font-bold text-gray-900 dark:text-white">Point of Sale</span>
+            </div>
+          )}
+          {sidebarCollapsed && (
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mx-auto">
+              <span className="text-white font-bold text-sm">POS</span>
+            </div>
+          )}
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+       <div className="flex flex-col justify-between h-full">
+       <nav className="overflow-y-auto py-1">
           {navigation.map((item) => {
             const IconComponent = item.icon;
             const isActive = isItemActive(item);
@@ -284,17 +315,16 @@ export default function Layout() {
 
             if (item.submenu && !sidebarCollapsed) {
               return (
-                <div key={item.name}>
+                <div key={item.name} className="">
                   {/* Main Item */}
                   <Button
-                    variant={isActive ? "flat" : "light"}
-                    color={isActive ? "primary" : "default"}
-                    className={`w-full justify-between ${
+                    variant="light"
+                    className={`${
                       isActive 
                         ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" 
-                        : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
-                    startContent={<IconComponent />}
+                    startContent={<IconComponent className="w-5 h-5" />}
                     endContent={
                       <ChevronRightIcon 
                         className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
@@ -307,16 +337,15 @@ export default function Layout() {
 
                   {/* Submenu */}
                   {isExpanded && (
-                    <div className="ml-6 mt-1 space-y-1">
+                    <div className="ml-3">
                       {item.submenu.map((subItem) => (
                         <Button
                           key={subItem.href}
                           variant="light"
-                          size="sm"
-                          className={`w-full justify-start text-sm ${
+                          className={`w-full justify-start h-8 px-3 text-sm ${
                             isSubmenuItemActive(subItem.href)
                               ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
-                              : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300"
+                              : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                           }`}
                           onClick={() => navigate(subItem.href)}
                         >
@@ -338,17 +367,16 @@ export default function Layout() {
                 isDisabled={!sidebarCollapsed}
               >
                 <Button
-                  variant={isActive ? "flat" : "light"}
-                  color={isActive ? "primary" : "default"}
-                  className={`w-full ${sidebarCollapsed ? "justify-center px-2 min-w-0" : "justify-start"} ${
+                  variant="light"
+                  className={`w-full ${sidebarCollapsed ? "justify-center h-9 px-2" : "justify-start h-9 px-3"} ${
                     isActive 
-                      ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800" 
-                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                      ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" 
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                   }`}
-                  startContent={!sidebarCollapsed ? <IconComponent /> : undefined}
+                  startContent={!sidebarCollapsed ? <IconComponent className="w-5 h-5" /> : undefined}
                   onClick={() => navigate(item.href)}
                 >
-                  {sidebarCollapsed ? <IconComponent /> : item.name}
+                  {sidebarCollapsed ? <IconComponent className="w-5 h-5" /> : item.name}
                 </Button>
               </Tooltip>
             );
@@ -356,73 +384,35 @@ export default function Layout() {
         </nav>
 
         {/* Bottom section */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="border-t border-gray-200 dark:border-gray-700">
           {/* Admin Links */}
           {!sidebarCollapsed && (
-            <div className="mb-4 space-y-1">
-              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                Admin
+            <div className="py-1 px-3">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                System
               </div>
               <Button
                 variant="light"
-                size="sm"
-                className="w-full justify-start text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="w-full justify-start h-8 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                 onClick={() => navigate('/audit')}
+                startContent={<AuditIcon className="w-4 h-4" />}
               >
                 Audit Trail
               </Button>
               <Button
                 variant="light"
-                size="sm"
-                className="w-full justify-start text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="w-full justify-start h-8 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                 onClick={() => navigate('/logs')}
+                startContent={<LogsIcon className="w-4 h-4" />}
               >
                 System Logs
               </Button>
             </div>
           )}
 
-          {/* User Profile */}
-          <Dropdown placement="top-start">
-            <DropdownTrigger>
-              <Button
-                variant="light"
-                className={`w-full ${sidebarCollapsed ? "justify-center px-2 min-w-0" : "justify-start"} text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700`}
-              >
-                {sidebarCollapsed ? (
-                  <Avatar size="sm" name="Admin" className="flex-shrink-0" />
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <Avatar size="sm" name="Admin" className="flex-shrink-0" />
-                    <div className="flex flex-col items-start">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">Admin User</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">admin@pos.com</span>
-                    </div>
-                  </div>
-                )}
-              </Button>
-            </DropdownTrigger>
-            <DropdownMenu onAction={(key) => {
-              if (key === 'profile') {
-                navigate('/profile');
-              } else if (key === 'security') {
-                navigate('/profile/security');
-              } else if (key === 'preferences') {
-                navigate('/settings');
-              } else if (key === 'logout') {
-                // Handle logout logic
-                console.log('Logout clicked');
-              }
-            }}>
-              <DropdownItem key="profile">Profile</DropdownItem>
-              <DropdownItem key="security">Security Settings</DropdownItem>
-              <DropdownItem key="preferences">Preferences</DropdownItem>
-              <DropdownItem key="logout" color="danger">
-                Logout
-              </DropdownItem>
-            </DropdownMenu>
-          </Dropdown>
-        </div>
+          
+        </div> 
+       </div>
       </div>
 
       {/* Main Content */}
