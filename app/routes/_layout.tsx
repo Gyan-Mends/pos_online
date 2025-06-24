@@ -1,4 +1,4 @@
-import { Outlet } from "react-router";
+import { Outlet, useNavigate, useLocation } from "react-router";
 import { useState, useEffect } from "react";
 import {
   Button,
@@ -12,6 +12,8 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
+  Accordion,
+  AccordionItem,
 } from "@heroui/react";
 
 // Icons (using simple SVG icons)
@@ -22,6 +24,12 @@ const DashboardIcon = ({ className = "w-5 h-5" }) => (
 );
 
 const SalesIcon = ({ className = "w-5 h-5" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+  </svg>
+);
+
+const POSIcon = ({ className = "w-5 h-5" }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
   </svg>
@@ -58,6 +66,12 @@ const SettingsIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
+const UsersIcon = ({ className = "w-5 h-5" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+  </svg>
+);
+
 const MenuIcon = ({ className = "w-5 h-5" }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -76,19 +90,72 @@ const MoonIcon = ({ className = "w-4 h-4" }) => (
   </svg>
 );
 
+const ChevronRightIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+  </svg>
+);
+
 const navigation = [
-  { name: "Dashboard", icon: DashboardIcon, href: "/" },
+  { name: "Dashboard", icon: DashboardIcon, href: "/dashboard" },
+  { name: "POS", icon: POSIcon, href: "/pos" },
   { name: "Sales", icon: SalesIcon, href: "/sales" },
-  { name: "Products", icon: ProductsIcon, href: "/products" },
-  { name: "Inventory", icon: InventoryIcon, href: "/inventory" },
+  { 
+    name: "Products", 
+    icon: ProductsIcon, 
+    href: "/products",
+    submenu: [
+      { name: "All Products", href: "/products" },
+      { name: "Categories", href: "/categories" }
+    ]
+  },
+  { 
+    name: "Inventory", 
+    icon: InventoryIcon, 
+    href: "/inventory",
+    submenu: [
+      { name: "Stock Levels", href: "/inventory" },
+      { name: "Movements", href: "/inventory/movements" },
+      { name: "Adjustments", href: "/inventory/adjustments" }
+    ]
+  },
   { name: "Customers", icon: CustomersIcon, href: "/customers" },
-  { name: "Reports", icon: ReportsIcon, href: "/reports" },
-  { name: "Settings", icon: SettingsIcon, href: "/settings" },
+  { 
+    name: "Reports", 
+    icon: ReportsIcon, 
+    href: "/reports",
+    submenu: [
+      { name: "Dashboard", href: "/reports" },
+      { name: "Sales Reports", href: "/reports/sales" },
+      { name: "Product Reports", href: "/reports/products" },
+      { name: "Inventory Reports", href: "/reports/inventory" },
+      { name: "Employee Reports", href: "/reports/employees" },
+      { name: "Financial Reports", href: "/reports/financial" }
+    ]
+  },
+  { name: "Users", icon: UsersIcon, href: "/users" },
+  { 
+    name: "Settings", 
+    icon: SettingsIcon, 
+    href: "/settings",
+    submenu: [
+      { name: "General", href: "/settings" },
+      { name: "Store Information", href: "/settings/store" },
+      { name: "Tax Configuration", href: "/settings/tax" },
+      { name: "Payment Methods", href: "/settings/payments" },
+      { name: "Receipt Templates", href: "/settings/receipts" },
+      { name: "Printers", href: "/settings/printers" },
+      { name: "Backup & Restore", href: "/settings/backup" }
+    ]
+  }
 ];
 
 export default function Layout() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
   // Initialize theme from localStorage on component mount
   useEffect(() => {
@@ -105,6 +172,23 @@ export default function Layout() {
     }
   }, []);
 
+  // Initialize expanded items based on current path
+  useEffect(() => {
+    navigation.forEach(item => {
+      if (item.submenu) {
+        const isSubmenuActive = item.submenu.some(subItem => 
+          location.pathname === subItem.href || 
+          location.pathname.startsWith(subItem.href + '/')
+        );
+        if (isSubmenuActive) {
+          setExpandedItems(prev => 
+            prev.includes(item.name) ? prev : [...prev, item.name]
+          );
+        }
+      }
+    });
+  }, [location.pathname]);
+
   // Toggle theme
   const toggleTheme = () => {
     const newTheme = !isDarkMode;
@@ -117,6 +201,55 @@ export default function Layout() {
       document.documentElement.classList.remove("dark");
       localStorage.setItem("theme", "light");
     }
+  };
+
+  // Get current page title
+  const getCurrentPageTitle = () => {
+    // Check for submenu items first
+    for (const item of navigation) {
+      if (item.submenu) {
+        const activeSubmenu = item.submenu.find(subItem => 
+          location.pathname === subItem.href || 
+          location.pathname.startsWith(subItem.href + '/')
+        );
+        if (activeSubmenu) {
+          return activeSubmenu.name;
+        }
+      }
+    }
+    
+    // Check main navigation items
+    const currentPage = navigation.find(item => 
+      location.pathname === item.href || 
+      (item.href === '/dashboard' && location.pathname === '/') ||
+      location.pathname.startsWith(item.href + '/')
+    );
+    
+    return currentPage?.name || 'Dashboard';
+  };
+
+  const toggleExpanded = (itemName: string) => {
+    setExpandedItems(prev => 
+      prev.includes(itemName) 
+        ? prev.filter(name => name !== itemName)
+        : [...prev, itemName]
+    );
+  };
+
+  const isItemActive = (item: any) => {
+    if (item.submenu) {
+      return item.submenu.some((subItem: any) => 
+        location.pathname === subItem.href || 
+        location.pathname.startsWith(subItem.href + '/')
+      );
+    }
+    return location.pathname === item.href || 
+           (item.href === '/dashboard' && location.pathname === '/') ||
+           location.pathname.startsWith(item.href + '/');
+  };
+
+  const isSubmenuItemActive = (href: string) => {
+    return location.pathname === href || location.pathname.startsWith(href + '/');
   };
 
   return (
@@ -143,9 +276,60 @@ export default function Layout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
           {navigation.map((item) => {
             const IconComponent = item.icon;
+            const isActive = isItemActive(item);
+            const isExpanded = expandedItems.includes(item.name);
+
+            if (item.submenu && !sidebarCollapsed) {
+              return (
+                <div key={item.name}>
+                  {/* Main Item */}
+                  <Button
+                    variant={isActive ? "flat" : "light"}
+                    color={isActive ? "primary" : "default"}
+                    className={`w-full justify-between ${
+                      isActive 
+                        ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" 
+                        : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                    }`}
+                    startContent={<IconComponent />}
+                    endContent={
+                      <ChevronRightIcon 
+                        className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
+                      />
+                    }
+                    onClick={() => toggleExpanded(item.name)}
+                  >
+                    {item.name}
+                  </Button>
+
+                  {/* Submenu */}
+                  {isExpanded && (
+                    <div className="ml-6 mt-1 space-y-1">
+                      {item.submenu.map((subItem) => (
+                        <Button
+                          key={subItem.href}
+                          variant="light"
+                          size="sm"
+                          className={`w-full justify-start text-sm ${
+                            isSubmenuItemActive(subItem.href)
+                              ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                              : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300"
+                          }`}
+                          onClick={() => navigate(subItem.href)}
+                        >
+                          {subItem.name}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            // Regular navigation item or collapsed mode
             return (
               <Tooltip
                 key={item.name}
@@ -154,11 +338,17 @@ export default function Layout() {
                 isDisabled={!sidebarCollapsed}
               >
                 <Button
-                  variant="light"
-                  className={`w-full ${sidebarCollapsed ? "justify-center px-2" : "justify-start"} text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white`}
-                  startContent={<IconComponent />}
+                  variant={isActive ? "flat" : "light"}
+                  color={isActive ? "primary" : "default"}
+                  className={`w-full ${sidebarCollapsed ? "justify-center px-2 min-w-0" : "justify-start"} ${
+                    isActive 
+                      ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800" 
+                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                  }`}
+                  startContent={!sidebarCollapsed ? <IconComponent /> : undefined}
+                  onClick={() => navigate(item.href)}
                 >
-                  {!sidebarCollapsed && item.name}
+                  {sidebarCollapsed ? <IconComponent /> : item.name}
                 </Button>
               </Tooltip>
             );
@@ -166,42 +356,66 @@ export default function Layout() {
         </nav>
 
         {/* Bottom section */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-          {/* Theme Toggle */}
-          <div className={`flex items-center ${sidebarCollapsed ? "justify-center" : "justify-between"}`}>
-            {!sidebarCollapsed && (
-              <span className="text-sm text-gray-600 dark:text-gray-300">Dark Mode</span>
-            )}
-            <Switch
-              isSelected={isDarkMode}
-              onValueChange={toggleTheme}
-              thumbIcon={({ isSelected }) =>
-                isSelected ? <MoonIcon /> : <SunIcon />
-              }
-              size="sm"
-            />
-          </div>
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          {/* Admin Links */}
+          {!sidebarCollapsed && (
+            <div className="mb-4 space-y-1">
+              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                Admin
+              </div>
+              <Button
+                variant="light"
+                size="sm"
+                className="w-full justify-start text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                onClick={() => navigate('/audit')}
+              >
+                Audit Trail
+              </Button>
+              <Button
+                variant="light"
+                size="sm"
+                className="w-full justify-start text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                onClick={() => navigate('/logs')}
+              >
+                System Logs
+              </Button>
+            </div>
+          )}
 
           {/* User Profile */}
           <Dropdown placement="top-start">
             <DropdownTrigger>
               <Button
                 variant="light"
-                className={`w-full ${sidebarCollapsed ? "justify-center px-2" : "justify-start"} text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700`}
+                className={`w-full ${sidebarCollapsed ? "justify-center px-2 min-w-0" : "justify-start"} text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700`}
               >
-                <div className="flex items-center space-x-2">
+                {sidebarCollapsed ? (
                   <Avatar size="sm" name="Admin" className="flex-shrink-0" />
-                  {!sidebarCollapsed && (
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Avatar size="sm" name="Admin" className="flex-shrink-0" />
                     <div className="flex flex-col items-start">
                       <span className="text-sm font-medium text-gray-900 dark:text-white">Admin User</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">admin@pos.com</span>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </Button>
             </DropdownTrigger>
-            <DropdownMenu>
+            <DropdownMenu onAction={(key) => {
+              if (key === 'profile') {
+                navigate('/profile');
+              } else if (key === 'security') {
+                navigate('/profile/security');
+              } else if (key === 'preferences') {
+                navigate('/settings');
+              } else if (key === 'logout') {
+                // Handle logout logic
+                console.log('Logout clicked');
+              }
+            }}>
               <DropdownItem key="profile">Profile</DropdownItem>
+              <DropdownItem key="security">Security Settings</DropdownItem>
               <DropdownItem key="preferences">Preferences</DropdownItem>
               <DropdownItem key="logout" color="danger">
                 Logout
@@ -226,21 +440,85 @@ export default function Layout() {
                 <MenuIcon />
               </Button>
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Dashboard
+                {getCurrentPageTitle()}
               </h1>
             </div>
             
             <div className="flex items-center space-x-4">
-              <Button variant="light" size="sm" className="text-gray-600 dark:text-gray-300">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM9 5v5H4L9 5z" />
-                </svg>
-              </Button>
-              <Button variant="light" size="sm" className="text-gray-600 dark:text-gray-300">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5z" />
-                </svg>
-              </Button>
+              {/* Quick Actions */}
+              <div className="hidden md:flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/pos')}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  New Sale
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/products')}
+                  className="text-green-600 hover:text-green-700"
+                >
+                  Add Product
+                </Button>
+              </div>
+
+              <Divider orientation="vertical" className="h-6 hidden md:block" />
+
+              {/* Theme Toggle */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600 dark:text-gray-300 hidden sm:block">
+                  {isDarkMode ? 'Dark' : 'Light'}
+                </span>
+                <Switch
+                  isSelected={isDarkMode}
+                  onValueChange={toggleTheme}
+                  thumbIcon={({ isSelected }) =>
+                    isSelected ? <MoonIcon /> : <SunIcon />
+                  }
+                  size="sm"
+                />
+              </div>
+              
+              {/* User Profile Dropdown */}
+              <Dropdown placement="bottom-end">
+                <DropdownTrigger>
+                  <Button variant="light" size="sm" className="text-gray-600 dark:text-gray-300">
+                    <div className="flex items-center space-x-2">
+                      <Avatar size="sm" name="Admin" className="flex-shrink-0" />
+                      <span className="text-sm font-medium text-gray-900 dark:text-white hidden sm:block">
+                        Admin
+                      </span>
+                    </div>
+                  </Button>
+                </DropdownTrigger>
+                <DropdownMenu onAction={(key) => {
+                  if (key === 'profile') {
+                    navigate('/profile');
+                  } else if (key === 'security') {
+                    navigate('/profile/security');
+                  } else if (key === 'preferences') {
+                    navigate('/settings');
+                  } else if (key === 'logout') {
+                    // Handle logout logic
+                    console.log('Logout clicked');
+                  }
+                }}>
+                  <DropdownItem key="profile">
+                    <div className="flex flex-col">
+                      <span className="font-medium">Admin User</span>
+                      <span className="text-xs text-gray-500">admin@pos.com</span>
+                    </div>
+                  </DropdownItem>
+                  <DropdownItem key="security">Security Settings</DropdownItem>
+                  <DropdownItem key="preferences">Preferences</DropdownItem>
+                  <DropdownItem key="logout" color="danger">
+                    Logout
+                  </DropdownItem>
+                </DropdownMenu>
+              </Dropdown>
             </div>
           </div>
         </header>
