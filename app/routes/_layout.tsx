@@ -1,4 +1,5 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
+import React from "react";
 import { useState, useEffect } from "react";
 import {
   Button,
@@ -108,7 +109,20 @@ const ChevronRightIcon = ({ className = "w-4 h-4" }) => (
   </svg>
 );
 
-const navigation = [
+// Add these type definitions at the top of the file
+type SubMenuItem = {
+  name: string;
+  href: string;
+};
+
+type NavigationItem = {
+  name: string;
+  icon: ({ className }: { className?: string }) => React.ReactNode;
+  href: string;
+  submenu?: SubMenuItem[];
+};
+
+const navigation: NavigationItem[] = [
   { name: "Dashboard", icon: DashboardIcon, href: "/dashboard" },
   { 
     name: "Sales & POS", 
@@ -305,114 +319,114 @@ export default function Layout() {
           )}
         </div>
 
-        {/* Navigation */}
-       <div className="flex flex-col justify-between h-full">
-       <nav className="overflow-y-auto py-1">
-          {navigation.map((item) => {
-            const IconComponent = item.icon;
-            const isActive = isItemActive(item);
-            const isExpanded = expandedItems.includes(item.name);
+        {/* Navigation Container */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Main Navigation */}
+          <nav className="flex-1 overflow-y-auto">
+            <div className="py-1">
+              {navigation.map((item) => {
+                const IconComponent = item.icon;
+                const isActive = isItemActive(item);
+                const isExpanded = expandedItems.includes(item.name);
 
-            if (item.submenu && !sidebarCollapsed) {
-              return (
-                <div key={item.name} className="">
-                  {/* Main Item */}
-                  <Button
-                    variant="light"
-                    className={`${
-                      isActive 
-                        ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" 
-                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                    }`}
-                    startContent={<IconComponent className="w-5 h-5" />}
-                    endContent={
-                      <ChevronRightIcon 
-                        className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
-                      />
-                    }
-                    onClick={() => toggleExpanded(item.name)}
-                  >
-                    {item.name}
-                  </Button>
+                if (item.submenu && !sidebarCollapsed) {
+                  return (
+                    <div key={item.name}>
+                      {/* Main Item */}
+                      <Button
+                        variant="light"
+                        className={`w-full  h-9 px-3 ${
+                          isActive 
+                            ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" 
+                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
+                        startContent={<IconComponent className="w-5 h-5" />}
+                        endContent={
+                          <ChevronRightIcon 
+                            className={`w-4 h-4 transition-transform ml-auto ${isExpanded ? 'rotate-90' : ''}`} 
+                          />
+                        }
+                        onClick={() => toggleExpanded(item.name)}
+                      >
+                        {item.name}
+                      </Button>
 
-                  {/* Submenu */}
-                  {isExpanded && (
-                    <div className="ml-3">
-                      {item.submenu.map((subItem) => (
-                        <Button
-                          key={subItem.href}
-                          variant="light"
-                          className={`w-full justify-start h-8 px-3 text-sm ${
-                            isSubmenuItemActive(subItem.href)
-                              ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
-                              : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                          }`}
-                          onClick={() => navigate(subItem.href)}
-                        >
-                          {subItem.name}
-                        </Button>
-                      ))}
+                      {/* Submenu */}
+                      {isExpanded && (
+                        <div className="ml-3">
+                          {item.submenu.map((subItem) => (
+                            <Button
+                              key={subItem.href}
+                              variant="light"
+                              className={`w-full justify-start h-8 px-3 text-sm ${
+                                isSubmenuItemActive(subItem.href)
+                                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              }`}
+                              onClick={() => navigate(subItem.href)}
+                            >
+                              {subItem.name}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            }
+                  );
+                }
 
-            // Regular navigation item or collapsed mode
-            return (
-              <Tooltip
-                key={item.name}
-                content={item.name}
-                placement="right"
-                isDisabled={!sidebarCollapsed}
-              >
+                // Regular navigation item or collapsed mode
+                return (
+                  <Tooltip
+                    key={item.name}
+                    content={item.name}
+                    placement="right"
+                    isDisabled={!sidebarCollapsed}
+                  >
+                    <Button
+                      variant="light"
+                      className={`w-full ${sidebarCollapsed ? "justify-center h-9 px-2" : "justify-start h-9 px-3"} ${
+                        isActive 
+                          ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" 
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      }`}
+                      startContent={!sidebarCollapsed ? <IconComponent className="w-5 h-5" /> : undefined}
+                      onClick={() => navigate(item.href)}
+                    >
+                      {sidebarCollapsed ? <IconComponent className="w-5 h-5" /> : item.name}
+                    </Button>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </nav>
+
+          {/* System Links */}
+          {!sidebarCollapsed && (
+            <div className="border-t border-gray-200 dark:border-gray-700">
+              <div className="py-1 px-3">
+                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                  System
+                </div>
                 <Button
                   variant="light"
-                  className={`w-full ${sidebarCollapsed ? "justify-center h-9 px-2" : "justify-start h-9 px-3"} ${
-                    isActive 
-                      ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" 
-                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  }`}
-                  startContent={!sidebarCollapsed ? <IconComponent className="w-5 h-5" /> : undefined}
-                  onClick={() => navigate(item.href)}
+                  className="w-full justify-start h-8 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  onClick={() => navigate('/audit')}
+                  startContent={<AuditIcon className="w-4 h-4" />}
                 >
-                  {sidebarCollapsed ? <IconComponent className="w-5 h-5" /> : item.name}
+                  Audit Trail
                 </Button>
-              </Tooltip>
-            );
-          })}
-        </nav>
-
-        {/* Bottom section */}
-        <div className="border-t border-gray-200 dark:border-gray-700">
-          {/* Admin Links */}
-          {!sidebarCollapsed && (
-            <div className="py-1 px-3">
-              <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
-                System
+                <Button
+                  variant="light"
+                  className="w-full justify-start h-8 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  onClick={() => navigate('/logs')}
+                  startContent={<LogsIcon className="w-4 h-4" />}
+                >
+                  System Logs
+                </Button>
               </div>
-              <Button
-                variant="light"
-                className="w-full justify-start h-8 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                onClick={() => navigate('/audit')}
-                startContent={<AuditIcon className="w-4 h-4" />}
-              >
-                Audit Trail
-              </Button>
-              <Button
-                variant="light"
-                className="w-full justify-start h-8 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                onClick={() => navigate('/logs')}
-                startContent={<LogsIcon className="w-4 h-4" />}
-              >
-                System Logs
-              </Button>
             </div>
           )}
-
-          
-        </div> 
-       </div>
+        </div>
       </div>
 
       {/* Main Content */}
