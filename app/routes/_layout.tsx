@@ -136,7 +136,7 @@ const navigation: NavigationItem[] = [
     submenu: [
       { name: "Point of Sale", href: "/pos" },
       { name: "Sales History", href: "/sales" },
-      { name: "Refunds", href: "/sales/refund" }
+      { name: "Process Refund", href: "/sales/refund" }
     ]
   },
   { 

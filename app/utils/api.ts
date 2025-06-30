@@ -151,7 +151,8 @@ export const salesAPI = {
   
   create: (saleData: any) => apiRequest.post('/api/sales', saleData),
   
-  refund: (id: string, items: any[]) => apiRequest.post(`/api/sales/${id}/refund`, { items }),
+  refund: (id: string, refundData: { items: any[]; reason: string; processedBy: string }) => 
+    apiRequest.post(`/api/sales/${id}/refund`, refundData),
   
   getTodaysSales: () => apiRequest.get('/api/sales/today'),
   

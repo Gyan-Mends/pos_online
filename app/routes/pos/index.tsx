@@ -39,18 +39,13 @@ import { productsAPI, customersAPI, salesAPI } from '../../utils/api';
 import CustomInput from '../../components/CustomInput';
 import type { Product, Customer, CartItem, Cart } from '../../types';
 
-interface POSCustomer extends Customer {
-  id: string;
-  _id?: string;
-}
-
 const TAX_RATE = 0.15; // 15% tax rate
 const CURRENCY = '$';
 
 export default function POSPage() {
   // State management
   const [products, setProducts] = useState<Product[]>([]);
-  const [customers, setCustomers] = useState<POSCustomer[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<Cart>({
     items: [],
@@ -59,7 +54,7 @@ export default function POSPage() {
     discountAmount: 0,
     totalAmount: 0
   });
-  const [selectedCustomer, setSelectedCustomer] = useState<POSCustomer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -135,11 +130,16 @@ export default function POSPage() {
       const productsData = (productsResponse as any)?.data || productsResponse || [];
       const customersData = (customersResponse as any)?.data || customersResponse || [];
       
-      setProducts(productsData.filter((p: Product) => p.isActive && p.stockQuantity > 0));
-      setCustomers(customersData.map((c: any) => ({
-        ...c,
-        id: c._id || c.id
-      })));
+      // Normalize products to have both _id and id fields
+      const normalizedProducts = productsData
+        .filter((p: Product) => p.isActive && p.stockQuantity > 0)
+        .map((p: any) => ({
+          ...p,
+          id: p._id || p.id
+        }));
+      
+      setProducts(normalizedProducts);
+      setCustomers(customersData);
     } catch (error) {
       errorToast('Failed to load data');
       console.error('Error loading data:', error);
@@ -163,14 +163,19 @@ export default function POSPage() {
     setFilteredProducts(filtered.slice(0, 20));
   };
 
+  const getProductId = (product: Product) => {
+    return product._id || product.id;
+  };
+
   const addToCart = (product: Product) => {
-    const existingItem = cart.items.find(item => item.productId === product.id);
+    const productId = getProductId(product);
+    const existingItem = cart.items.find(item => item.productId === productId);
     
     if (existingItem) {
-      updateQuantity(product.id, existingItem.quantity + 1);
+      updateQuantity(productId, existingItem.quantity + 1);
     } else {
       const newItem: CartItem = {
-        productId: product.id,
+        productId,
         product,
         quantity: 1,
         unitPrice: product.price,
@@ -191,7 +196,7 @@ export default function POSPage() {
       return;
     }
     
-    const product = products.find(p => p.id === productId);
+    const product = products.find(p => getProductId(p) === productId);
     if (!product) return;
     
     if (newQuantity > product.stockQuantity) {
@@ -220,39 +225,65 @@ export default function POSPage() {
     let subtotal = 0;
     let totalDiscount = 0;
     
+    // Ensure cart.items exists and is an array
+    if (!cart.items || !Array.isArray(cart.items)) {
+      console.warn('Cart items is not a valid array:', cart.items);
+      return;
+    }
+    
     cart.items.forEach(item => {
-      const itemTotal = item.quantity * item.unitPrice;
+      // Validate item properties
+      const quantity = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unitPrice) || 0;
+      const discount = Number(item.discount) || 0;
+      
+      const itemTotal = quantity * unitPrice;
       subtotal += itemTotal;
       
       // Calculate item discount
-      if (item.discount > 0) {
+      if (discount > 0) {
         if (item.discountType === 'percentage') {
-          totalDiscount += (itemTotal * item.discount) / 100;
+          totalDiscount += (itemTotal * discount) / 100;
         } else {
-          totalDiscount += item.discount * item.quantity;
+          totalDiscount += discount * quantity;
         }
       }
     });
     
     // Apply overall cart discount
-    if (discountValue > 0) {
+    const discountVal = Number(discountValue) || 0;
+    if (discountVal > 0) {
       if (discountType === 'percentage') {
-        totalDiscount += (subtotal * discountValue) / 100;
+        totalDiscount += (subtotal * discountVal) / 100;
       } else {
-        totalDiscount += discountValue;
+        totalDiscount += discountVal;
       }
     }
     
-    const discountedSubtotal = subtotal - totalDiscount;
+    const discountedSubtotal = Math.max(0, subtotal - totalDiscount);
     const taxAmount = discountedSubtotal * TAX_RATE;
     const totalAmount = discountedSubtotal + taxAmount;
     
+    // Ensure all values are valid numbers
+    const validSubtotal = Number(subtotal) || 0;
+    const validTaxAmount = Number(taxAmount) || 0;
+    const validDiscountAmount = Number(totalDiscount) || 0;
+    const validTotalAmount = Number(totalAmount) || 0;
+    
+    console.log('Cart calculation:', {
+      items: cart.items.length,
+      subtotal: validSubtotal,
+      taxAmount: validTaxAmount,
+      discountAmount: validDiscountAmount,
+      totalAmount: validTotalAmount
+    });
+    
     setCart(prev => ({
       ...prev,
-      subtotal,
-      taxAmount,
-      discountAmount: totalDiscount,
-      totalAmount,
+      subtotal: validSubtotal,
+      taxAmount: validTaxAmount,
+      discountAmount: validDiscountAmount,
+      totalAmount: validTotalAmount,
       customer: selectedCustomer || undefined
     }));
   };
@@ -291,6 +322,9 @@ export default function POSPage() {
     try {
       setProcessingPayment(true);
       
+      // Debug cart values
+      console.log('Cart before payment:', cart);
+      
       // Prepare sale data
       const saleData = {
         customerId: selectedCustomer?._id || selectedCustomer?.id,
@@ -307,10 +341,10 @@ export default function POSPage() {
               : item.discount * item.quantity
           )
         })),
-        subtotal: cart.subtotal,
-        taxAmount: cart.taxAmount,
-        discountAmount: cart.discountAmount,
-        totalAmount: cart.totalAmount,
+        subtotal: cart.subtotal || 0,
+        taxAmount: cart.taxAmount || 0,
+        discountAmount: cart.discountAmount || 0,
+        totalAmount: cart.totalAmount || 0,
         amountPaid: paymentMethod === 'cash' ? amountReceived : cart.totalAmount,
         changeAmount: paymentMethod === 'cash' ? change : 0,
         payments: [{
@@ -321,9 +355,13 @@ export default function POSPage() {
         notes: `POS Sale - Payment: ${paymentMethod}`
       };
       
+      console.log('Sale data being sent:', saleData);
+      
       // Create the sale in the database
       const response = await salesAPI.create(saleData);
       const sale = (response as any)?.data || response;
+      
+      console.log('Sale response received:', sale);
       
       setCompletedSale(sale);
       successToast('Payment processed successfully!');
@@ -359,9 +397,10 @@ export default function POSPage() {
       const response = await customersAPI.create(customerData);
       const createdCustomer = (response as any)?.data || response;
       
-      const customer: POSCustomer = {
+      const customer: Customer = {
         ...createdCustomer,
-        id: createdCustomer._id || createdCustomer.id
+        id: createdCustomer._id || createdCustomer.id,
+        _id: createdCustomer._id || createdCustomer.id
       };
       
       setCustomers(prev => [...prev, customer]);
@@ -375,7 +414,11 @@ export default function POSPage() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | undefined | null) => {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      console.warn('formatCurrency received invalid amount:', amount);
+      return `${CURRENCY}0.00`;
+    }
     return `${CURRENCY}${amount.toFixed(2)}`;
   };
 
@@ -445,7 +488,7 @@ export default function POSPage() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto">
                 {filteredProducts.map((product) => (
                   <div
-                    key={product.id}
+                    key={getProductId(product)}
                     className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                     onClick={() => addToCart(product)}
                   >
@@ -653,7 +696,7 @@ export default function POSPage() {
                       
                       {customers.map((customer) => (
                         <div
-                          key={customer.id}
+                          key={customer._id || customer.id}
                           className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                           onClick={() => {
                             setSelectedCustomer(customer);
@@ -805,11 +848,11 @@ export default function POSPage() {
                       {/* Quick Amount Buttons */}
                       <div className="grid grid-cols-4 gap-2">
                         {[
-                          cart.totalAmount,
-                          Math.ceil(cart.totalAmount / 5) * 5,
-                          Math.ceil(cart.totalAmount / 10) * 10,
-                          Math.ceil(cart.totalAmount / 20) * 20
-                        ].map((amount) => (
+                          cart.totalAmount || 0,
+                          Math.ceil((cart.totalAmount || 0) / 5) * 5,
+                          Math.ceil((cart.totalAmount || 0) / 10) * 10,
+                          Math.ceil((cart.totalAmount || 0) / 20) * 20
+                        ].filter(amount => amount > 0).map((amount) => (
                           <Button
                             key={amount}
                             size="sm"

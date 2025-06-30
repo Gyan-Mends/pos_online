@@ -8,18 +8,15 @@ const saleItemSchema = new mongoose.Schema({
   },
   quantity: {
     type: Number,
-    required: true,
-    min: 1
+    required: true
   },
   unitPrice: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
   discount: {
     type: Number,
-    default: 0,
-    min: 0
+    default: 0
   },
   discountType: {
     type: String,
@@ -28,21 +25,19 @@ const saleItemSchema = new mongoose.Schema({
   },
   totalPrice: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   }
 });
 
 const paymentSchema = new mongoose.Schema({
   method: {
     type: String,
-    enum: ['cash', 'card', 'mobile_money', 'bank_transfer'],
+    enum: ['cash', 'card', 'mobile_money', 'bank_transfer', 'refund'],
     required: true
   },
   amount: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
   reference: String,
   status: {
@@ -55,8 +50,8 @@ const paymentSchema = new mongoose.Schema({
 const saleSchema = new mongoose.Schema({
   receiptNumber: {
     type: String,
-    required: true,
-    unique: true
+    unique: true,
+    sparse: true
   },
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -71,33 +66,27 @@ const saleSchema = new mongoose.Schema({
   items: [saleItemSchema],
   subtotal: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
   taxAmount: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
   discountAmount: {
     type: Number,
-    default: 0,
-    min: 0
+    default: 0
   },
   totalAmount: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
   amountPaid: {
     type: Number,
-    required: true,
-    min: 0
+    required: true
   },
   changeAmount: {
     type: Number,
-    default: 0,
-    min: 0
+    default: 0
   },
   payments: [paymentSchema],
   status: {
@@ -116,16 +105,27 @@ const saleSchema = new mongoose.Schema({
 
 // Generate receipt number
 saleSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const count = await mongoose.model('Sale').countDocuments({
-      createdAt: {
-        $gte: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
-        $lt: new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
-      }
-    });
-    this.receiptNumber = `RCP-${dateStr}-${(count + 1).toString().padStart(4, '0')}`;
+  if (this.isNew && !this.receiptNumber) {
+    try {
+      const date = new Date();
+      const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+      
+      // Use this.constructor instead of mongoose.model to avoid circular reference
+      const Sale = this.constructor as any;
+      const count = await Sale.countDocuments({
+        createdAt: {
+          $gte: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
+          $lt: new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+        }
+      });
+      
+      this.receiptNumber = `RCP-${dateStr}-${(count + 1).toString().padStart(4, '0')}`;
+    } catch (error) {
+      console.error('Error generating receipt number:', error);
+      // Fallback receipt number
+      const timestamp = Date.now();
+      this.receiptNumber = `RCP-${timestamp}`;
+    }
   }
   next();
 });
