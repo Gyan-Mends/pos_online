@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Button, Card, CardBody, Chip, useDisclosure } from '@heroui/react';
-import { Plus, Edit, Trash2, Package, AlertTriangle } from 'lucide-react';
+import { Button, Card, CardBody, Chip, useDisclosure, Avatar, Tooltip } from '@heroui/react';
+import { Plus, Edit, Trash2, Package, AlertTriangle, Eye, Search, Filter } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router';
 import DataTable, { type Column } from '../../components/DataTable';
 import Drawer from '../../components/Drawer';
 import ConfirmModal from '../../components/confirmModal';
@@ -10,6 +11,8 @@ import { productsAPI, categoriesAPI } from '../../utils/api';
 import { successToast, errorToast } from '../../components/toast';
 
 export default function ProductsPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +42,15 @@ export default function ProductsPage() {
 
   const { isOpen: deleteModalOpen, onOpen: openDeleteModal, onOpenChange: onDeleteModalChange } = useDisclosure();
 
+  // Handle edit product from navigation state
+  useEffect(() => {
+    if (location.state?.editProduct) {
+      handleEditProduct(location.state.editProduct);
+      // Clear the state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   // Fetch products and categories
   const fetchData = async () => {
     try {
@@ -47,10 +59,37 @@ export default function ProductsPage() {
         productsAPI.getAll(),
         categoriesAPI.getAll()
       ]);
-      setProducts((productsResponse as any)?.data || []);
-      setCategories((categoriesResponse as any)?.data || []);
+      
+      // Handle API response structure
+      const productsData = (productsResponse as any)?.data || productsResponse || [];
+      const categoriesData = (categoriesResponse as any)?.data || categoriesResponse || [];
+      
+      // Debug: Log the first product and category to see the structure
+      if (productsData.length > 0) {
+        console.log('Sample product data:', productsData[0]);
+      }
+      if (categoriesData.length > 0) {
+        console.log('Sample category data:', categoriesData[0]);
+      }
+      
+      // Add id field for compatibility
+      const processedProducts = Array.isArray(productsData) ? productsData.map((p: any) => ({
+        ...p,
+        id: p._id || p.id
+      })) : [];
+      
+      const processedCategories = Array.isArray(categoriesData) ? categoriesData.map((c: any) => ({
+        ...c,
+        id: c._id || c.id
+      })) : [];
+      
+      setProducts(processedProducts);
+      setCategories(processedCategories);
     } catch (error: any) {
       errorToast(error.message || 'Failed to fetch data');
+      console.error('Error loading data:', error);
+      setProducts([]);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -122,6 +161,11 @@ export default function ProductsPage() {
     setIsDrawerOpen(true);
   };
 
+  // Handle view product
+  const handleViewProduct = (product: Product) => {
+    navigate(`/products/${product.id}`);
+  };
+
   // Handle form submission
   const handleSubmit = async () => {
     try {
@@ -139,9 +183,10 @@ export default function ProductsPage() {
       }
 
       setIsDrawerOpen(false);
-      fetchData();
+      fetchData(); // Reload products after create/update
     } catch (error: any) {
       errorToast(error.message || 'Failed to save product');
+      console.error('Error saving product:', error);
     }
   };
 
@@ -156,6 +201,7 @@ export default function ProductsPage() {
       onDeleteModalChange();
     } catch (error: any) {
       errorToast(error.message || 'Failed to delete product');
+      console.error('Error deleting product:', error);
     }
   };
 
@@ -165,16 +211,29 @@ export default function ProductsPage() {
     openDeleteModal();
   };
 
+  // Get category name by ID
+  const getCategoryName = (categoryId: string) => {
+    if (!categoryId) return 'N/A';
+    
+    // First try to find by direct ID match
+    const category = categories.find(c => {
+      return c.id === categoryId || c._id === categoryId || 
+             (c as any)._id?.toString() === categoryId || 
+             (c as any).id?.toString() === categoryId;
+    });
+    
+    return category?.name || 'N/A';
+  };
+
   // Table columns
   const columns: Column<Product>[] = [
     {
-      key: 'name',
-      title: 'Product Name',
-      sortable: true,
+      key: 'product',
+      title: 'Product',
       render: (value, record) => (
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-            <Package className="w-5 h-5 text-gray-500" />
+          <div className="w-10 h-10 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-center">
+            <Package className="w-5 h-5 text-gray-500 dark:text-gray-400" />
           </div>
           <div>
             <p className="font-medium text-gray-900 dark:text-white">{record.name}</p>
@@ -186,13 +245,45 @@ export default function ProductsPage() {
     {
       key: 'category',
       title: 'Category',
-      render: (value, record) => record.category?.name || 'N/A'
+      render: (value, record) => {
+        // Handle different possible data structures
+        let categoryName = 'N/A';
+        
+        // If categoryId is populated (object with name)
+        if (typeof (record as any).categoryId === 'object' && (record as any).categoryId?.name) {
+          categoryName = (record as any).categoryId.name;
+        } 
+        // If categoryId is just an ID string, look it up in categories array
+        else if (typeof record.categoryId === 'string') {
+          const category = categories.find(c => 
+            c.id === record.categoryId || 
+            c._id === record.categoryId ||
+            (c as any)._id?.toString() === record.categoryId ||
+            (c as any).id?.toString() === record.categoryId
+          );
+          categoryName = category?.name || 'N/A';
+        }
+        
+        return (
+          <Chip
+            variant="flat"
+            size="sm"
+            className="font-medium"
+          >
+            {categoryName}
+          </Chip>
+        );
+      }
     },
     {
       key: 'price',
       title: 'Price',
       sortable: true,
-      render: (value) => `$${value.toFixed(2)}`
+      render: (value) => (
+        <span className="font-medium text-gray-900 dark:text-white">
+          ${value.toFixed(2)}
+        </span>
+      )
     },
     {
       key: 'stockQuantity',
@@ -202,7 +293,7 @@ export default function ProductsPage() {
         const isLowStock = value <= record.minStockLevel;
         return (
           <div className="flex items-center space-x-2">
-            <span className={`font-medium ${isLowStock ? 'text-red-600' : 'text-gray-900 dark:text-white'}`}>
+            <span className={`font-medium ${isLowStock ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
               {value} {record.unitOfMeasure}
             </span>
             {isLowStock && <AlertTriangle className="w-4 h-4 text-red-500" />}
@@ -214,7 +305,12 @@ export default function ProductsPage() {
       key: 'isActive',
       title: 'Status',
       render: (value) => (
-        <Chip color={value ? 'success' : 'danger'} variant="flat" size="sm">
+        <Chip 
+          color={value ? 'success' : 'default'} 
+          variant="flat" 
+          size="sm"
+          className="font-medium"
+        >
           {value ? 'Active' : 'Inactive'}
         </Chip>
       )
@@ -224,23 +320,60 @@ export default function ProductsPage() {
       title: 'Actions',
       render: (value, record) => (
         <div className="flex items-center space-x-2">
-          <Button
-            size="sm"
-            variant="light"
-            onClick={() => handleEditProduct(record)}
-          >
-            <Edit className="w-4 h-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="light"
-            color="danger"
-            onClick={() => confirmDelete(record)}
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
+          <Tooltip content="View Details">
+            <button
+              onClick={() => handleViewProduct(record)}
+              className="min-w-unit-8 w-8 h-8 p-0"
+            >
+              <Eye className="w-4 h-4 text-primary" />
+            </button>
+          </Tooltip>
+          <Tooltip content="Edit Product">
+            <button
+              onClick={() => handleEditProduct(record)}
+              className="min-w-unit-8 w-8 h-8 p-0"
+            >
+              <Edit className="w-4 h-4 text-secondary" />
+            </button>
+          </Tooltip>
+          <Tooltip content="Delete Product">
+            <button
+              onClick={() => confirmDelete(record)}
+              className="min-w-unit-8 w-8 h-8 p-0"
+            >
+              <Trash2 className="w-4 h-4 text-danger" />
+            </button>
+          </Tooltip>
         </div>
       )
+    }
+  ];
+
+  // Stats calculations
+  const stats = [
+    {
+      title: 'Total Products',
+      value: products.length,
+      icon: Package,
+      color: 'text-blue-500'
+    },
+    {
+      title: 'Active Products',
+      value: products.filter(p => p.isActive).length,
+      icon: Package,
+      color: 'text-green-500'
+    },
+    {
+      title: 'Low Stock Items',
+      value: products.filter(p => p.stockQuantity <= p.minStockLevel).length,
+      icon: AlertTriangle,
+      color: 'text-red-500'
+    },
+    {
+      title: 'Categories',
+      value: categories.length,
+      icon: Filter,
+      color: 'text-purple-500'
     }
   ];
 
@@ -249,7 +382,7 @@ export default function ProductsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Products</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Product Management</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Manage your product inventory and catalog
           </p>
@@ -265,65 +398,28 @@ export default function ProductsPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardBody className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Products</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {products.length}
-                </p>
-              </div>
-              <Package className="w-8 h-8 text-blue-500" />
-            </div>
-          </CardBody>
-        </Card>
-        
-        <Card>
-          <CardBody className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active Products</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {products.filter(p => p.isActive).length}
-                </p>
-              </div>
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <div className="w-4 h-4 bg-green-500 rounded-full" />
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Low Stock Items</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {products.filter(p => p.stockQuantity <= p.minStockLevel).length}
-                </p>
-              </div>
-              <AlertTriangle className="w-8 h-8 text-red-500" />
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardBody className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Categories</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {categories.length}
-                </p>
-              </div>
-              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <div className="w-4 h-4 bg-purple-500 rounded-full" />
-              </div>
-            </div>
-          </CardBody>
-        </Card>
+        {stats.map((stat) => {
+          const IconComponent = stat.icon;
+          return (
+            <Card key={stat.title} className="border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+              <CardBody className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {stat.title}
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {stat.value}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-full bg-gray-50 dark:bg-gray-800">
+                    <IconComponent className={`w-6 h-6 ${stat.color} dark:opacity-80`} />
+                  </div>
+                </div>
+              </CardBody>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Products Table */}
@@ -332,7 +428,7 @@ export default function ProductsPage() {
         columns={columns}
         loading={loading}
         searchPlaceholder="Search products..."
-        emptyText="No products found"
+        emptyText="No products found. Get started by adding your first product."
       />
 
       {/* Product Form Drawer */}
@@ -391,7 +487,7 @@ export default function ProductsPage() {
                   <select
                     value={formData.categoryId}
                     onChange={(e) => handleInputChange('categoryId', e.target.value)}
-                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     required
                   >
                     <option value="">Select Category</option>
@@ -472,10 +568,89 @@ export default function ProductsPage() {
             </div>
           </div>
 
+          {/* Additional Information */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Additional Information
+            </h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <CustomInput
+                  label="Supplier"
+                  placeholder="Enter supplier name"
+                  value={formData.supplier}
+                  onChange={(value) => handleInputChange('supplier', value)}
+                />
+                
+                <CustomInput
+                  label="Location"
+                  placeholder="Enter storage location"
+                  value={formData.location}
+                  onChange={(value) => handleInputChange('location', value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <CustomInput
+                  label="Batch Number"
+                  placeholder="Enter batch number"
+                  value={formData.batchNumber}
+                  onChange={(value) => handleInputChange('batchNumber', value)}
+                />
+                
+                <CustomInput
+                  label="Expiry Date"
+                  type="date"
+                  value={formData.expiryDate}
+                  onChange={(value) => handleInputChange('expiryDate', value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <CustomInput
+                  label="Tax Rate (%)"
+                  type="number"
+                  placeholder="0"
+                  value={formData.taxRate?.toString() || ''}
+                  onChange={(value) => handleInputChange('taxRate', parseFloat(value) || 0)}
+                  step="0.01"
+                  min="0"
+                  max="100"
+                />
+                
+                <div className="flex items-center space-x-4 pt-8">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.taxable}
+                      onChange={(e) => handleInputChange('taxable', e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      Taxable
+                    </span>
+                  </label>
+                  
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.isActive}
+                      onChange={(e) => handleInputChange('isActive', e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">
+                      Active
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Action Buttons */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
             <Button
-              variant="flat"
+              variant="ghost"
               onClick={() => setIsDrawerOpen(false)}
             >
               Cancel
@@ -499,7 +674,7 @@ export default function ProductsPage() {
       >
         <div className="flex justify-center space-x-3">
           <Button
-            variant="flat"
+            variant="ghost"
             onClick={onDeleteModalChange}
           >
             Cancel

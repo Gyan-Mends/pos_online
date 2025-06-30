@@ -23,7 +23,8 @@ export interface AuthResponse {
 
 // Product Types
 export interface Category {
-  id: string;
+  _id: string;
+  id: string; // For compatibility
   name: string;
   description?: string;
   createdAt: string;
@@ -38,7 +39,8 @@ export interface ProductVariation {
 }
 
 export interface Product {
-  id: string;
+  _id: string;
+  id: string; // For compatibility
   name: string;
   description?: string;
   sku: string;
@@ -374,4 +376,40 @@ export interface AuditLog {
   ipAddress: string;
   userAgent: string;
   createdAt: string;
+}
+
+export interface StockMovement {
+  _id: string;
+  id: string;
+  productId: string;
+  type: 'purchase' | 'sale' | 'adjustment' | 'return' | 'transfer' | 'damage' | 'expired';
+  quantity: number;
+  previousStock: number;
+  newStock: number;
+  unitCost: number;
+  totalValue: number;
+  reference?: string;
+  notes?: string;
+  userId: string;
+  createdAt: string;
+  // Populated fields
+  productId_populated?: {
+    name: string;
+    sku: string;
+    unitOfMeasure: string;
+  };
+  userId_populated?: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface StockMovementFormData {
+  productId: string;
+  type: 'purchase' | 'sale' | 'adjustment' | 'return' | 'transfer' | 'damage' | 'expired';
+  quantity: number;
+  unitCost?: number;
+  reference?: string;
+  notes?: string;
+  userId: string;
 } 

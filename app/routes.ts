@@ -56,6 +56,9 @@ export default [
     // API Routes
     route("/api/login", "routes/api/login.tsx"),
     route("/api/users/*", "routes/api/users.tsx"),
+    route("/api/products/*", "routes/api/products.tsx"),
+    route("/api/categories/*", "routes/api/categories.tsx"),
+    route("/api/stock-movements/*", "routes/api/stock-movements.tsx"),
     
     // Auth Route
     route("/", "routes/login.tsx")

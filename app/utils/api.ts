@@ -113,33 +113,33 @@ export const authAPI = {
 // Products API
 export const productsAPI = {
   getAll: (params?: { page?: number; limit?: number; search?: string; category?: string }) =>
-    apiRequest.get('/products', params),
+    apiRequest.get('/api/products', params),
   
-  getById: (id: string) => apiRequest.get(`/products/${id}`),
+  getById: (id: string) => apiRequest.get(`/api/products/${id}`),
   
-  create: (productData: any) => apiRequest.post('/products', productData),
+  create: (productData: any) => apiRequest.post('/api/products', productData),
   
-  update: (id: string, productData: any) => apiRequest.put(`/products/${id}`, productData),
+  update: (id: string, productData: any) => apiRequest.put(`/api/products/${id}`, productData),
   
-  delete: (id: string) => apiRequest.delete(`/products/${id}`),
+  delete: (id: string) => apiRequest.delete(`/api/products/${id}`),
   
-  bulkDelete: (ids: string[]) => apiRequest.post('/products/bulk-delete', { ids }),
+  bulkDelete: (ids: string[]) => apiRequest.post('/api/products/bulk-delete', { ids }),
   
   updateStock: (id: string, quantity: number, type: 'increase' | 'decrease') =>
-    apiRequest.patch(`/products/${id}/stock`, { quantity, type }),
+    apiRequest.patch(`/api/products/${id}/stock`, { quantity, type }),
 };
 
 // Categories API
 export const categoriesAPI = {
-  getAll: () => apiRequest.get('/categories'),
+  getAll: () => apiRequest.get('/api/categories'),
   
   create: (categoryData: { name: string; description?: string }) =>
-    apiRequest.post('/categories', categoryData),
+    apiRequest.post('/api/categories', categoryData),
   
   update: (id: string, categoryData: { name: string; description?: string }) =>
-    apiRequest.put(`/categories/${id}`, categoryData),
+    apiRequest.put(`/api/categories/${id}`, categoryData),
   
-  delete: (id: string) => apiRequest.delete(`/categories/${id}`),
+  delete: (id: string) => apiRequest.delete(`/api/categories/${id}`),
 };
 
 // Sales API
@@ -199,25 +199,41 @@ export const inventoryAPI = {
   
   getLowStock: () => apiRequest.get('/inventory/low-stock'),
   
-  addStock: (productId: string, quantity: number, note?: string) =>
-    apiRequest.post('/inventory/add-stock', { productId, quantity, note }),
+  getMovements: (params?: { page?: number; limit?: number; productId?: string; type?: string }) =>
+    apiRequest.get('/inventory/movements', params),
   
-  removeStock: (productId: string, quantity: number, note?: string) =>
-    apiRequest.post('/inventory/remove-stock', { productId, quantity, note }),
+  createMovement: (movementData: any) => apiRequest.post('/inventory/movements', movementData),
   
-  getMovements: (productId?: string) => apiRequest.get('/inventory/movements', { productId }),
+  adjustStock: (productId: string, adjustment: { quantity: number; type: string; reason: string }) =>
+    apiRequest.post(`/inventory/products/${productId}/adjust`, adjustment),
+};
+
+// Stock Movements API
+export const stockMovementsAPI = {
+  getAll: (params?: { page?: number; limit?: number; productId?: string }) =>
+    apiRequest.get('/api/stock-movements', params),
+  
+  getByProductId: (productId: string, params?: { page?: number; limit?: number }) =>
+    apiRequest.get('/api/stock-movements', { ...params, productId }),
+  
+  create: (movementData: any) => apiRequest.post('/api/stock-movements', movementData),
+  
+  update: (id: string, movementData: any) => apiRequest.put(`/api/stock-movements/${id}`, movementData),
+  
+  delete: (id: string) => apiRequest.delete(`/api/stock-movements/${id}`),
 };
 
 // Dashboard API
 export const dashboardAPI = {
   getStats: () => apiRequest.get('/dashboard/stats'),
   
-  getRecentSales: (limit?: number) => apiRequest.get('/dashboard/recent-sales', { limit }),
+  getSalesChart: (period: string) => apiRequest.get(`/dashboard/sales-chart?period=${period}`),
   
-  getTopProducts: (limit?: number) => apiRequest.get('/dashboard/top-products', { limit }),
+  getTopProducts: (limit?: number) => apiRequest.get(`/dashboard/top-products?limit=${limit || 5}`),
   
-  getSalesChart: (period: 'day' | 'week' | 'month') =>
-    apiRequest.get('/dashboard/sales-chart', { period }),
+  getRecentSales: (limit?: number) => apiRequest.get(`/dashboard/recent-sales?limit=${limit || 10}`),
+  
+  getLowStockAlerts: () => apiRequest.get('/dashboard/low-stock-alerts'),
 };
 
 export default api; 
