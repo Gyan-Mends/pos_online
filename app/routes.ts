@@ -16,8 +16,8 @@ export default [
         // Sales & POS
         route("/sales", "routes/sales/index.tsx"),
         route("/pos", "routes/pos/index.tsx"),
-        route("/sales/:id", "routes/sales/view.tsx"),
-        route("/sales/:id/refund", "routes/sales/refund.tsx"),
+        route("/sales/view/:id", "routes/sales/view.tsx"),
+        route("/sales/refund", "routes/sales/refund.tsx"),
         
         // Customer Management
         route("/customers", "routes/customers/index.tsx"),

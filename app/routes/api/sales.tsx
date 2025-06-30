@@ -122,12 +122,13 @@ export async function action({ request }: { request: Request }) {
   try {
     const method = request.method;
     const url = new URL(request.url);
-    const pathParts = url.pathname.split('/');
-    const saleId = pathParts[pathParts.length - 2]; // Get sale ID from path like /api/sales/{id}/refund
+    const pathParts = url.pathname.split('/').filter(Boolean); // Remove empty parts
     
     if (method === 'POST') {
       // Check if this is a refund request
-      if (url.pathname.endsWith('/refund')) {
+      if (url.pathname.includes('/refund') && pathParts.length >= 4) {
+        // For path like /api/sales/123/refund, pathParts = ['api', 'sales', '123', 'refund']
+        const saleId = pathParts[2]; // Get the sale ID
         return await handleRefund(request, saleId);
       }
       
@@ -428,27 +429,41 @@ async function handleRefund(request: Request, saleId: string) {
         const previousStock = product.stockQuantity;
         const newStock = previousStock + refundItem.quantity;
         
-        await Product.findByIdAndUpdate(
-          refundItem.productId,
-          { 
-            stockQuantity: newStock,
-            updatedAt: new Date()
-          }
+        try {
+          const updateResult = await Product.findByIdAndUpdate(
+            refundItem.productId,
+            { 
+              stockQuantity: newStock,
+              updatedAt: new Date()
+            },
+            { new: true } // Return updated document
+          );
+          
+          // Create stock movement record for refund
+          const stockMovement = await StockMovement.create({
+            productId: refundItem.productId,
+            type: 'return',
+            quantity: refundItem.quantity,
+            previousStock,
+            newStock,
+            unitCost: product.costPrice,
+            totalValue: refundItem.quantity * product.costPrice,
+            reference: `REFUND-${sale.receiptNumber}`,
+            notes: `Refund: ${sale.receiptNumber} - ${reason}`,
+            userId: processedBy
+          });
+        } catch (stockError) {
+          console.error(`Error updating stock for product ${refundItem.productId}:`, stockError);
+          throw stockError;
+        }
+      } else {
+        return data(
+          {
+            success: false,
+            message: `Product ${refundItem.productId} not found`
+          },
+          { status: 404 }
         );
-        
-        // Create stock movement record for refund
-        await StockMovement.create({
-          productId: refundItem.productId,
-          type: 'return',
-          quantity: refundItem.quantity,
-          previousStock,
-          newStock,
-          unitCost: product.costPrice,
-          totalValue: refundItem.quantity * product.costPrice,
-          reference: `REFUND-${sale.receiptNumber}`,
-          notes: `Refund: ${sale.receiptNumber} - ${reason}`,
-          userId: processedBy
-        });
       }
     }
     

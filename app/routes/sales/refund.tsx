@@ -20,7 +20,7 @@ import {
   CheckCircle,
   ArrowLeft
 } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { successToast, errorToast } from '../../components/toast';
 import { salesAPI } from '../../utils/api';
 import CustomInput from '../../components/CustomInput';
@@ -28,6 +28,7 @@ import ConfirmModal from '../../components/confirmModal';
 import type { Sale } from '../../types';
 
 export default function RefundPage() {
+  const [searchParams] = useSearchParams();
   const [receiptNumber, setReceiptNumber] = useState('');
   const [sale, setSale] = useState<Sale | null>(null);
   const [loading, setLoading] = useState(false);
@@ -40,17 +41,33 @@ export default function RefundPage() {
 
   useEffect(() => {
     loadCurrentUser();
-  }, []);
+    
+    // Check for receipt parameter in URL
+    const receiptParam = searchParams.get('receipt');
+    if (receiptParam) {
+      setReceiptNumber(receiptParam);
+      // Auto-search if receipt is provided in URL
+      setTimeout(() => {
+        if (receiptParam.trim()) {
+          searchSaleByReceipt(receiptParam);
+        }
+      }, 100);
+    }
+  }, [searchParams]);
 
   const loadCurrentUser = () => {
     const userData = localStorage.getItem('user');
+    console.log('📋 Loading user data from localStorage:', userData);
     if (userData) {
       try {
         const user = JSON.parse(userData);
+        console.log('✅ Parsed user data:', user);
         setCurrentUser(user);
       } catch (error) {
-        console.error('Error parsing user data:', error);
+        console.error('❌ Error parsing user data:', error);
       }
+    } else {
+      console.log('⚠️ No user data found in localStorage');
     }
   };
 
@@ -59,14 +76,17 @@ export default function RefundPage() {
       errorToast('Please enter a receipt number');
       return;
     }
+    await searchSaleByReceipt(receiptNumber);
+  };
 
+  const searchSaleByReceipt = async (receipt: string) => {
     try {
       setLoading(true);
       const response = await salesAPI.getAll({ limit: 1000 });
       const sales = (response as any)?.data || response || [];
       
       const foundSale = sales.find((s: Sale) => 
-        s.receiptNumber.toLowerCase() === receiptNumber.toLowerCase()
+        s.receiptNumber.toLowerCase() === receipt.toLowerCase()
       );
 
       if (!foundSale) {
@@ -90,9 +110,9 @@ export default function RefundPage() {
       setSale(foundSale);
       
       // Initialize refund items
-      setRefundItems(foundSale.items.map(item => ({
-        productId: item.productId,
-        product: item.product,
+      setRefundItems(foundSale.items.map((item: any) => ({
+        productId: item.productId._id || item.productId,
+        product: item.product || item.productId,
         originalQuantity: item.quantity,
         refundQuantity: 0,
         unitPrice: item.unitPrice,
@@ -148,6 +168,7 @@ export default function RefundPage() {
   const processRefund = async () => {
     if (!sale || !currentUser) {
       errorToast('Missing required information');
+      console.error('Missing data:', { sale: !!sale, currentUser: !!currentUser });
       return;
     }
 
@@ -168,14 +189,21 @@ export default function RefundPage() {
       
       const refundData = {
         items: itemsToRefund.map(item => ({
-          productId: item.productId,
+          productId: typeof item.productId === 'object' ? item.productId._id || item.productId.id : item.productId,
           quantity: item.refundQuantity
         })),
         reason: refundReason,
         processedBy: currentUser._id || currentUser.id
       };
 
-      await salesAPI.refund(sale._id || sale.id, refundData);
+      console.log('🔄 Processing refund...');
+      console.log('Sale ID:', sale._id || sale.id);
+      console.log('Refund data:', refundData);
+      console.log('Product IDs being sent:', refundData.items.map(item => ({ productId: item.productId, type: typeof item.productId })));
+      console.log('API endpoint would be:', `/api/sales/${sale._id || sale.id}/refund`);
+
+      const response = await salesAPI.refund(sale._id || sale.id, refundData);
+      console.log('✅ Refund API response:', response);
       
       successToast('Refund processed successfully');
       
@@ -187,8 +215,13 @@ export default function RefundPage() {
       onConfirmChange();
       
     } catch (error: any) {
-      errorToast(error.message || 'Failed to process refund');
-      console.error('Refund error:', error);
+      console.error('❌ Refund API error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      errorToast(error.response?.data?.message || error.message || 'Failed to process refund');
     } finally {
       setProcessingRefund(false);
     }
@@ -252,7 +285,6 @@ export default function RefundPage() {
                   placeholder="Enter receipt number (e.g., RCP-20231201-0001)"
                   value={receiptNumber}
                   onChange={setReceiptNumber}
-                  onKeyDown={(e) => e.key === 'Enter' && searchSale()}
                   className="flex-1"
                 />
                 <Button
@@ -458,8 +490,8 @@ export default function RefundPage() {
       <ConfirmModal
         isOpen={isConfirmOpen}
         onOpenChange={onConfirmChange}
-        title="Confirm Refund"
-        message={
+        header="Confirm Refund"
+        content={
           <div className="space-y-2">
             <p>Are you sure you want to process this refund?</p>
             <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
@@ -470,12 +502,22 @@ export default function RefundPage() {
             <p className="text-sm text-red-600">This action cannot be undone.</p>
           </div>
         }
-        confirmText="Process Refund"
-        cancelText="Cancel"
-        onConfirm={processRefund}
-        isLoading={processingRefund}
-        type="warning"
-      />
+      >
+        <Button
+          variant="ghost"
+          onClick={onConfirmChange}
+        >
+          Cancel
+        </Button>
+        <Button
+          color="warning"
+          onClick={processRefund}
+          isLoading={processingRefund}
+          startContent={<RefreshCcw className="w-4 h-4" />}
+        >
+          Process Refund
+        </Button>
+      </ConfirmModal>
     </div>
   );
 } 
