@@ -23,20 +23,20 @@ import {
   Unlock,
   Users,
   Crown,
-  User
+  User as UserIcon
 } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import DataTable from '../../components/DataTable';
 import Drawer from '../../components/Drawer';
 import CustomInput from '../../components/CustomInput';
 import ConfirmModal from '../../components/confirmModal';
-import { showSuccessToast, showErrorToast } from '../../components/toast';
+import { successToast, errorToast } from '../../components/toast';
 import type { User } from '../../types';
 
 const USER_ROLES = [
   { value: 'admin', label: 'Administrator', color: 'danger' as const, icon: Crown },
   { value: 'manager', label: 'Manager', color: 'warning' as const, icon: ShieldCheck },
-  { value: 'cashier', label: 'Cashier', color: 'primary' as const, icon: User },
+  { value: 'cashier', label: 'Cashier', color: 'primary' as const, icon: UserIcon },
   { value: 'inventory', label: 'Inventory Clerk', color: 'secondary' as const, icon: Shield }
 ];
 
@@ -144,7 +144,7 @@ export default function UsersPage() {
         setLoading(false);
       }, 500);
     } catch (error) {
-      showErrorToast('Failed to load users');
+      errorToast('Failed to load users');
       setLoading(false);
     }
   };
@@ -187,12 +187,12 @@ export default function UsersPage() {
 
   const handleSubmit = async () => {
     if (!formData.firstName || !formData.lastName || !formData.email) {
-      showErrorToast('Please fill in all required fields');
+      errorToast('Please fill in all required fields');
       return;
     }
 
     if (!editingUser && (!formData.password || formData.password !== formData.confirmPassword)) {
-      showErrorToast('Password and confirm password must match');
+      errorToast('Password and confirm password must match');
       return;
     }
 
