@@ -3,7 +3,9 @@ import { successToast, errorToast } from '../components/toast';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api',
+  baseURL: typeof window !== 'undefined' 
+    ? window.location.origin 
+    : 'http://localhost:5173',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -95,8 +97,8 @@ export const apiRequest = {
 
 // Auth API
 export const authAPI = {
-  login: (credentials: { email: string; password: string }) =>
-    apiRequest.post('/auth/login', credentials),
+  login: (credentials: { email: string; password: string; rememberMe?: boolean }) =>
+    apiRequest.post('/api/login', credentials),
   
   register: (userData: { name: string; email: string; password: string; role: string }) =>
     apiRequest.post('/auth/register', userData),

@@ -52,5 +52,10 @@ export default [
         // Audit & Logs (Admin)
         route("/audit", "routes/audit/index.tsx"),
         route("/logs", "routes/logs/index.tsx")
-    ])
+    ]),
+    // API Routes
+    route("/api/login", "routes/api.login.tsx"),
+    
+    // Auth Route
+    route("/", "routes/login.tsx")
 ] satisfies RouteConfig;

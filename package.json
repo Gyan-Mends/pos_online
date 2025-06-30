@@ -6,15 +6,20 @@
     "build": "react-router build",
     "dev": "react-router dev",
     "start": "react-router-serve ./build/server/index.js",
-    "typecheck": "react-router typegen && tsc"
+    "typecheck": "react-router typegen && tsc",
+    "seed:users": "node scripts/seedUsers.js"
   },
   "dependencies": {
     "@heroui/react": "^2.8.0-beta.10",
     "@react-router/node": "^7.5.3",
     "@react-router/serve": "^7.5.3",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "axios": "^1.10.0",
+    "bcryptjs": "^3.0.2",
     "dotenv": "^16.5.0",
     "isbot": "^5.1.27",
+    "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.522.0",
     "mongoose": "^8.16.0",
     "react": "^19.1.0",

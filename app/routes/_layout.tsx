@@ -15,7 +15,11 @@ import {
   DropdownItem,
   Accordion,
   AccordionItem,
+  Spinner,
 } from "@heroui/react";
+import { authAPI } from "../utils/api";
+import { successToast, errorToast } from "../components/toast";
+import type { User } from "../types";
 
 // Icons (using simple SVG icons)
 const DashboardIcon = ({ className = "w-5 h-5" }) => (
@@ -205,6 +209,40 @@ export default function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  
+  // Authentication state
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(true);
+
+  // Check authentication on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      // Check for stored user data from login
+      const userData = localStorage.getItem('user');
+
+      if (!userData) {
+        navigate('/login');
+        return;
+      }
+
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        
+        // Optionally verify session with backend
+        // const profile = await authAPI.getProfile();
+        // setUser(profile);
+      } catch (error) {
+        console.error('Auth check error:', error);
+        localStorage.removeItem('user');
+        navigate('/login');
+      } finally {
+        setIsAuthenticating(false);
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
 
   // Initialize theme from localStorage on component mount
   useEffect(() => {
@@ -298,18 +336,67 @@ export default function Layout() {
     return location.pathname === href || location.pathname.startsWith(href + '/');
   };
 
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      // Call logout API (optional - for server-side session cleanup)
+      try {
+        await authAPI.logout();
+      } catch (error) {
+        // Even if logout API fails, we should still clear local data
+        console.warn('Logout API call failed:', error);
+      }
+      
+      // Clear local storage
+      localStorage.removeItem('user');
+      
+      // Clear user state
+      setUser(null);
+      
+      successToast('Logged out successfully');
+      
+      // Redirect to login
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      errorToast('Error during logout');
+    }
+  };
+
+  // Show loading spinner while checking authentication
+  if (isAuthenticating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <Spinner size="lg" color="primary" />
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, don't render the layout (will redirect to login)
+  if (!user) {
+    return null;
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
-      <div className={`${sidebarCollapsed ? "w-16" : "w-64"} bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ease-in-out flex flex-col`}>
+      <div style={{  
+        scrollBehavior: 'smooth',
+        overflowY: 'scroll',
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'transparent transparent',
+        scrollbarGutter: 'stable',
+      }}
+       className={`${sidebarCollapsed ? "w-16" : "w-64"} bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ease-in-out flex flex-col`}>
         {/* Header */}
-        <div className="h-14 flex items-center px-3 border-b border-gray-200 dark:border-gray-700">
+        <div className=" flex items-center px-3 !py-5 border-b border-gray-200 dark:border-gray-700">
           {!sidebarCollapsed && (
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">POS</span>
-              </div>
-              <span className="font-bold text-gray-900 dark:text-white">Point of Sale</span>
+              
+              <span className="font-bold text-gray-900 dark:text-white font-heading">Point of Sale</span>
             </div>
           )}
           {sidebarCollapsed && (
@@ -489,36 +576,69 @@ export default function Layout() {
               {/* User Profile Dropdown */}
               <Dropdown placement="bottom-end">
                 <DropdownTrigger>
-                  <Button variant="light" size="sm" className="text-gray-600 dark:text-gray-300">
+                  <Button variant="light" size="sm" className="text-gray-700 dark:text-gray-300">
                     <div className="flex items-center space-x-2">
-                      <Avatar size="sm" name="Admin" className="flex-shrink-0" />
+                      <Avatar 
+                        size="sm" 
+                        name={user?.name || 'User'} 
+                        src={user?.avatar}
+                        className="flex-shrink-0" 
+                      />
                       <span className="text-sm font-medium text-gray-900 dark:text-white hidden sm:block">
-                        Admin
+                        {user?.name || 'User'}
                       </span>
                     </div>
                   </Button>
                 </DropdownTrigger>
-                <DropdownMenu onAction={(key) => {
-                  if (key === 'profile') {
-                    navigate('/profile');
-                  } else if (key === 'security') {
-                    navigate('/profile/security');
-                  } else if (key === 'preferences') {
-                    navigate('/settings');
-                  } else if (key === 'logout') {
-                    // Handle logout logic
-                    console.log('Logout clicked');
-                  }
-                }}>
-                  <DropdownItem key="profile">
+                <DropdownMenu 
+                  onAction={(key) => {
+                    switch(key) {
+                      case 'profile':
+                        navigate('/profile');
+                        break;
+                      case 'security':
+                        navigate('/profile/security');
+                        break;
+                      case 'preferences':
+                        navigate('/settings');
+                        break;
+                      case 'notifications':
+                        navigate('/profile/notifications');
+                        break;
+                      case 'activity':
+                        navigate('/profile/activity');
+                        break;
+                      case 'help':
+                        window.open('https://docs.example.com', '_blank');
+                        break;
+                      case 'logout':
+                        handleLogout();
+                        break;
+                    }
+                  }}
+                >
+                  <DropdownItem key="profile" className="py-2">
                     <div className="flex flex-col">
-                      <span className="font-medium">Admin User</span>
-                      <span className="text-xs text-gray-500">admin@pos.com</span>
+                      <span className="font-medium">{user?.name || 'User'}</span>
+                      <span className="text-xs text-gray-500">{user?.email || 'user@example.com'}</span>
                     </div>
                   </DropdownItem>
-                  <DropdownItem key="security">Security Settings</DropdownItem>
-                  <DropdownItem key="preferences">Preferences</DropdownItem>
-                  <DropdownItem key="logout" color="danger">
+                  <DropdownItem key="security" startContent={<LockIcon className="w-4 h-4" />}>
+                    Security Settings
+                  </DropdownItem>
+                  <DropdownItem key="preferences" startContent={<SettingsIcon className="w-4 h-4" />}>
+                    Preferences
+                  </DropdownItem>
+                  <DropdownItem key="notifications" startContent={<BellIcon className="w-4 h-4" />}>
+                    Notifications
+                  </DropdownItem>
+                  <DropdownItem key="activity" startContent={<ClockIcon className="w-4 h-4" />}>
+                    Activity Log
+                  </DropdownItem>
+                  <DropdownItem key="help" startContent={<HelpIcon className="w-4 h-4" />}>
+                    Help & Support
+                  </DropdownItem>
+                  <DropdownItem key="logout" className="text-danger" color="danger" startContent={<LogoutIcon className="w-4 h-4" />}>
                     Logout
                   </DropdownItem>
                 </DropdownMenu>
@@ -535,3 +655,34 @@ export default function Layout() {
     </div>
   );
 }
+
+// Add these icons near the top with other icons
+const LockIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+  </svg>
+);
+
+const BellIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+  </svg>
+);
+
+const ClockIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const HelpIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const LogoutIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+  </svg>
+);
