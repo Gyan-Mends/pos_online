@@ -68,7 +68,8 @@ export interface Product {
 
 // Customer Types
 export interface Customer {
-  id: string;
+  _id: string;
+  id: string; // For compatibility
   firstName: string;
   lastName: string;
   email?: string;
@@ -114,7 +115,8 @@ export interface Payment {
 }
 
 export interface Sale {
-  id: string;
+  _id: string;
+  id: string; // For compatibility
   receiptNumber: string;
   customerId?: string;
   customer?: Customer;

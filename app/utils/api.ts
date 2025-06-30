@@ -145,34 +145,34 @@ export const categoriesAPI = {
 // Sales API
 export const salesAPI = {
   getAll: (params?: { page?: number; limit?: number; startDate?: string; endDate?: string }) =>
-    apiRequest.get('/sales', params),
+    apiRequest.get('/api/sales', params),
   
-  getById: (id: string) => apiRequest.get(`/sales/${id}`),
+  getById: (id: string) => apiRequest.get(`/api/sales/${id}`),
   
-  create: (saleData: any) => apiRequest.post('/sales', saleData),
+  create: (saleData: any) => apiRequest.post('/api/sales', saleData),
   
-  refund: (id: string, items: any[]) => apiRequest.post(`/sales/${id}/refund`, { items }),
+  refund: (id: string, items: any[]) => apiRequest.post(`/api/sales/${id}/refund`, { items }),
   
-  getTodaysSales: () => apiRequest.get('/sales/today'),
+  getTodaysSales: () => apiRequest.get('/api/sales/today'),
   
   getReports: (params: { startDate: string; endDate: string; type: string }) =>
-    apiRequest.get('/sales/reports', params),
+    apiRequest.get('/api/sales/reports', params),
 };
 
 // Customers API
 export const customersAPI = {
   getAll: (params?: { page?: number; limit?: number; search?: string }) =>
-    apiRequest.get('/customers', params),
+    apiRequest.get('/api/customers', params),
   
-  getById: (id: string) => apiRequest.get(`/customers/${id}`),
+  getById: (id: string) => apiRequest.get(`/api/customers/${id}`),
   
-  create: (customerData: any) => apiRequest.post('/customers', customerData),
+  create: (customerData: any) => apiRequest.post('/api/customers', customerData),
   
-  update: (id: string, customerData: any) => apiRequest.put(`/customers/${id}`, customerData),
+  update: (id: string, customerData: any) => apiRequest.put(`/api/customers/${id}`, customerData),
   
-  delete: (id: string) => apiRequest.delete(`/customers/${id}`),
+  delete: (id: string) => apiRequest.delete(`/api/customers/${id}`),
   
-  getPurchaseHistory: (id: string) => apiRequest.get(`/customers/${id}/purchases`),
+  getPurchaseHistory: (id: string) => apiRequest.get(`/api/customers/${id}/purchases`),
 };
 
 // Users API (Admin only)
