@@ -25,7 +25,7 @@ import {
   Bell
 } from 'lucide-react';
 import CustomInput from '../../components/CustomInput';
-import { showSuccessToast, showErrorToast } from '../../components/toast';
+import { successToast, errorToast } from '../../components/toast';
 
 // Mock current user data
 const currentUser = {
@@ -77,27 +77,27 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     try {
       // API call to update profile
-      showSuccessToast('Profile updated successfully');
+      successToast('Profile updated successfully');
       setIsEditing(false);
     } catch (error) {
-      showErrorToast('Failed to update profile');
+      errorToast('Failed to update profile');
     }
   };
 
   const handleChangePassword = async () => {
     if (!formData.currentPassword || !formData.newPassword) {
-      showErrorToast('Please fill in all password fields');
+      errorToast('Please fill in all password fields');
       return;
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      showErrorToast('New passwords do not match');
+      errorToast('New passwords do not match');
       return;
     }
 
     try {
       // API call to change password
-      showSuccessToast('Password changed successfully');
+      successToast('Password changed successfully');
       setFormData(prev => ({
         ...prev,
         currentPassword: '',
@@ -105,16 +105,16 @@ export default function ProfilePage() {
         confirmPassword: ''
       }));
     } catch (error) {
-      showErrorToast('Failed to change password');
+      errorToast('Failed to change password');
     }
   };
 
   const handleSavePreferences = async () => {
     try {
       // API call to save preferences
-      showSuccessToast('Preferences saved successfully');
+      successToast('Preferences saved successfully');
     } catch (error) {
-      showErrorToast('Failed to save preferences');
+      errorToast('Failed to save preferences');
     }
   };
 

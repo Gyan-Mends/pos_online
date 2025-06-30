@@ -31,7 +31,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import ConfirmModal from '../../components/confirmModal';
-import { showSuccessToast, showErrorToast } from '../../components/toast';
+import { successToast, errorToast } from '../../components/toast';
 import type { User } from '../../types';
 
 interface ActivityLog {
@@ -158,7 +158,7 @@ export default function UserViewPage() {
         setLoading(false);
       }, 500);
     } catch (error) {
-      showErrorToast('Failed to load user details');
+      errorToast('Failed to load user details');
       setLoading(false);
     }
   };
@@ -170,7 +170,7 @@ export default function UserViewPage() {
         setActivityLogs(mockActivityLogs);
       }, 600);
     } catch (error) {
-      showErrorToast('Failed to load activity logs');
+      errorToast('Failed to load activity logs');
     }
   };
 
@@ -186,10 +186,10 @@ export default function UserViewPage() {
   const handleDelete = async () => {
     try {
       // API call to delete user
-      showSuccessToast('User deleted successfully');
+      successToast('User deleted successfully');
       navigate('/users');
     } catch (error) {
-      showErrorToast('Failed to delete user');
+      errorToast('Failed to delete user');
     }
   };
 
@@ -199,20 +199,20 @@ export default function UserViewPage() {
     try {
       const updatedUser = { ...user, isActive: !user.isActive };
       setUser(updatedUser);
-      showSuccessToast(`User ${updatedUser.isActive ? 'activated' : 'deactivated'} successfully`);
+      successToast(`User ${updatedUser.isActive ? 'activated' : 'deactivated'} successfully`);
       setConfirmModal({ open: false, action: 'activate' });
     } catch (error) {
-      showErrorToast('Failed to update user status');
+      errorToast('Failed to update user status');
     }
   };
 
   const handleResetPassword = async () => {
     try {
       // API call to reset password
-      showSuccessToast('Password reset email sent successfully');
+      successToast('Password reset email sent successfully');
       setConfirmModal({ open: false, action: 'resetPassword' });
     } catch (error) {
-      showErrorToast('Failed to reset password');
+      errorToast('Failed to reset password');
     }
   };
 

@@ -211,7 +211,7 @@ export default function UsersPage() {
           updatedAt: new Date().toISOString()
         };
         setUsers(prev => prev.map(u => u.id === editingUser.id ? updatedUser : u));
-        showSuccessToast('User updated successfully');
+        successToast('User updated successfully');
       } else {
         // Create new user
         const newUser: User = {
@@ -227,21 +227,21 @@ export default function UsersPage() {
           updatedAt: new Date().toISOString()
         };
         setUsers(prev => [...prev, newUser]);
-        showSuccessToast('User created successfully');
+        successToast('User created successfully');
       }
       setDrawerOpen(false);
     } catch (error) {
-      showErrorToast('Failed to save user');
+      errorToast('Failed to save user');
     }
   };
 
   const handleDelete = async (user: User) => {
     try {
       setUsers(prev => prev.filter(u => u.id !== user.id));
-      showSuccessToast('User deleted successfully');
+      successToast('User deleted successfully');
       setConfirmModal({ open: false, user: null, action: 'delete' });
     } catch (error) {
-      showErrorToast('Failed to delete user');
+      errorToast('Failed to delete user');
     }
   };
 
@@ -249,10 +249,10 @@ export default function UsersPage() {
     try {
       const updatedUser = { ...user, isActive: !user.isActive, updatedAt: new Date().toISOString() };
       setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
-      showSuccessToast(`User ${updatedUser.isActive ? 'activated' : 'deactivated'} successfully`);
+      successToast(`User ${updatedUser.isActive ? 'activated' : 'deactivated'} successfully`);
       setConfirmModal({ open: false, user: null, action: 'activate' });
     } catch (error) {
-      showErrorToast('Failed to update user status');
+      errorToast('Failed to update user status');
     }
   };
 
