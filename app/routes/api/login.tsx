@@ -116,23 +116,22 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // Update last login
-    await updateUserLastLogin(user.id);
+    await updateUserLastLogin(user._id);
 
     // Set session using the existing session system
     const sessionCookie = await setSession(session, user.email, rememberMe);
 
     // Prepare user data (exclude password)
     const userData = {
-      id: user.id,
-      name: user.name,
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
+      phone: user.phone,
       role: user.role,
-      avatar: user.avatar,
-      isActive: user.isActive,
       permissions: user.permissions,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      lastLogin: user.lastLogin
+      isActive: user.isActive,
+      lastLogin: new Date().toISOString()
     };
 
     // Return success response with session cookie

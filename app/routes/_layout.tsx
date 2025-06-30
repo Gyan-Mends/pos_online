@@ -20,6 +20,7 @@ import {
 import { authAPI } from "../utils/api";
 import { successToast, errorToast } from "../components/toast";
 import type { User } from "../types";
+import { Toaster } from "react-hot-toast";
 
 // Icons (using simple SVG icons)
 const DashboardIcon = ({ className = "w-5 h-5" }) => (
@@ -382,6 +383,7 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+      <Toaster position="top-right" />
       {/* Sidebar */}
       <div style={{  
         scrollBehavior: 'smooth',
@@ -390,7 +392,7 @@ export default function Layout() {
         scrollbarColor: 'transparent transparent',
         scrollbarGutter: 'stable',
       }}
-       className={`${sidebarCollapsed ? "w-16" : "w-64"} bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ease-in-out flex flex-col`}>
+       className={`${sidebarCollapsed ? "w-16 flex items-center justify-center  flex-col" : "w-64"} bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ease-in-out flex flex-col`}>
         {/* Header */}
         <div className=" flex items-center px-3 !py-5 border-b border-gray-200 dark:border-gray-700">
           {!sidebarCollapsed && (
@@ -407,7 +409,7 @@ export default function Layout() {
         </div>
 
         {/* Navigation Container */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col pt-6 min-h-0">
           {/* Main Navigation */}
           <nav className="flex-1 overflow-y-auto">
             <div className="py-1">
@@ -418,7 +420,7 @@ export default function Layout() {
 
                 if (item.submenu && !sidebarCollapsed) {
                   return (
-                    <div key={item.name}>
+                    <div className="flex flex-col items-center justify-center gap-2"  key={item.name}>
                       {/* Main Item */}
                       <Button
                         variant="light"
@@ -580,12 +582,12 @@ export default function Layout() {
                     <div className="flex items-center space-x-2">
                       <Avatar 
                         size="sm" 
-                        name={user?.name || 'User'} 
+                        name={user ? `${user.firstName} ${user.lastName}` : 'User'} 
                         src={user?.avatar}
                         className="flex-shrink-0" 
                       />
                       <span className="text-sm font-medium text-gray-900 dark:text-white hidden sm:block">
-                        {user?.name || 'User'}
+                        {user ? `${user.firstName} ${user.lastName}` : 'User'}
                       </span>
                     </div>
                   </Button>
@@ -619,7 +621,7 @@ export default function Layout() {
                 >
                   <DropdownItem key="profile" className="py-2">
                     <div className="flex flex-col">
-                      <span className="font-medium">{user?.name || 'User'}</span>
+                      <span className="font-medium">{user ? `${user.firstName} ${user.lastName}` : 'User'}</span>
                       <span className="text-xs text-gray-500">{user?.email || 'user@example.com'}</span>
                     </div>
                   </DropdownItem>

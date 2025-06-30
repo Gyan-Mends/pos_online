@@ -178,18 +178,18 @@ export const customersAPI = {
 // Users API (Admin only)
 export const usersAPI = {
   getAll: (params?: { page?: number; limit?: number; search?: string; role?: string }) =>
-    apiRequest.get('/users', params),
+    apiRequest.get('/api/users', params),
   
-  getById: (id: string) => apiRequest.get(`/users/${id}`),
+  getById: (id: string) => apiRequest.get(`/api/users/${id}`),
   
-  create: (userData: any) => apiRequest.post('/users', userData),
+  create: (userData: any) => apiRequest.post('/api/users', userData),
   
-  update: (id: string, userData: any) => apiRequest.put(`/users/${id}`, userData),
+  update: (id: string, userData: any) => apiRequest.put(`/api/users/${id}`, userData),
   
-  delete: (id: string) => apiRequest.delete(`/users/${id}`),
+  delete: (id: string) => apiRequest.delete(`/api/users/${id}`),
   
   updatePermissions: (id: string, permissions: string[]) =>
-    apiRequest.patch(`/users/${id}/permissions`, { permissions }),
+    apiRequest.patch(`/api/users/${id}/permissions`, { permissions }),
 };
 
 // Inventory API

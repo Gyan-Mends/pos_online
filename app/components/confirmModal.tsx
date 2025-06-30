@@ -12,7 +12,7 @@ export default function ConfirmModal({isOpen,onOpenChange,children,content,heade
 
   return (
     <>
-      <Modal backdrop="blur"  className=" !border !border-black/20 bg-dashboard-secondary " isOpen={isOpen} onOpenChange={onOpenChange}>
+      <Modal backdrop="blur"  className="!bg-gray-50 dark:!bg-gray-900 border dark:border-white/20 border-black/20" isOpen={isOpen} onOpenChange={onOpenChange}>
         <ModalContent className="dark:bg-default-100">
           {(onClose) => (
             <>

@@ -1,9 +1,11 @@
 // User Types
 export interface User {
-  id: string;
-  name: string;
+  _id: string; // MongoDB document ID
+  firstName: string;
+  lastName: string;
   email: string;
-  role: 'admin' | 'seller' | 'manager';
+  phone?: string;
+  role: 'admin' | 'seller' | 'manager' | 'cashier' | 'inventory';
   avatar?: string;
   isActive: boolean;
   permissions: string[];
@@ -303,10 +305,12 @@ export interface CustomerFormData {
 }
 
 export interface UserFormData {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
+  phone?: string;
   password?: string;
-  role: 'admin' | 'seller' | 'manager';
+  role: 'admin' | 'seller' | 'manager' | 'cashier' | 'inventory';
   permissions: string[];
   isActive: boolean;
 }

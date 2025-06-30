@@ -14,7 +14,12 @@ if (!MONGODB_URI) {
 
 // User schema (simplified for seeding)
 const UserSchema = new mongoose.Schema({
-  name: {
+  firstName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  lastName: {
     type: String,
     required: true,
     trim: true
@@ -26,6 +31,10 @@ const UserSchema = new mongoose.Schema({
     trim: true,
     lowercase: true
   },
+  phone: {
+    type: String,
+    trim: true
+  },
   password: {
     type: String,
     required: true,
@@ -33,7 +42,7 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'seller', 'manager'],
+    enum: ['admin', 'seller', 'manager', 'cashier', 'inventory'],
     default: 'seller',
     required: true
   },
@@ -75,28 +84,54 @@ const User = mongoose.model('User', UserSchema);
 // Initial users data
 const initialUsers = [
   {
-    name: 'Admin User',
+    firstName: 'Admin',
+    lastName: 'User',
     email: 'admin@example.com',
+    phone: '+1-555-0001',
     password: 'admin123',
     role: 'admin',
     isActive: true,
-    permissions: ['all', 'pos', 'sales', 'products', 'customers', 'inventory', 'reports', 'users', 'settings']
+    permissions: ['pos', 'products', 'inventory', 'customers', 'reports', 'users', 'settings']
   },
   {
-    name: 'Seller User',
+    firstName: 'John',
+    lastName: 'Seller',
     email: 'seller@example.com',
+    phone: '+1-555-0002',
     password: 'seller123',
     role: 'seller',
     isActive: true,
-    permissions: ['pos', 'sales', 'products', 'customers']
+    permissions: ['pos', 'customers']
   },
   {
-    name: 'Manager User',
+    firstName: 'Jane',
+    lastName: 'Manager',
     email: 'manager@example.com',
+    phone: '+1-555-0003',
     password: 'manager123',
     role: 'manager',
     isActive: true,
-    permissions: ['pos', 'sales', 'products', 'customers', 'inventory', 'reports']
+    permissions: ['pos', 'products', 'inventory', 'customers', 'reports']
+  },
+  {
+    firstName: 'Mike',
+    lastName: 'Cashier',
+    email: 'cashier@example.com',
+    phone: '+1-555-0004',
+    password: 'cashier123',
+    role: 'cashier',
+    isActive: true,
+    permissions: ['pos', 'customers']
+  },
+  {
+    firstName: 'Lisa',
+    lastName: 'Inventory',
+    email: 'inventory@example.com',
+    phone: '+1-555-0005',
+    password: 'inventory123',
+    role: 'inventory',
+    isActive: false,
+    permissions: ['inventory', 'products']
   }
 ];
 
@@ -126,9 +161,11 @@ async function seedUsers() {
 
     console.log('🎉 Successfully seeded users!');
     console.log('\n📋 Login Credentials:');
-    console.log('Admin:   admin@example.com   / admin123');
-    console.log('Seller:  seller@example.com  / seller123');
-    console.log('Manager: manager@example.com / manager123');
+    console.log('Admin:     admin@example.com     / admin123');
+    console.log('Seller:    seller@example.com    / seller123');
+    console.log('Manager:   manager@example.com   / manager123');
+    console.log('Cashier:   cashier@example.com   / cashier123');
+    console.log('Inventory: inventory@example.com / inventory123 (inactive)');
     
   } catch (error) {
     console.error('❌ Error seeding users:', error);

@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import ConfirmModal from '../../components/confirmModal';
 import { successToast, errorToast } from '../../components/toast';
+import { usersAPI } from '../../utils/api';
 import type { User } from '../../types';
 
 interface ActivityLog {
@@ -91,60 +92,6 @@ export default function UserViewPage() {
     action: 'delete' | 'deactivate' | 'activate' | 'resetPassword';
   }>({ open: false, action: 'delete' });
 
-  // Mock data - replace with API calls
-  const mockUser: User = {
-    id: id!,
-    firstName: 'Sarah',
-    lastName: 'Manager',
-    email: 'sarah.manager@pos.com',
-    phone: '+1-555-0102',
-    role: 'manager',
-    permissions: ['pos', 'products', 'inventory', 'customers', 'reports'],
-    isActive: true,
-    createdAt: '2024-01-05T10:30:00Z',
-    updatedAt: '2024-01-14T09:15:00Z',
-    lastLogin: '2024-01-14T14:22:00Z'
-  };
-
-  const mockActivityLogs: ActivityLog[] = [
-    {
-      id: '1',
-      action: 'Login',
-      details: 'Successful login to POS system',
-      timestamp: '2024-01-14T14:22:00Z',
-      ipAddress: '192.168.1.100',
-      userAgent: 'Chrome 120.0.0.0'
-    },
-    {
-      id: '2',
-      action: 'Product Updated',
-      details: 'Updated product "Wireless Headphones" - changed price from $79.99 to $69.99',
-      timestamp: '2024-01-14T13:45:00Z',
-      ipAddress: '192.168.1.100'
-    },
-    {
-      id: '3',
-      action: 'Sale Processed',
-      details: 'Processed sale #12345 for $156.50',
-      timestamp: '2024-01-14T12:30:00Z',
-      ipAddress: '192.168.1.100'
-    },
-    {
-      id: '4',
-      action: 'Inventory Adjustment',
-      details: 'Adjusted stock for "USB Cable" from 45 to 50 units',
-      timestamp: '2024-01-14T11:15:00Z',
-      ipAddress: '192.168.1.100'
-    },
-    {
-      id: '5',
-      action: 'Profile Updated',
-      details: 'Updated phone number',
-      timestamp: '2024-01-13T16:45:00Z',
-      ipAddress: '192.168.1.105'
-    }
-  ];
-
   useEffect(() => {
     loadUser();
     loadActivityLogs();
@@ -152,11 +99,10 @@ export default function UserViewPage() {
 
   const loadUser = async () => {
     try {
-      // Simulate API call
-      setTimeout(() => {
-        setUser(mockUser);
-        setLoading(false);
-      }, 500);
+      const response = await usersAPI.getById(id!);
+      const userData = (response as any)?.data || response;
+      setUser(userData);
+      setLoading(false);
     } catch (error) {
       errorToast('Failed to load user details');
       setLoading(false);
@@ -165,10 +111,18 @@ export default function UserViewPage() {
 
   const loadActivityLogs = async () => {
     try {
-      // Simulate API call
-      setTimeout(() => {
-        setActivityLogs(mockActivityLogs);
-      }, 600);
+      // For now, we'll use mock data since activity logs API doesn't exist yet
+      const mockActivityLogs: ActivityLog[] = [
+        {
+          id: '1',
+          action: 'Login',
+          details: 'Successful login to POS system',
+          timestamp: new Date().toISOString(),
+          ipAddress: '192.168.1.100',
+          userAgent: 'Chrome 120.0.0.0'
+        }
+      ];
+      setActivityLogs(mockActivityLogs);
     } catch (error) {
       errorToast('Failed to load activity logs');
     }
@@ -179,13 +133,19 @@ export default function UserViewPage() {
   };
 
   const handleEdit = () => {
-    // Navigate back to users page with edit mode
-    navigate('/users', { state: { editUser: user } });
+    // Navigate back to users page and trigger edit mode
+    navigate('/users', { 
+      state: { 
+        editUserId: user?._id,
+        editUser: user 
+      } 
+    });
   };
 
   const handleDelete = async () => {
+    if (!user) return;
     try {
-      // API call to delete user
+      await usersAPI.delete(user._id);
       successToast('User deleted successfully');
       navigate('/users');
     } catch (error) {
@@ -197,6 +157,7 @@ export default function UserViewPage() {
     if (!user) return;
     
     try {
+      await usersAPI.update(user._id, { isActive: !user.isActive });
       const updatedUser = { ...user, isActive: !user.isActive };
       setUser(updatedUser);
       successToast(`User ${updatedUser.isActive ? 'activated' : 'deactivated'} successfully`);
@@ -207,8 +168,9 @@ export default function UserViewPage() {
   };
 
   const handleResetPassword = async () => {
+    if (!user) return;
     try {
-      // API call to reset password
+      // For now, just show success message since reset password API doesn't exist yet
       successToast('Password reset email sent successfully');
       setConfirmModal({ open: false, action: 'resetPassword' });
     } catch (error) {
@@ -329,7 +291,7 @@ export default function UserViewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* User Profile Card */}
         <div className="lg:col-span-1">
-          <Card>
+          <Card className="border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
             <CardBody className="p-6">
               <div className="text-center">
                 <Avatar
@@ -415,11 +377,16 @@ export default function UserViewPage() {
 
         {/* Details Panel */}
         <div className="lg:col-span-2">
-          <Card>
+          <Card className="border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
             <CardBody className="p-6">
               <Tabs 
                 selectedKey={activeTab} 
                 onSelectionChange={(key) => setActiveTab(key as string)}
+                classNames={{
+                  tabList: "bg-gray-50 dark:bg-gray-900 dark:border-gray-700",
+                  tab: "text-gray-900 dark:text-white",
+                  tabContent: "text-gray-900 dark:text-white",
+                }}
               >
                 <Tab key="overview" title="Overview">
                   <div className="space-y-6">
@@ -440,15 +407,15 @@ export default function UserViewPage() {
                                   key={permission}
                                   className={`p-2 rounded-lg text-sm ${
                                     group.grantedPermissions.includes(permission)
-                                      ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
-                                      : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                                      ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                                      : 'bg-gray-50 text-gray-500 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
                                   }`}
                                 >
                                   <div className="flex items-center space-x-2">
                                     <div className={`w-2 h-2 rounded-full ${
                                       group.grantedPermissions.includes(permission)
-                                        ? 'bg-green-500'
-                                        : 'bg-gray-400'
+                                        ? 'bg-green-500 dark:bg-green-400'
+                                        : 'bg-gray-400 dark:bg-gray-500'
                                     }`} />
                                     <span className="capitalize">{permission.replace(/([A-Z])/g, ' $1')}</span>
                                   </div>
@@ -466,15 +433,15 @@ export default function UserViewPage() {
                         Account Details
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                           <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             User ID
                           </label>
-                          <p className="text-gray-900 dark:text-white font-mono">
-                            {user.id}
+                          <p className="text-gray-900 dark:text-white font-mono text-sm">
+                            {user._id}
                           </p>
                         </div>
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                           <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             Created
                           </label>
@@ -482,7 +449,7 @@ export default function UserViewPage() {
                             {formatDate(user.createdAt)}
                           </p>
                         </div>
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                           <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             Last Updated
                           </label>
@@ -490,12 +457,14 @@ export default function UserViewPage() {
                             {formatDate(user.updatedAt)}
                           </p>
                         </div>
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
                           <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             Status
                           </label>
                           <p className="text-gray-900 dark:text-white">
-                            {user.isActive ? 'Active' : 'Inactive'}
+                            <Badge color={user.isActive ? 'success' : 'default'}>
+                              {user.isActive ? 'Active' : 'Inactive'}
+                            </Badge>
                           </p>
                         </div>
                       </div>
@@ -510,10 +479,12 @@ export default function UserViewPage() {
                         {activityLogs.map((log) => (
                           <div
                             key={log.id}
-                            className="flex items-start space-x-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                            className="flex items-start space-x-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
                           >
-                            <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
-                              {getActionIcon(log.action)}
+                            <div className="flex-shrink-0 w-8 h-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-full flex items-center justify-center">
+                              <div className="text-blue-600 dark:text-blue-400">
+                                {getActionIcon(log.action)}
+                              </div>
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between">
@@ -524,7 +495,7 @@ export default function UserViewPage() {
                                   {formatDate(log.timestamp)}
                                 </span>
                               </div>
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                                 {log.details}
                               </p>
                               {log.ipAddress && (
@@ -539,7 +510,7 @@ export default function UserViewPage() {
                       </div>
                     ) : (
                       <div className="text-center py-8">
-                        <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <Activity className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
                         <p className="text-gray-500 dark:text-gray-400">
                           No activity logs available
                         </p>
@@ -556,22 +527,8 @@ export default function UserViewPage() {
       {/* Confirm Modals */}
       <ConfirmModal
         isOpen={confirmModal.open}
-        onClose={() => setConfirmModal({ open: false, action: 'delete' })}
-        onConfirm={() => {
-          switch (confirmModal.action) {
-            case 'delete':
-              handleDelete();
-              break;
-            case 'deactivate':
-            case 'activate':
-              handleToggleStatus();
-              break;
-            case 'resetPassword':
-              handleResetPassword();
-              break;
-          }
-        }}
-        title={
+        onOpenChange={() => setConfirmModal({ open: false, action: 'delete' })}
+        header={
           confirmModal.action === 'delete' 
             ? 'Delete User'
             : confirmModal.action === 'deactivate'
@@ -580,26 +537,51 @@ export default function UserViewPage() {
             ? 'Activate User'
             : 'Reset Password'
         }
-        message={
+        content={
           confirmModal.action === 'delete'
-            ? `Are you sure you want to delete ${user.firstName} ${user.lastName}? This action cannot be undone.`
+            ? `Are you sure you want to delete ${user?.firstName} ${user?.lastName}? This action cannot be undone.`
             : confirmModal.action === 'deactivate'
-            ? `Are you sure you want to deactivate ${user.firstName} ${user.lastName}? They will not be able to log into the system.`
+            ? `Are you sure you want to deactivate ${user?.firstName} ${user?.lastName}? They will not be able to log into the system.`
             : confirmModal.action === 'activate'
-            ? `Are you sure you want to activate ${user.firstName} ${user.lastName}? They will be able to log into the system.`
-            : `Are you sure you want to reset the password for ${user.firstName} ${user.lastName}? A password reset email will be sent to ${user.email}.`
+            ? `Are you sure you want to activate ${user?.firstName} ${user?.lastName}? They will be able to log into the system.`
+            : `Are you sure you want to reset the password for ${user?.firstName} ${user?.lastName}? A password reset email will be sent to ${user?.email}.`
         }
-        confirmText={
-          confirmModal.action === 'delete' 
-            ? 'Delete'
-            : confirmModal.action === 'deactivate'
-            ? 'Deactivate'
-            : confirmModal.action === 'activate'
-            ? 'Activate'
-            : 'Reset Password'
-        }
-        type={confirmModal.action === 'delete' ? 'danger' : 'warning'}
-      />
+      >
+        <div className="flex space-x-2">
+          <Button
+            variant="ghost"
+            onClick={() => setConfirmModal({ open: false, action: 'delete' })}
+          >
+            Cancel
+          </Button>
+          <Button
+            color={confirmModal.action === 'delete' ? 'danger' : 'warning'}
+            onClick={() => {
+              switch (confirmModal.action) {
+                case 'delete':
+                  handleDelete();
+                  break;
+                case 'deactivate':
+                case 'activate':
+                  handleToggleStatus();
+                  break;
+                case 'resetPassword':
+                  handleResetPassword();
+                  break;
+              }
+            }}
+          >
+            {confirmModal.action === 'delete' 
+              ? 'Delete'
+              : confirmModal.action === 'deactivate'
+              ? 'Deactivate'
+              : confirmModal.action === 'activate'
+              ? 'Activate'
+              : 'Reset Password'
+            }
+          </Button>
+        </div>
+      </ConfirmModal>
     </div>
   );
 } 

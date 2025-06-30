@@ -25,12 +25,13 @@ import {
   Crown,
   User as UserIcon
 } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useLocation } from 'react-router';
 import DataTable from '../../components/DataTable';
 import Drawer from '../../components/Drawer';
 import CustomInput from '../../components/CustomInput';
 import ConfirmModal from '../../components/confirmModal';
 import { successToast, errorToast } from '../../components/toast';
+import { usersAPI } from '../../utils/api';
 import type { User } from '../../types';
 
 const USER_ROLES = [
@@ -52,6 +53,7 @@ const USER_PERMISSIONS = [
 
 export default function UsersPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -75,76 +77,32 @@ export default function UsersPage() {
     confirmPassword: ''
   });
 
-  // Mock data - replace with API calls
-  const mockUsers: User[] = [
-    {
-      id: '1',
-      firstName: 'John',
-      lastName: 'Admin',
-      email: 'admin@pos.com',
-      phone: '+1-555-0101',
-      role: 'admin',
-      permissions: ['pos', 'products', 'inventory', 'customers', 'reports', 'users', 'settings'],
-      isActive: true,
-      createdAt: new Date('2024-01-01').toISOString(),
-      updatedAt: new Date('2024-01-15').toISOString(),
-      lastLogin: new Date('2024-01-15T09:30:00').toISOString()
-    },
-    {
-      id: '2',
-      firstName: 'Sarah',
-      lastName: 'Manager',
-      email: 'sarah.manager@pos.com',
-      phone: '+1-555-0102',
-      role: 'manager',
-      permissions: ['pos', 'products', 'inventory', 'customers', 'reports'],
-      isActive: true,
-      createdAt: new Date('2024-01-05').toISOString(),
-      updatedAt: new Date('2024-01-14').toISOString(),
-      lastLogin: new Date('2024-01-14T14:22:00').toISOString()
-    },
-    {
-      id: '3',
-      firstName: 'Mike',
-      lastName: 'Cashier',
-      email: 'mike.cashier@pos.com',
-      phone: '+1-555-0103',
-      role: 'cashier',
-      permissions: ['pos', 'customers'],
-      isActive: true,
-      createdAt: new Date('2024-01-10').toISOString(),
-      updatedAt: new Date('2024-01-13').toISOString(),
-      lastLogin: new Date('2024-01-13T16:45:00').toISOString()
-    },
-    {
-      id: '4',
-      firstName: 'Lisa',
-      lastName: 'Inventory',
-      email: 'lisa.inventory@pos.com',
-      phone: '+1-555-0104',
-      role: 'inventory',
-      permissions: ['inventory', 'products'],
-      isActive: false,
-      createdAt: new Date('2024-01-08').toISOString(),
-      updatedAt: new Date('2024-01-12').toISOString(),
-      lastLogin: new Date('2024-01-10T11:20:00').toISOString()
-    }
-  ];
-
   useEffect(() => {
     loadUsers();
   }, []);
 
+  // Handle edit user from navigation state
+  useEffect(() => {
+    if (location.state?.editUser) {
+      handleEditUser(location.state.editUser);
+      // Clear the state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   const loadUsers = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      setTimeout(() => {
-        setUsers(mockUsers);
-        setLoading(false);
-      }, 500);
+      const response = await usersAPI.getAll();
+      // The API returns { success: true, data: users }
+      // But apiRequest.get returns response.data, so we get the whole response object
+      const usersData = (response as any)?.data || response || [];
+      setUsers(Array.isArray(usersData) ? usersData : []);
     } catch (error) {
       errorToast('Failed to load users');
+      console.error('Error loading users:', error);
+      setUsers([]); // Set empty array on error
+    } finally {
       setLoading(false);
     }
   };
@@ -182,7 +140,7 @@ export default function UsersPage() {
   };
 
   const handleViewUser = (user: User) => {
-    navigate(`/users/${user.id}`);
+    navigate(`/users/${user._id}`);
   };
 
   const handleSubmit = async () => {
@@ -197,62 +155,54 @@ export default function UsersPage() {
     }
 
     try {
+      const userData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        role: formData.role as User['role'],
+        permissions: formData.permissions,
+        isActive: formData.isActive,
+        ...(formData.password && { password: formData.password })
+      };
+
       if (editingUser) {
-        // Update user
-        const updatedUser: User = {
-          ...editingUser,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          role: formData.role as User['role'],
-          permissions: formData.permissions,
-          isActive: formData.isActive,
-          updatedAt: new Date().toISOString()
-        };
-        setUsers(prev => prev.map(u => u.id === editingUser.id ? updatedUser : u));
+        await usersAPI.update(editingUser._id, userData);
         successToast('User updated successfully');
       } else {
-        // Create new user
-        const newUser: User = {
-          id: Date.now().toString(),
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          role: formData.role as User['role'],
-          permissions: formData.permissions,
-          isActive: formData.isActive,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        setUsers(prev => [...prev, newUser]);
+        await usersAPI.create(userData);
         successToast('User created successfully');
       }
+      
       setDrawerOpen(false);
+      loadUsers(); // Reload users after create/update
     } catch (error) {
       errorToast('Failed to save user');
+      console.error('Error saving user:', error);
     }
   };
 
   const handleDelete = async (user: User) => {
     try {
-      setUsers(prev => prev.filter(u => u.id !== user.id));
+      await usersAPI.delete(user._id);
       successToast('User deleted successfully');
       setConfirmModal({ open: false, user: null, action: 'delete' });
+      loadUsers(); // Reload users after delete
     } catch (error) {
       errorToast('Failed to delete user');
+      console.error('Error deleting user:', error);
     }
   };
 
   const handleToggleStatus = async (user: User) => {
     try {
-      const updatedUser = { ...user, isActive: !user.isActive, updatedAt: new Date().toISOString() };
-      setUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
-      successToast(`User ${updatedUser.isActive ? 'activated' : 'deactivated'} successfully`);
+      await usersAPI.update(user._id, { isActive: !user.isActive });
+      successToast(`User ${!user.isActive ? 'activated' : 'deactivated'} successfully`);
       setConfirmModal({ open: false, user: null, action: 'activate' });
+      loadUsers(); // Reload users after status change
     } catch (error) {
       errorToast('Failed to update user status');
+      console.error('Error updating user status:', error);
     }
   };
 
@@ -286,13 +236,13 @@ export default function UsersPage() {
   const columns = [
     {
       key: 'user',
-      label: 'User',
-      render: (user: User) => (
+      title: 'User',
+      render: (value: any, user: User) => (
         <div className="flex items-center space-x-3">
           <Avatar 
             name={`${user.firstName} ${user.lastName}`}
             size="sm"
-            className="flex-shrink-0"
+            className="flex-shrink-0 bg-gradient-to-br from-blue-500 to-purple-600 text-white"
           />
           <div>
             <div className="font-medium text-gray-900 dark:text-white">
@@ -307,8 +257,8 @@ export default function UsersPage() {
     },
     {
       key: 'role',
-      label: 'Role',
-      render: (user: User) => {
+      title: 'Role',
+      render: (value: any, user: User) => {
         const roleInfo = getRoleInfo(user.role);
         const IconComponent = roleInfo.icon;
         return (
@@ -316,6 +266,7 @@ export default function UsersPage() {
             color={roleInfo.color}
             variant="flat"
             startContent={<IconComponent className="w-4 h-4" />}
+            className="font-medium"
           >
             {roleInfo.label}
           </Chip>
@@ -324,17 +275,22 @@ export default function UsersPage() {
     },
     {
       key: 'status',
-      label: 'Status',
-      render: (user: User) => (
-        <Badge color={user.isActive ? 'success' : 'default'}>
+      title: 'Status',
+      render: (value: any, user: User) => (
+        <Chip
+          color={user.isActive ? 'success' : 'default'}
+          variant="flat"
+          size="sm"
+          className="font-medium"
+        >
           {user.isActive ? 'Active' : 'Inactive'}
-        </Badge>
+        </Chip>
       )
     },
     {
       key: 'lastLogin',
-      label: 'Last Login',
-      render: (user: User) => (
+      title: 'Last Login',
+      render: (value: any, user: User) => (
         <div className="text-sm">
           {user.lastLogin ? (
             <div>
@@ -353,8 +309,8 @@ export default function UsersPage() {
     },
     {
       key: 'permissions',
-      label: 'Permissions',
-      render: (user: User) => (
+      title: 'Permissions',
+      render: (value: any, user: User) => (
         <div className="text-sm text-gray-600 dark:text-gray-400">
           {user.permissions.length} permissions
         </div>
@@ -362,50 +318,46 @@ export default function UsersPage() {
     },
     {
       key: 'actions',
-      label: 'Actions',
-      render: (user: User) => (
+      title: 'Actions',
+      render: (value: any, user: User) => (
         <div className="flex items-center space-x-2">
           <Tooltip content="View Details">
-            <Button
-              variant="light"
-              size="sm"
+            <button
               onClick={() => handleViewUser(user)}
+              className="min-w-unit-8 w-8 h-8 p-0"
             >
-              <Eye className="w-4 h-4" />
-            </Button>
+              <Eye className="w-4 h-4 text-primary" />
+            </button>
           </Tooltip>
           <Tooltip content="Edit User">
-            <Button
-              variant="light"
-              size="sm"
+            <button
+             
               onClick={() => handleEditUser(user)}
+              className="min-w-unit-8 w-8 h-8 p-0"
             >
-              <Edit className="w-4 h-4" />
-            </Button>
+               <Edit className="w-4 h-4 text-secondary" />
+            </button>
           </Tooltip>
           <Tooltip content={user.isActive ? "Deactivate" : "Activate"}>
-            <Button
-              variant="light"
-              size="sm"
-              color={user.isActive ? "warning" : "success"}
+            <button
               onClick={() => setConfirmModal({ 
                 open: true, 
                 user, 
                 action: user.isActive ? 'deactivate' : 'activate' 
               })}
+              className="min-w-unit-8 w-8 h-8 p-0"
             >
-              {user.isActive ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-            </Button>
+              {user.isActive ? <Lock className="w-4 h-4 text-warning" /> : <Unlock className="w-4 h-4 text-success" />}
+            </button>
           </Tooltip>
           <Tooltip content="Delete User">
-            <Button
-              variant="light"
-              size="sm"
-              color="danger"
+            <button
+                 
               onClick={() => setConfirmModal({ open: true, user, action: 'delete' })}
+              className="min-w-unit-8 w-8 h-8 p-0"
             >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+              <Trash2 className="w-4 h-4 text-danger" />
+            </button>
           </Tooltip>
         </div>
       )
@@ -422,7 +374,7 @@ export default function UsersPage() {
     {
       title: 'Active Users',
       value: users.filter(u => u.isActive).length,
-      icon: User,
+      icon: UserIcon,
       color: 'text-green-500'
     },
     {
@@ -462,7 +414,7 @@ export default function UsersPage() {
         {stats.map((stat) => {
           const IconComponent = stat.icon;
           return (
-            <Card key={stat.title}>
+            <Card key={stat.title} className="border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
               <CardBody className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -473,7 +425,9 @@ export default function UsersPage() {
                       {stat.value}
                     </p>
                   </div>
-                  <IconComponent className={`w-8 h-8 ${stat.color}`} />
+                  <div className="p-3 rounded-full bg-gray-50 dark:bg-gray-800">
+                    <IconComponent className={`w-6 h-6 ${stat.color} dark:opacity-80`} />
+                  </div>
                 </div>
               </CardBody>
             </Card>
@@ -482,22 +436,15 @@ export default function UsersPage() {
       </div>
 
       {/* Users Table */}
-      <Card>
-        <CardBody>
+      
           <DataTable
             data={users}
             columns={columns}
             loading={loading}
-            searchable
             searchPlaceholder="Search users..."
-            emptyState={{
-              icon: Users,
-              title: "No users found",
-              description: "Get started by adding your first user."
-            }}
+            emptyText="No users found. Get started by adding your first user."
           />
-        </CardBody>
-      </Card>
+       
 
       {/* Add/Edit User Drawer */}
       <Drawer
@@ -687,39 +634,50 @@ export default function UsersPage() {
       {/* Confirm Modal */}
       <ConfirmModal
         isOpen={confirmModal.open}
-        onClose={() => setConfirmModal({ open: false, user: null, action: 'delete' })}
-        onConfirm={() => {
-          if (confirmModal.user) {
-            if (confirmModal.action === 'delete') {
-              handleDelete(confirmModal.user);
-            } else {
-              handleToggleStatus(confirmModal.user);
-            }
-          }
-        }}
-        title={
+        onOpenChange={() => setConfirmModal({ open: false, user: null, action: 'delete' })}
+        header={
           confirmModal.action === 'delete' 
             ? 'Delete User'
             : confirmModal.action === 'deactivate'
             ? 'Deactivate User'
             : 'Activate User'
         }
-        message={
+        content={
           confirmModal.action === 'delete'
             ? `Are you sure you want to delete ${confirmModal.user?.firstName} ${confirmModal.user?.lastName}? This action cannot be undone.`
             : confirmModal.action === 'deactivate'
             ? `Are you sure you want to deactivate ${confirmModal.user?.firstName} ${confirmModal.user?.lastName}? They will not be able to log into the system.`
             : `Are you sure you want to activate ${confirmModal.user?.firstName} ${confirmModal.user?.lastName}? They will be able to log into the system.`
         }
-        confirmText={
-          confirmModal.action === 'delete' 
-            ? 'Delete'
-            : confirmModal.action === 'deactivate'
-            ? 'Deactivate'
-            : 'Activate'
-        }
-        type={confirmModal.action === 'delete' ? 'danger' : 'warning'}
-      />
+      >
+        <div className="flex space-x-2">
+          <Button
+            variant="ghost"
+            onClick={() => setConfirmModal({ open: false, user: null, action: 'delete' })}
+          >
+            Cancel
+          </Button>
+          <Button
+            color={confirmModal.action === 'delete' ? 'danger' : 'warning'}
+            onClick={() => {
+              if (confirmModal.user) {
+                if (confirmModal.action === 'delete') {
+                  handleDelete(confirmModal.user);
+                } else {
+                  handleToggleStatus(confirmModal.user);
+                }
+              }
+            }}
+          >
+            {confirmModal.action === 'delete' 
+              ? 'Delete'
+              : confirmModal.action === 'deactivate'
+              ? 'Deactivate'
+              : 'Activate'
+            }
+          </Button>
+        </div>
+      </ConfirmModal>
     </div>
   );
 } 

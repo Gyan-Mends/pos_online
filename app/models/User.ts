@@ -3,10 +3,12 @@ import bcrypt from 'bcryptjs';
 
 // Interface for User document
 export interface IUser extends Document {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
+  phone?: string;
   password: string;
-  role: 'admin' | 'seller' | 'manager';
+  role: 'admin' | 'seller' | 'manager' | 'cashier' | 'inventory';
   avatar?: string;
   isActive: boolean;
   permissions: string[];
@@ -18,11 +20,17 @@ export interface IUser extends Document {
 
 // User schema
 const UserSchema = new Schema<IUser>({
-  name: {
+  firstName: {
     type: String,
-    required: [true, 'Name is required'],
+    required: [true, 'First name is required'],
     trim: true,
-    maxlength: [100, 'Name cannot exceed 100 characters']
+    maxlength: [50, 'First name cannot exceed 50 characters']
+  },
+  lastName: {
+    type: String,
+    required: [true, 'Last name is required'],
+    trim: true,
+    maxlength: [50, 'Last name cannot exceed 50 characters']
   },
   email: {
     type: String,
@@ -32,6 +40,10 @@ const UserSchema = new Schema<IUser>({
     lowercase: true,
     match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Please enter a valid email address']
   },
+  phone: {
+    type: String,
+    trim: true
+  },
   password: {
     type: String,
     required: [true, 'Password is required'],
@@ -40,7 +52,7 @@ const UserSchema = new Schema<IUser>({
   },
   role: {
     type: String,
-    enum: ['admin', 'seller', 'manager'],
+    enum: ['admin', 'seller', 'manager', 'cashier', 'inventory'],
     default: 'seller',
     required: true
   },
