@@ -1,8 +1,8 @@
 import { data } from "react-router";
 import type { ActionFunctionArgs } from "react-router";
-import mongoose from '../mongoose.server';
-import User from '../models/User';
-import { getSession, setSession } from '../session';
+import mongoose from '../../mongoose.server';
+import User from '../../models/User';
+import { getSession, setSession } from '../../session';
 
 // Validation helper
 const validateLoginData = (email: string, password: string) => {

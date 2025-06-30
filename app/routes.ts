@@ -54,7 +54,7 @@ export default [
         route("/logs", "routes/logs/index.tsx")
     ]),
     // API Routes
-    route("/api/login", "routes/api.login.tsx"),
+    route("/api/login", "routes/api/login.tsx"),
     
     // Auth Route
     route("/", "routes/login.tsx")
