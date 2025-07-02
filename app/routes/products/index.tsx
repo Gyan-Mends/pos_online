@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button, Card, CardBody, Chip, useDisclosure, Avatar, Tooltip } from '@heroui/react';
-import { Plus, Edit, Trash2, Package, AlertTriangle, Eye, Search, Filter } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, AlertTriangle, Eye, Search, Filter, Upload, X } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router';
 import DataTable, { type Column } from '../../components/DataTable';
 import Drawer from '../../components/Drawer';
@@ -19,6 +19,7 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
     description: '',
@@ -31,6 +32,7 @@ export default function ProductsPage() {
     minStockLevel: 5,
     maxStockLevel: 1000,
     unitOfMeasure: 'pcs',
+    images: [],
     isActive: true,
     taxable: true,
     taxRate: 0,
@@ -107,6 +109,62 @@ export default function ProductsPage() {
     }));
   };
 
+  // Convert file to base64
+  const convertToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // Handle image upload
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      const imagePromises = Array.from(files).map(async (file) => {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          throw new Error(`${file.name} is not a valid image file`);
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          throw new Error(`${file.name} is too large. Maximum size is 5MB`);
+        }
+
+        return await convertToBase64(file);
+      });
+
+      const base64Images = await Promise.all(imagePromises);
+      
+      setFormData(prev => ({
+        ...prev,
+        images: [...(prev.images || []), ...base64Images]
+      }));
+
+      successToast(`${base64Images.length} image(s) uploaded successfully`);
+    } catch (error: any) {
+      errorToast(error.message || 'Failed to upload images');
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Remove image
+  const removeImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images?.filter((_, i) => i !== index) || []
+    }));
+  };
+
   // Open drawer for adding new product
   const handleAddProduct = () => {
     setSelectedProduct(null);
@@ -123,6 +181,7 @@ export default function ProductsPage() {
       minStockLevel: 5,
       maxStockLevel: 1000,
       unitOfMeasure: 'pcs',
+      images: [],
       isActive: true,
       taxable: true,
       taxRate: 0,
@@ -150,6 +209,7 @@ export default function ProductsPage() {
       minStockLevel: product.minStockLevel,
       maxStockLevel: product.maxStockLevel || 1000,
       unitOfMeasure: product.unitOfMeasure,
+      images: product.images || [],
       isActive: product.isActive,
       taxable: product.taxable,
       taxRate: product.taxRate || 0,
@@ -232,8 +292,16 @@ export default function ProductsPage() {
       title: 'Product',
       render: (value, record) => (
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-center">
-            <Package className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+          <div className="w-10 h-10 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
+            {record.images && record.images.length > 0 ? (
+              <img 
+                src={record.images[0]} 
+                alt={record.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Package className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            )}
           </div>
           <div>
             <p className="font-medium text-gray-900 dark:text-white">{record.name}</p>
@@ -506,6 +574,68 @@ export default function ProductsPage() {
                   onChange={(value) => handleInputChange('unitOfMeasure', value)}
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Product Images */}
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Product Images
+            </h3>
+            <div className="space-y-4">
+              {/* Image Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Upload Images (Max 5MB each, JPG/PNG/GIF)
+                </label>
+                <div className="flex items-center space-x-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="bordered"
+                    onClick={() => fileInputRef.current?.click()}
+                    startContent={<Upload className="w-4 h-4" />}
+                  >
+                    Choose Images
+                  </Button>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {formData.images?.length || 0} image(s) selected
+                  </p>
+                </div>
+              </div>
+
+              {/* Image Preview */}
+              {formData.images && formData.images.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Preview
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {formData.images.map((image, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={image}
+                          alt={`Product image ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

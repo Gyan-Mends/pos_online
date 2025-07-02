@@ -283,6 +283,7 @@ export interface ProductFormData {
   minStockLevel: number;
   maxStockLevel?: number;
   unitOfMeasure: string;
+  images?: string[];
   isActive: boolean;
   taxable: boolean;
   taxRate?: number;

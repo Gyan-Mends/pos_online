@@ -8,13 +8,27 @@ import {
   Button,
   Divider,
   Spinner,
-  Link
+  Link,
+  Switch
 } from '@heroui/react';
 import { Eye, EyeOff, Lock, Mail, LogIn } from 'lucide-react';
 import { authAPI } from '../utils/api';
 import { successToast, errorToast } from '../components/toast';
 import type { AuthResponse, APIError } from '../types';
 import type { Route } from "./+types/login";
+
+// Add theme icons
+const SunIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+  </svg>
+);
+
+const MoonIcon = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+  </svg>
+);
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -33,6 +47,22 @@ export default function Login() {
   const [isVisible, setIsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Initialize theme from localStorage on component mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const shouldUseDark = savedTheme === "dark" || (!savedTheme && prefersDark);
+    
+    setIsDarkMode(shouldUseDark);
+    
+    if (shouldUseDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
 
   // Check if user is already logged in
   useEffect(() => {
@@ -44,6 +74,20 @@ export default function Login() {
       navigate('/dashboard');
     }
   }, [navigate]);
+
+  // Toggle theme
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    
+    if (newTheme) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  };
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
@@ -132,25 +176,42 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center  dark:from-gray-900 dark:to-gray-800 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
+      {/* Theme Toggle - positioned at top right */}
+      <div className="absolute top-6 right-6">
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-gray-600 dark:text-gray-300 hidden sm:block">
+            {isDarkMode ? 'Dark' : 'Light'}
+          </span>
+          <Switch
+            isSelected={isDarkMode}
+            onValueChange={toggleTheme}
+            thumbIcon={({ isSelected }) =>
+              isSelected ? <MoonIcon /> : <SunIcon />
+            }
+            size="sm"
+          />
+        </div>
+      </div>
+
       <div className="w-full max-w-md">
-        <Card className="shadow-none">
-          <CardHeader className="pb-0 pt-6 px-6 flex-col items-center">
-            <div className="dark:bg-primary-900 p-3 rounded-full mb-4">
+          <div className="pb-0 pt-6 px-6 flex-col items-center">
+            <div className="flex items-center justify-center   p-3 rounded-full mb-4">
               <LogIn className="w-8 h-8 text-primary-600 dark:text-primary-400" />
             </div>
-            <h1 className="text-2xl font-bold font-heading text-center text-gray-900 dark:text-white">
+            <h1 className="text-2xl font-semibold font-heading text-center text-gray-900 dark:text-white">
               Welcome Back
             </h1>
             <p className="text-sm text-gray-600 font-heading dark:text-gray-400 text-center mt-1">
-              Sign in to your  account
+              Sign in to your account
             </p>
-          </CardHeader>
+          </div>
           
-          <CardBody className="px-6 py-6">
+          <div className="px-6 py-6">
             <form onSubmit={handleSubmit} className="space-y-4 flex flex-col gap-4">
               <div>
                 <Input
+                  variant="bordered"
                   type="email"
                   label="Email Address"
                   labelPlacement="outside"
@@ -158,19 +219,21 @@ export default function Login() {
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   onKeyPress={handleKeyPress}
-                  startContent={<Mail className="w-4 h-4 text-gray-400" />}
+                  startContent={<Mail className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
                   isInvalid={!!errors.email}
                   errorMessage={errors.email}
                   isDisabled={isLoading}
                   classNames={{
-                    input: "bg-transparent",
-                    inputWrapper: " h-12 border border-black/20 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                    label: "text-gray-700 dark:text-gray-300 font-medium",
+                    input: " text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400",
+                    inputWrapper: "border border-1 border-black/20 dark:border-white/20"
                   }}
                 />
               </div>
 
               <div>
                 <Input
+                  variant="bordered"
                   type={isVisible ? "text" : "password"}
                   label="Password"
                   labelPlacement="outside"
@@ -178,7 +241,7 @@ export default function Login() {
                   value={formData.password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
                   onKeyPress={handleKeyPress}
-                  startContent={<Lock className="w-4 h-4 text-gray-400" />}
+                  startContent={<Lock className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
                   endContent={
                     <button
                       className="focus:outline-none"
@@ -186,9 +249,9 @@ export default function Login() {
                       onClick={toggleVisibility}
                     >
                       {isVisible ? (
-                        <EyeOff className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                        <EyeOff className="w-4 h-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
                       ) : (
-                        <Eye className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                        <Eye className="w-4 h-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
                       )}
                     </button>
                   }
@@ -196,34 +259,31 @@ export default function Login() {
                   errorMessage={errors.password}
                   isDisabled={isLoading}
                   classNames={{
-                    input: "bg-transparent",
-                    inputWrapper: " h-12 border border-black/20 dark:bg-gray-800 border-gray-200 dark:border-gray-700"                  }}
+                    label: "text-gray-700 dark:text-gray-300 font-medium",
+                    input: " text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400",
+                    inputWrapper: "border border-1 border-black/20 dark:border-white/20"
+                  }}
                 />
               </div>
 
               <div className="flex justify-between items-center text-sm">
-                <label className="flex items-center">
+                <label className="flex items-center cursor-pointer">
                   <input 
                     type="checkbox" 
                     checked={formData.rememberMe}
                     onChange={(e) => setFormData(prev => ({ ...prev, rememberMe: e.target.checked }))}
-                    className="mr-2 rounded border-gray-300 text-primary-600 focus:ring-primary-500" 
+                    className="mr-2 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-primary-600 focus:ring-primary-500 dark:focus:ring-primary-400" 
                   />
                   <span className="text-gray-600 dark:text-gray-400">Remember me</span>
                 </label>
-                <Link 
-                  href="#" 
-                  className="text-primary-600 hover:text-primary-500 dark:text-primary-400"
-                >
-                  Forgot password?
-                </Link>
+              
               </div>
 
               <Button
                 type="submit"
                 color="primary"
-                size="lg"
-                className="w-full font-semibold"
+                size="md"
+                className="w-full font-semibold bg-primary-600 hover:bg-primary-700 dark:bg-primary-300 dark:hover:bg-primary-400 text-white"
                 isLoading={isLoading}
                 isDisabled={isLoading}
                 spinner={<Spinner color="white" size="sm" />}
@@ -232,18 +292,17 @@ export default function Login() {
               </Button>
             </form>
 
-            <Divider className="my-6" />
+            <Divider className="my-6 bg-gray-200 dark:bg-gray-700" />
 
          
-          </CardBody>
-        </Card>
+          </div>
 
         <div className="text-center mt-6">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Don't have an account?{' '}
             <Link 
               href="/register" 
-              className="text-primary-600 hover:text-primary-500 dark:text-primary-400 font-medium"
+              className="text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300 font-medium"
             >
               Contact your administrator
             </Link>
@@ -253,3 +312,6 @@ export default function Login() {
     </div>
   );
 }
+
+
+// oklch(.21 .006 285.885)

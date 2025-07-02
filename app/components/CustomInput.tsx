@@ -75,7 +75,7 @@ const CustomInput = ({
                     classNames={{
                         label: "font-nunito text-sm !text-black dark:!text-white",
                         input: "text-gray-900 dark:text-white placeholder:text-gray-400",
-                        inputWrapper: "border text-gray-900 dark:text-white border-black/20 dark:border-white/20 bg-white dark:bg-gray-800 outline-none shadow-sm hover:bg-dashboard-secondary hover:border-white/20 focus-within:border-white/20 focus-within:outline-none focus-within:shadow-none focus-within:ring-0 focus-within:ring-offset-0"
+                        inputWrapper: "border text-gray-900 dark:text-white border-black/20 dark:border-white/20 customed-dark-card outline-none shadow-sm hover:bg-dashboard-secondary hover:border-white/20 focus-within:border-white/20 focus-within:outline-none focus-within:shadow-none focus-within:ring-0 focus-within:ring-offset-0"
                     }}
                 />
             );
@@ -107,7 +107,7 @@ const CustomInput = ({
                 classNames={{
                     label: "font-nunito text-sm !text-black dark:!text-white",
                     input: "text-gray-900 dark:text-white placeholder:text-gray-400",
-                    inputWrapper: "border text-gray-900 dark:text-white border-black/20 dark:border-white/20 bg-white dark:bg-gray-800 outline-none shadow-sm hover:bg-dashboard-secondary hover:border-white/20 focus-within:border-white/20 focus-within:outline-none focus-within:shadow-none focus-within:ring-0 focus-within:ring-offset-0"
+                    inputWrapper: "border text-gray-900 dark:text-white  customed-dark-card outline-none shadow-sm hover:bg-dashboard-secondary hover:border-white/20 focus-within:border-white/20 focus-within:outline-none focus-within:shadow-none focus-within:ring-0 focus-within:ring-offset-0"
                 }}
             />
         );

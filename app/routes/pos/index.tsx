@@ -32,7 +32,8 @@ import {
   Tag,
   Percent,
   X,
-  Check
+  Check,
+  Smartphone
 } from 'lucide-react';
 import { successToast, errorToast } from '../../components/toast';
 import { productsAPI, customersAPI, salesAPI } from '../../utils/api';
@@ -40,7 +41,7 @@ import CustomInput from '../../components/CustomInput';
 import type { Product, Customer, CartItem, Cart } from '../../types';
 
 const TAX_RATE = 0.15; // 15% tax rate
-const CURRENCY = '$';
+const CURRENCY = '₵'; // Ghana Cedis
 
 export default function POSPage() {
   // State management
@@ -60,7 +61,7 @@ export default function POSPage() {
   const [processingPayment, setProcessingPayment] = useState(false);
   
   // Payment state
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money'>('cash');
   const [amountReceived, setAmountReceived] = useState<number>(0);
   const [change, setChange] = useState<number>(0);
   
@@ -422,6 +423,135 @@ export default function POSPage() {
     return `${CURRENCY}${amount.toFixed(2)}`;
   };
 
+  const printReceipt = () => {
+    if (!completedSale) return;
+    
+    const receiptWindow = window.open('', '_blank', 'width=300,height=600');
+    if (!receiptWindow) {
+      errorToast('Unable to open print window. Please allow popups for this site.');
+      return;
+    }
+    
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt</title>
+        <style>
+          body {
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            margin: 0;
+            padding: 10px;
+            width: 280px;
+          }
+          .center { text-align: center; }
+          .right { text-align: right; }
+          .bold { font-weight: bold; }
+          .line { border-bottom: 1px dashed #000; margin: 5px 0; }
+          .item-row { display: flex; justify-content: space-between; margin: 2px 0; }
+          .item-name { flex: 1; }
+          .item-price { text-align: right; }
+          .total-row { display: flex; justify-content: space-between; margin: 3px 0; }
+          .total-label { font-weight: bold; }
+          .total-amount { font-weight: bold; text-align: right; }
+          @media print {
+            body { width: auto; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="center bold">
+          <div>STORE RECEIPT</div>
+          <div>Point of Sale System</div>
+        </div>
+        <div class="line"></div>
+        
+        <div>Receipt #: ${completedSale.receiptNumber}</div>
+        <div>Date: ${new Date(completedSale.createdAt || Date.now()).toLocaleString()}</div>
+        ${selectedCustomer ? `<div>Customer: ${selectedCustomer.firstName} ${selectedCustomer.lastName}</div>` : '<div>Customer: Walk-in</div>'}
+        <div>Cashier: ${currentUser?.firstName || 'N/A'} ${currentUser?.lastName || ''}</div>
+        
+        <div class="line"></div>
+        
+        <div class="bold">ITEMS:</div>
+        ${completedSale.items?.map((item: any) => `
+          <div class="item-row">
+            <div class="item-name">${item.product?.name || 'Unknown Item'}</div>
+          </div>
+          <div class="item-row">
+            <div>${item.quantity} x ${formatCurrency(item.unitPrice)}</div>
+            <div class="item-price">${formatCurrency(item.quantity * item.unitPrice)}</div>
+          </div>
+        `).join('') || ''}
+        
+        <div class="line"></div>
+        
+        <div class="total-row">
+          <div>Subtotal:</div>
+          <div class="right">${formatCurrency(completedSale.subtotal)}</div>
+        </div>
+        
+        ${completedSale.discountAmount > 0 ? `
+          <div class="total-row">
+            <div>Discount:</div>
+            <div class="right">-${formatCurrency(completedSale.discountAmount)}</div>
+          </div>
+        ` : ''}
+        
+        <div class="total-row">
+          <div>Tax (${(TAX_RATE * 100).toFixed(0)}%):</div>
+          <div class="right">${formatCurrency(completedSale.taxAmount)}</div>
+        </div>
+        
+        <div class="line"></div>
+        
+        <div class="total-row bold">
+          <div class="total-label">TOTAL:</div>
+          <div class="total-amount">${formatCurrency(completedSale.totalAmount)}</div>
+        </div>
+        
+        <div class="total-row">
+          <div>Payment (${paymentMethod === 'cash' ? 'Cash' : 'Mobile Money'}):</div>
+          <div class="right">${formatCurrency(completedSale.amountPaid)}</div>
+        </div>
+        
+        ${paymentMethod === 'cash' && change > 0 ? `
+          <div class="total-row">
+            <div>Change:</div>
+            <div class="right">${formatCurrency(change)}</div>
+          </div>
+        ` : ''}
+        
+        <div class="line"></div>
+        
+        <div class="center">
+          <div>Thank you for your business!</div>
+          <div>Please come again</div>
+        </div>
+        
+        <div class="center no-print" style="margin-top: 20px;">
+          <button onclick="window.print()" style="padding: 10px 20px; font-size: 14px;">Print Receipt</button>
+          <button onclick="window.close()" style="padding: 10px 20px; font-size: 14px; margin-left: 10px;">Close</button>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    receiptWindow.document.write(receiptHTML);
+    receiptWindow.document.close();
+    
+    // Auto-focus the print window
+    receiptWindow.focus();
+    
+    // Optional: Auto-print after a short delay
+    setTimeout(() => {
+      receiptWindow.print();
+    }, 500);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -455,7 +585,7 @@ export default function POSPage() {
             </Chip>
           )}
           <Button
-            color="secondary"
+            color="primary"
             variant="ghost"
             startContent={<User className="w-4 h-4" />}
             onClick={openCustomerModal}
@@ -469,8 +599,7 @@ export default function POSPage() {
         {/* Product Selection Area */}
         <div className="lg:col-span-2 space-y-4">
           {/* Search */}
-          <Card>
-            <CardBody className="p-4">
+        
               <Input
                 placeholder="Search products by name, SKU, or barcode..."
                 value={searchQuery}
@@ -479,22 +608,33 @@ export default function POSPage() {
                 variant="bordered"
                 size="lg"
               />
-            </CardBody>
-          </Card>
+          
           
           {/* Products Grid */}
-          <Card>
-            <CardBody className="p-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-96 overflow-y-auto">
+         
+              <div style={{ 
+                scrollBehavior: 'smooth',
+                scrollbarWidth: 'thin',
+                scrollbarColor: ' transparent',
+                scrollbarGutter: 'stable',
+               }} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 h-[66vh] overflow-y-auto">
                 {filteredProducts.map((product) => (
                   <div
                     key={getProductId(product)}
-                    className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                    className="p-3 border border-black/20 dark:border-white/20 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-[oklch(0.21_0.006_285.885)] transition-colors"
                     onClick={() => addToCart(product)}
                   >
                     <div className="text-center">
-                      <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center mx-auto mb-2">
-                        <Tag className="w-6 h-6 text-gray-400" />
+                      <div className="w-20 h-20 bg-gray-100 customed-dark-card rounded-lg flex items-center justify-center mx-auto mb-2 overflow-hidden">
+                        {product.images && product.images.length > 0 ? (
+                          <img 
+                            src={product.images[0]} 
+                            alt={product.name}
+                            className="h-20 w-20  rounded-lg"
+                          />
+                        ) : (
+                          <Tag className="w-6 h-6 text-gray-400" />
+                        )}
                       </div>
                       <h3 className="font-medium text-sm text-gray-900 dark:text-white mb-1 line-clamp-2">
                         {product.name}
@@ -515,14 +655,13 @@ export default function POSPage() {
                   <p>No products found</p>
                 </div>
               )}
-            </CardBody>
-          </Card>
+           
         </div>
 
         {/* Cart and Payment Area */}
         <div className="space-y-4">
           {/* Cart */}
-          <Card>
+          <Card className="customed-dark-card">
             <CardBody className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center">
@@ -542,9 +681,14 @@ export default function POSPage() {
                 )}
               </div>
               
-              <div className="space-y-3 max-h-64 overflow-y-auto">
+              <div style={{ 
+                scrollBehavior: 'smooth',
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'gray transparent',
+                scrollbarGutter: 'stable',
+               }} className="space-y-3 max-h-64 overflow-y-auto">
                 {cart.items.map((item) => (
-                  <div key={item.productId} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div key={item.productId} className="flex items-center justify-between p-2  rounded-lg border border-black/20 dark:border-white/20">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
                         {item.product.name}
@@ -600,8 +744,8 @@ export default function POSPage() {
 
           {/* Cart Summary */}
           {cart.items.length > 0 && (
-            <Card>
-              <CardBody className="p-4">
+            <Card className="customed-dark-card">
+              <CardBody className="p-2">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Order Summary</h3>
                 
                 {/* Discount Input */}
@@ -612,6 +756,10 @@ export default function POSPage() {
                       selectedKeys={[discountType]}
                       onSelectionChange={(keys) => setDiscountType(Array.from(keys)[0] as 'percentage' | 'fixed')}
                       className="w-24"
+                      classNames={{
+                        trigger: ' border border-black/20 dark:border-white/20',
+                        popoverContent: 'bg-gray-50 dark:bg-gray-800 border border-black/20 dark:border-white/20',
+                      }}
                     >
                       <SelectItem key="percentage">%</SelectItem>
                       <SelectItem key="fixed">{CURRENCY}</SelectItem>
@@ -623,6 +771,9 @@ export default function POSPage() {
                       value={discountValue.toString()}
                       onValueChange={(value) => setDiscountValue(parseFloat(value) || 0)}
                       startContent={<Percent className="w-4 h-4" />}
+                      classNames={{
+                        inputWrapper: ' border border-black/20 dark:border-white/20',
+                      }}
                     />
                   </div>
                 </div>
@@ -655,7 +806,7 @@ export default function POSPage() {
                 
                 <Button
                   color="primary"
-                  size="lg"
+                  size="md"
                   className="w-full mt-4"
                   onClick={openPaymentModal}
                   startContent={<CreditCard className="w-4 h-4" />}
@@ -669,13 +820,15 @@ export default function POSPage() {
       </div>
 
       {/* Customer Selection Modal */}
-      <Modal isOpen={isCustomerModalOpen} onOpenChange={onCustomerModalChange} size="2xl">
+      <Modal className='customed-dark-card' backdrop="blur" isOpen={isCustomerModalOpen} onOpenChange={onCustomerModalChange} size="2xl">
         <ModalContent>
           {(onClose) => (
             <>
               <ModalHeader>Select Customer</ModalHeader>
               <ModalBody>
-                <Tabs>
+                <Tabs classNames={{ 
+                  tabList: 'customed-dark-card',
+                 }}>
                   <Tab key="existing" title="Existing Customers">
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                       <div
@@ -716,8 +869,8 @@ export default function POSPage() {
                   </Tab>
                   
                   <Tab key="new" title="New Customer">
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-4 flex flex-col gap-2">
+                      <div className="grid grid-cols-2  gap-4">
                         <CustomInput
                           label="First Name"
                           placeholder="Enter first name"
@@ -766,15 +919,15 @@ export default function POSPage() {
       </Modal>
 
       {/* Payment Modal */}
-      <Modal isOpen={isPaymentModalOpen} onOpenChange={onPaymentModalChange} size="lg">
+      <Modal className='customed-dark-card' backdrop="blur" isOpen={isPaymentModalOpen} onOpenChange={onPaymentModalChange} size="lg">
         <ModalContent>
           {(onClose) => (
             <>
               <ModalHeader>Process Payment</ModalHeader>
               <ModalBody>
-                <div className="space-y-4">
+                <div className="flex flex-col gap-4">
                   {/* Order Summary */}
-                  <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="p-4 customed-dark-card rounded-lg">
                     <h4 className="font-medium mb-2">Order Summary</h4>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
@@ -799,7 +952,7 @@ export default function POSPage() {
                   </div>
                   
                   {/* Payment Method */}
-                  <div>
+                  <div className='mt-2'>
                     <label className="block text-sm font-medium mb-2">Payment Method</label>
                     <div className="grid grid-cols-2 gap-2">
                       <Button
@@ -811,20 +964,21 @@ export default function POSPage() {
                         Cash
                       </Button>
                       <Button
-                        variant={paymentMethod === 'card' ? 'solid' : 'bordered'}
-                        color={paymentMethod === 'card' ? 'primary' : 'default'}
-                        onClick={() => setPaymentMethod('card')}
-                        startContent={<CreditCard className="w-4 h-4" />}
+                        variant={paymentMethod === 'mobile_money' ? 'solid' : 'bordered'}
+                        color={paymentMethod === 'mobile_money' ? 'primary' : 'default'}
+                        onClick={() => setPaymentMethod('mobile_money')}
+                        startContent={<Smartphone className="w-4 h-4" />}
                       >
-                        Card
+                        Mobile Money
                       </Button>
                     </div>
                   </div>
                   
                   {/* Cash Payment Details */}
                   {paymentMethod === 'cash' && (
-                    <div className="space-y-3">
+                    <div className="space-y-3 !mt-2">
                       <CustomInput
+                      
                         label="Amount Received"
                         type="number"
                         placeholder="0.00"
@@ -832,6 +986,7 @@ export default function POSPage() {
                         onChange={(value) => setAmountReceived(parseFloat(value) || 0)}
                         min="0"
                         step="0.01"
+                        
                       />
                       
                       {change > 0 && (
@@ -890,7 +1045,7 @@ export default function POSPage() {
       </Modal>
 
       {/* Receipt Modal */}
-      <Modal isOpen={isReceiptModalOpen} onOpenChange={onReceiptModalChange} size="md">
+      <Modal className='customed-dark-card' backdrop="blur" isOpen={isReceiptModalOpen} onOpenChange={onReceiptModalChange} size="md" isDismissable={false}>
         <ModalContent>
           {(onClose) => (
             <>
@@ -911,7 +1066,7 @@ export default function POSPage() {
                   </div>
                   
                   {completedSale && (
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="p-4 customed-dark-card rounded-lg">
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span>Receipt #:</span>
@@ -929,7 +1084,7 @@ export default function POSPage() {
                         )}
                         <div className="flex justify-between">
                           <span>Payment Method:</span>
-                          <span className="font-medium capitalize">{paymentMethod}</span>
+                          <span className="font-medium capitalize">{paymentMethod === 'mobile_money' ? 'Mobile Money' : paymentMethod}</span>
                         </div>
                         {selectedCustomer && (
                           <div className="flex justify-between">
@@ -944,11 +1099,8 @@ export default function POSPage() {
               </ModalBody>
               <ModalFooter>
                 <Button
-                  variant="ghost"
-                  onClick={() => {
-                    onClose();
-                    clearCart();
-                  }}
+                  color="secondary"
+                  onClick={printReceipt}
                   startContent={<Receipt className="w-4 h-4" />}
                 >
                   Print Receipt

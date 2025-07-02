@@ -20,3 +20,17 @@
 html{
   scroll-behavior: smooth;
 }
+
+/* custom global css */
+.customed-dark-bg{
+  @apply bg-gray-50 dark:bg-black;
+}
+
+.customed-dark-card{
+  @apply bg-white dark:bg-[oklch(0.21_0.006_285.885)] border border-black/20 dark:border-white/20;
+}
+
+.isActive{
+  @apply bg-gray-100 dark:bg-gray-700;
+}
+

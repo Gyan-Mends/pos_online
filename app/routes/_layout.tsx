@@ -222,7 +222,7 @@ export default function Layout() {
       const userData = localStorage.getItem('user');
 
       if (!userData) {
-        navigate('/login');
+        navigate('/');
         return;
       }
 
@@ -236,7 +236,7 @@ export default function Layout() {
       } catch (error) {
         console.error('Auth check error:', error);
         localStorage.removeItem('user');
-        navigate('/login');
+        navigate('/');
       } finally {
         setIsAuthenticating(false);
       }
@@ -356,8 +356,8 @@ export default function Layout() {
       
       successToast('Logged out successfully');
       
-      // Redirect to login
-      navigate('/login');
+      // Redirect to home
+      navigate('/');
     } catch (error) {
       console.error('Logout error:', error);
       errorToast('Error during logout');
@@ -382,7 +382,13 @@ export default function Layout() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <div style={{
+      scrollBehavior: 'smooth',
+      overflowY: 'scroll',
+      scrollbarWidth: 'thin',
+      scrollbarColor: 'transparent transparent',
+      scrollbarGutter: 'stable',
+    }} className="flex h-screen dark:customed-dark-bg">
       <Toaster position="top-right" />
       {/* Sidebar */}
       <div style={{  
@@ -392,9 +398,9 @@ export default function Layout() {
         scrollbarColor: 'transparent transparent',
         scrollbarGutter: 'stable',
       }}
-       className={`${sidebarCollapsed ? "w-16 flex items-center justify-center  flex-col" : "w-64"} bg-white dark:bg-gray-800 shadow-lg transition-all duration-300 ease-in-out flex flex-col`}>
+       className={`${sidebarCollapsed ? "w-16 flex items-center justify-center  flex-col" : "w-64"} customed-dark-card shadow-lg transition-all duration-300 ease-in-out flex flex-col`}>
         {/* Header */}
-        <div className=" flex items-center px-3 !py-5 border-b border-gray-200 dark:border-gray-700">
+        <div className=" flex items-center px-3 !py-5 border-b border-white/20 dark:border-gray-700">
           {!sidebarCollapsed && (
             <div className="flex items-center space-x-2">
               
@@ -420,13 +426,13 @@ export default function Layout() {
 
                 if (item.submenu && !sidebarCollapsed) {
                   return (
-                    <div className="flex flex-col items-center justify-center gap-2"  key={item.name}>
+                    <div className="flex flex-col items-center justify-center gap-2 mt-2"  key={item.name}>
                       {/* Main Item */}
                       <Button
                         variant="light"
                         className={`w-full  h-9 px-3 ${
                           isActive 
-                            ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" 
+                            ? "isActive" 
                             : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                         }`}
                         startContent={<IconComponent className="w-5 h-5" />}
@@ -449,7 +455,7 @@ export default function Layout() {
                               variant="light"
                               className={`w-full justify-start h-8 px-3 text-sm ${
                                 isSubmenuItemActive(subItem.href)
-                                  ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                                  ? "isActive"
                                   : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                               }`}
                               onClick={() => navigate(subItem.href)}
@@ -475,7 +481,7 @@ export default function Layout() {
                       variant="light"
                       className={`w-full ${sidebarCollapsed ? "justify-center h-9 px-2" : "justify-start h-9 px-3"} ${
                         isActive 
-                          ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300" 
+                          ? "isActive" 
                           : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
                       }`}
                       startContent={!sidebarCollapsed ? <IconComponent className="w-5 h-5" /> : undefined}
@@ -521,7 +527,7 @@ export default function Layout() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <header className="shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center space-x-4">
               <Button
@@ -650,7 +656,7 @@ export default function Layout() {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-auto bg-gray-50 dark:bg-gray-900 p-6">
+        <main className="flex-1 overflow-auto  p-6">
           <Outlet />
         </main>
       </div>
