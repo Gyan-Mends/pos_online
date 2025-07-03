@@ -415,4 +415,114 @@ export interface StockMovementFormData {
   reference?: string;
   notes?: string;
   userId: string;
+}
+
+// Supplier Types
+export interface Supplier {
+  _id: string;
+  id: string; // For compatibility
+  name: string;
+  code: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  address?: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
+  paymentTerms: 'net_15' | 'net_30' | 'net_45' | 'net_60' | 'cod' | 'prepaid';
+  taxId?: string;
+  bankDetails?: {
+    bankName: string;
+    accountNumber: string;
+    routingNumber: string;
+    swiftCode: string;
+  };
+  notes?: string;
+  isActive: boolean;
+  rating: number;
+  totalOrders: number;
+  totalSpent: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Purchase Order Types
+export interface PurchaseOrderItem {
+  id?: string;
+  productId: string;
+  product?: Product;
+  orderedQuantity: number;
+  receivedQuantity: number;
+  unitCost: number;
+  totalCost: number;
+  notes?: string;
+}
+
+export interface PurchaseOrder {
+  _id: string;
+  id: string; // For compatibility
+  orderNumber: string;
+  supplierId: string;
+  supplier?: Supplier;
+  orderDate: string;
+  expectedDeliveryDate?: string;
+  actualDeliveryDate?: string;
+  status: 'draft' | 'sent' | 'confirmed' | 'partial_received' | 'fully_received' | 'cancelled';
+  items: PurchaseOrderItem[];
+  subtotal: number;
+  taxAmount: number;
+  shippingCost: number;
+  discountAmount: number;
+  totalAmount: number;
+  currency: string;
+  paymentTerms: 'net_15' | 'net_30' | 'net_45' | 'net_60' | 'cod' | 'prepaid';
+  createdBy: string;
+  creator?: User;
+  receivedBy?: string;
+  receiver?: User;
+  notes?: string;
+  internalNotes?: string;
+  receivingNotes?: string;
+  attachments?: {
+    filename: string;
+    url: string;
+    uploadedAt: string;
+  }[];
+  isFullyReceived?: boolean;
+  isPartiallyReceived?: boolean;
+  totalItemsReceived?: number;
+  totalItemsOrdered?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseOrderFormData {
+  supplierId: string;
+  expectedDeliveryDate?: string;
+  items: {
+    productId: string;
+    orderedQuantity: number;
+    unitCost: number;
+  }[];
+  taxAmount?: number;
+  shippingCost?: number;
+  discountAmount?: number;
+  paymentTerms?: 'net_15' | 'net_30' | 'net_45' | 'net_60' | 'cod' | 'prepaid';
+  notes?: string;
+  internalNotes?: string;
+}
+
+export interface ReceivingData {
+  purchaseOrderId: string;
+  items: {
+    productId: string;
+    receivedQuantity: number;
+    notes?: string;
+  }[];
+  actualDeliveryDate?: string;
+  receivingNotes?: string;
 } 

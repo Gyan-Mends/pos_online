@@ -14,8 +14,8 @@ if (mongoose.models.Product) {
   delete mongoose.models.Product;
 }
 
-// Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/pos_v2');
+// Connect to MongoDB - UPDATED TO USE CORRECT DATABASE
+mongoose.connect('mongodb://localhost:27017/pos');
 
 // Define schemas (minimal versions for seeding)
 const userSchema = new mongoose.Schema({
@@ -32,8 +32,13 @@ const customerSchema = new mongoose.Schema({
   lastName: String,
   email: String,
   phone: String,
-  address: String,
-  city: String,
+  address: {
+    street: String,
+    city: String,
+    state: String,
+    zipCode: String,
+    country: String
+  },
   totalPurchases: { type: Number, default: 0 },
   totalSpent: { type: Number, default: 0 },
   loyaltyPoints: { type: Number, default: 0 },
@@ -139,8 +144,8 @@ async function seedSales() {
       // Random seller
       const seller = users[Math.floor(Math.random() * users.length)];
       
-      // Random customer (70% chance of having a customer, 30% walk-in)
-      const customer = Math.random() > 0.3 && customers.length > 0 
+      // Random customer (90% chance of having a customer, 10% walk-in) - INCREASED FOR MORE PURCHASE HISTORY
+      const customer = Math.random() > 0.1 && customers.length > 0 
         ? customers[Math.floor(Math.random() * customers.length)]
         : null;
 

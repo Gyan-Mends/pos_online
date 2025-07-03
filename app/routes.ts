@@ -9,9 +9,12 @@ export default [
         route("/products", "routes/products/index.tsx"),
         route("/products/:id", "routes/products/view.tsx"),
         route("/categories", "routes/categories/index.tsx"),
-        route("/inventory", "routes/inventory/index.tsx"),
         route("/inventory/movements", "routes/inventory/movements.tsx"),
         route("/inventory/adjustments", "routes/inventory/adjustments.tsx"),
+        
+        // Purchase Orders & Procurement
+        route("/purchase-orders", "routes/purchase-orders/index.tsx"),
+        route("/suppliers", "routes/suppliers/index.tsx"),
         
         // Sales & POS
         route("/sales", "routes/sales/index.tsx"),
@@ -21,6 +24,7 @@ export default [
         
         // Customer Management
         route("/customers", "routes/customers/index.tsx"),
+        route("/customers/history", "routes/customers/purchase-history.tsx"),
         route("/customers/:id", "routes/customers/view.tsx"),
         route("/customers/:id/history", "routes/customers/history.tsx"),
         
@@ -61,6 +65,10 @@ export default [
     route("/api/stock-movements/*", "routes/api/stock-movements.tsx"),
     route("/api/sales/*", "routes/api/sales.tsx"),
     route("/api/customers/*", "routes/api/customers.tsx"),
+    route("/api/purchase-orders/*", "routes/api/purchase-orders.tsx"),
+    route("/api/suppliers/*", "routes/api/suppliers.tsx"),
+    route("/api/cart/*", "routes/api/cart.tsx"),
+    route("/api/wishlist/*", "routes/api/wishlist.tsx"),
     
     // Auth Route
     route("/", "routes/login.tsx")

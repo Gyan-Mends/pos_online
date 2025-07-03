@@ -224,6 +224,47 @@ export const stockMovementsAPI = {
   delete: (id: string) => apiRequest.delete(`/api/stock-movements/${id}`),
 };
 
+// Suppliers API
+export const suppliersAPI = {
+  getAll: (params?: { page?: number; limit?: number; search?: string; active?: boolean }) =>
+    apiRequest.get('/api/suppliers', params),
+  
+  getById: (id: string) => apiRequest.get(`/api/suppliers/${id}`),
+  
+  create: (supplierData: any) => apiRequest.post('/api/suppliers', supplierData),
+  
+  update: (id: string, supplierData: any) => apiRequest.put(`/api/suppliers/${id}`, supplierData),
+  
+  delete: (id: string) => apiRequest.delete(`/api/suppliers/${id}`),
+};
+
+// Purchase Orders API - AUTOMATED STOCK RECEIVING SYSTEM
+export const purchaseOrdersAPI = {
+  getAll: (params?: { page?: number; limit?: number; search?: string; status?: string; supplierId?: string }) =>
+    apiRequest.get('/api/purchase-orders', params),
+  
+  getById: (id: string) => apiRequest.get(`/api/purchase-orders/${id}`),
+  
+  create: (orderData: any) => apiRequest.post('/api/purchase-orders', orderData),
+  
+  update: (id: string, orderData: any) => apiRequest.put(`/api/purchase-orders/${id}`, orderData),
+  
+  delete: (id: string) => apiRequest.delete(`/api/purchase-orders/${id}`),
+  
+  // 🚀 AUTOMATED STOCK RECEIVING - THE KEY FUNCTION!
+  receive: (id: string, receivingData: any) => 
+    apiRequest.post(`/api/purchase-orders/${id}/receive`, receivingData),
+  
+  // Send to supplier (change status to 'sent')
+  send: (id: string) => apiRequest.put(`/api/purchase-orders/${id}`, { status: 'sent' }),
+  
+  // Confirm order (change status to 'confirmed') 
+  confirm: (id: string) => apiRequest.put(`/api/purchase-orders/${id}`, { status: 'confirmed' }),
+  
+  // Cancel order (change status to 'cancelled')
+  cancel: (id: string) => apiRequest.put(`/api/purchase-orders/${id}`, { status: 'cancelled' }),
+};
+
 // Dashboard API
 export const dashboardAPI = {
   getStats: () => apiRequest.get('/dashboard/stats'),

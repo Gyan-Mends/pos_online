@@ -1,12 +1,79 @@
 import { data } from 'react-router';
 import mongoose from 'mongoose';
 import Customer from '../../models/Customer';
+import Sale from '../../models/Sale';
 import '../../mongoose.server';
 
 // GET /api/customers - Get all customers
+// GET /api/customers/{id}/purchases - Get customer purchase history
 export async function loader({ request }: { request: Request }) {
   try {
     const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    
+    // Check if this is a purchase history request: /api/customers/{id}/purchases
+    if (pathParts.length === 5 && pathParts[4] === 'purchases') {
+      const customerId = pathParts[3];
+      
+      if (!mongoose.Types.ObjectId.isValid(customerId)) {
+        return data(
+          {
+            success: false,
+            message: 'Invalid customer ID'
+          },
+          { status: 400 }
+        );
+      }
+      
+      // Get customer purchase history
+      const sales = await Sale.find({ 
+        customerId: customerId,
+        status: { $in: ['completed', 'refunded', 'partially_refunded'] }
+      })
+        .populate('items.product', 'name sku price')
+        .sort({ saleDate: -1 })
+        .limit(100);
+      
+      return data({
+        success: true,
+        data: sales
+      });
+    }
+
+    // Check if this is a single customer request: /api/customers/{id}
+    if (pathParts.length === 4 && pathParts[3] && pathParts[3] !== 'undefined') {
+      const customerId = pathParts[3];
+      
+      if (!mongoose.Types.ObjectId.isValid(customerId)) {
+        return data(
+          {
+            success: false,
+            message: 'Invalid customer ID'
+          },
+          { status: 400 }
+        );
+      }
+      
+      // Get single customer
+      const customer = await Customer.findById(customerId);
+      
+      if (!customer || !customer.isActive) {
+        return data(
+          {
+            success: false,
+            message: 'Customer not found'
+          },
+          { status: 404 }
+        );
+      }
+      
+      return data({
+        success: true,
+        data: customer
+      });
+    }
+    
+    // Regular customers list
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = parseInt(url.searchParams.get('limit') || '20');
     const search = url.searchParams.get('search') || '';
