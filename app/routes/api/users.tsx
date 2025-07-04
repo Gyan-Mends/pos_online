@@ -135,6 +135,45 @@ export async function action({ request }: ActionFunctionArgs) {
 
         const updateData = await request.json();
         
+        // Handle password change separately
+        if (updateData.changePassword) {
+          const { currentPassword, newPassword } = updateData;
+          
+          if (!currentPassword || !newPassword) {
+            return data(
+              { success: false, error: 'Current password and new password are required' },
+              { status: 400 }
+            );
+          }
+          
+          // Find user with password to verify current password
+          const user = await User.findById(userId);
+          if (!user) {
+            return data(
+              { success: false, error: 'User not found' },
+              { status: 404 }
+            );
+          }
+          
+          // Verify current password
+          const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+          if (!isCurrentPasswordValid) {
+            return data(
+              { success: false, error: 'Current password is incorrect' },
+              { status: 400 }
+            );
+          }
+          
+          // Update password
+          user.password = newPassword;
+          await user.save();
+          
+          return data({
+            success: true,
+            message: 'Password changed successfully'
+          });
+        }
+        
         // Remove password from update data if it's empty
         if (!updateData.password) {
           delete updateData.password;
@@ -156,7 +195,7 @@ export async function action({ request }: ActionFunctionArgs) {
         return data({
           success: true,
           data: updatedUser,
-          message: 'User updated successfully'
+          message: 'Profile updated successfully'
         });
       }
 

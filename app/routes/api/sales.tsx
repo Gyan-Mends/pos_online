@@ -19,6 +19,10 @@ export async function loader({ request }: { request: Request }) {
     const status = url.searchParams.get('status');
     const source = url.searchParams.get('source');
     
+    // Get current user from headers for role-based filtering
+    const currentUserId = request.headers.get('x-user-id');
+    const currentUserRole = request.headers.get('x-user-role');
+    
     // Check if this is a request for a specific sale by ID
     const pathParts = url.pathname.split('/');
     const saleId = pathParts[pathParts.length - 1];
@@ -38,6 +42,17 @@ export async function loader({ request }: { request: Request }) {
             message: 'Sale not found'
           },
           { status: 404 }
+        );
+      }
+      
+      // Role-based access control for specific sale
+      if (currentUserRole === 'cashier' && currentUserId && sale.sellerId?.toString() !== currentUserId) {
+        return data(
+          {
+            success: false,
+            message: 'Access denied: You can only view your own sales'
+          },
+          { status: 403 }
         );
       }
       
@@ -71,6 +86,11 @@ export async function loader({ request }: { request: Request }) {
     if (sellerId) query.sellerId = sellerId;
     if (status) query.status = status;
     if (source) query.source = source;
+    
+    // Role-based filtering: Cashiers can only see their own sales
+    if (currentUserRole === 'cashier' && currentUserId) {
+      query.sellerId = currentUserId;
+    }
     
     // Get total count for pagination
     const total = await Sale.countDocuments(query);

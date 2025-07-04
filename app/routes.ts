@@ -63,6 +63,7 @@ export default [
         route("/logs", "routes/logs/index.tsx")
     ]),
     // API Routes
+    route("/api/dashboard", "routes/api/dashboard.tsx"),
     route("/api/login", "routes/api/login.tsx"),
     route("/api/users/*", "routes/api/users.tsx"),
     route("/api/products/*", "routes/api/products.tsx"),
@@ -76,6 +77,7 @@ export default [
     route("/api/wishlist/*", "routes/api/wishlist.tsx"),
     route("/api/paystack/*", "routes/api/paystack.tsx"),
     route("/api/orders/*", "routes/api/orders.tsx"),
+    route("/api/audit/*", "routes/api/audit.tsx"),
     
     // Auth Route
     route("/", "routes/login.tsx")

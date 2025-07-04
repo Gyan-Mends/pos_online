@@ -5,7 +5,7 @@ export interface User {
   lastName: string;
   email: string;
   phone?: string;
-  role: 'admin' | 'seller' | 'manager' | 'cashier' | 'inventory';
+  role: 'admin' | 'cashier';
   avatar?: string;
   isActive: boolean;
   permissions: string[];
@@ -317,7 +317,7 @@ export interface UserFormData {
   email: string;
   phone?: string;
   password?: string;
-  role: 'admin' | 'seller' | 'manager' | 'cashier' | 'inventory';
+  role: 'admin' | 'cashier';
   permissions: string[];
   isActive: boolean;
 }

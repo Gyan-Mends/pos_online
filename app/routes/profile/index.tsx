@@ -1,484 +1,384 @@
-import { useState } from 'react';
-import { 
-  Card, 
-  CardBody, 
-  Button, 
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Button,
+  Avatar,
+  Input,
+  Divider,
   Badge,
   Chip,
-  Avatar,
-  Divider,
-  Tabs,
-  Tab
-} from '@heroui/react';
-import { 
-  Edit, 
-  Shield, 
-  ShieldCheck, 
-  Clock, 
-  Mail,
-  Phone,
-  Calendar,
-  Crown,
-  User as UserIcon,
-  Key,
-  Settings,
-  Bell
-} from 'lucide-react';
-import CustomInput from '../../components/CustomInput';
+  Spinner,
+  Switch
+} from "@heroui/react";
 import { successToast, errorToast } from '../../components/toast';
-
-// Mock current user data
-const currentUser = {
-  id: '1',
-  firstName: 'John',
-  lastName: 'Admin',
-  email: 'admin@pos.com',
-  phone: '+1-555-0101',
-  role: 'admin' as const,
-  permissions: ['pos', 'products', 'inventory', 'customers', 'reports', 'users', 'settings'],
-  isActive: true,
-  createdAt: '2024-01-01T10:30:00Z',
-  updatedAt: '2024-01-15T09:15:00Z',
-  lastLogin: '2024-01-15T14:22:00Z'
-};
-
-const USER_ROLES = [
-  { value: 'admin', label: 'Administrator', color: 'danger' as const, icon: Crown },
-  { value: 'manager', label: 'Manager', color: 'warning' as const, icon: ShieldCheck },
-  { value: 'cashier', label: 'Cashier', color: 'primary' as const, icon: UserIcon },
-  { value: 'inventory', label: 'Inventory Clerk', color: 'secondary' as const, icon: Shield }
-];
+import { profileAPI } from '../../utils/api';
+import type { User } from '../../types';
 
 export default function ProfilePage() {
-  const [activeTab, setActiveTab] = useState('profile');
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: currentUser.firstName,
-    lastName: currentUser.lastName,
-    email: currentUser.email,
-    phone: currentUser.phone || '',
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-
-  const [preferences, setPreferences] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    bio: '',
+    department: '',
+    address: '',
+    city: '',
+    country: '',
     emailNotifications: true,
-    pushNotifications: false,
-    soundEnabled: true,
-    language: 'en',
-    timezone: 'UTC-5'
+    smsNotifications: false
   });
 
-  const getRoleInfo = (role: string) => {
-    return USER_ROLES.find(r => r.value === role) || USER_ROLES[2];
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      const userData = profileAPI.getProfile();
+      if (userData) {
+        setUser(userData);
+        setFormData({
+          firstName: userData.firstName || '',
+          lastName: userData.lastName || '',
+          email: userData.email || '',
+          phone: userData.phone || '',
+          bio: userData.bio || '',
+          department: userData.department || '',
+          address: userData.address || '',
+          city: userData.city || '',
+          country: userData.country || '',
+          emailNotifications: userData.emailNotifications !== false,
+          smsNotifications: userData.smsNotifications === true
+        });
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      errorToast('Failed to load profile');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveProfile = async () => {
+  const handleInputChange = (field: string, value: string | boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    setSaving(true);
     try {
-      // API call to update profile
-      successToast('Profile updated successfully');
+      const response = await profileAPI.updateProfile(formData);
+      
+      if (response.data) {
+        setUser(response.data);
+      }
       setIsEditing(false);
-    } catch (error) {
-      errorToast('Failed to update profile');
+      successToast('Profile updated successfully');
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      errorToast(error.message || 'Failed to update profile');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleChangePassword = async () => {
-    if (!formData.currentPassword || !formData.newPassword) {
-      errorToast('Please fill in all password fields');
-      return;
+  const handleCancel = () => {
+    if (user) {
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        bio: user.bio || '',
+        department: user.department || '',
+        address: user.address || '',
+        city: user.city || '',
+        country: user.country || '',
+        emailNotifications: user.emailNotifications !== false,
+        smsNotifications: user.smsNotifications === true
+      });
     }
+    setIsEditing(false);
+  };
 
-    if (formData.newPassword !== formData.confirmPassword) {
-      errorToast('New passwords do not match');
-      return;
-    }
-
-    try {
-      // API call to change password
-      successToast('Password changed successfully');
-      setFormData(prev => ({
-        ...prev,
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      }));
-    } catch (error) {
-      errorToast('Failed to change password');
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'danger';
+      case 'manager':
+        return 'warning';
+      case 'cashier':
+        return 'primary';
+      default:
+        return 'default';
     }
   };
 
-  const handleSavePreferences = async () => {
-    try {
-      // API call to save preferences
-      successToast('Preferences saved successfully');
-    } catch (error) {
-      errorToast('Failed to save preferences');
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'Administrator';
+      case 'manager':
+        return 'Manager';
+      case 'cashier':
+        return 'Cashier';
+      default:
+        return role;
     }
   };
 
-  const roleInfo = getRoleInfo(currentUser.role);
-  const RoleIcon = roleInfo.icon;
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-96">
+        <Spinner size="lg" color="primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-96">
+        <p className="text-gray-500 mb-4">User not found</p>
+        <Button color="primary" onClick={() => navigate('/dashboard')}>
+          Go to Dashboard
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profile</h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Manage your account settings and preferences
-        </p>
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <svg className="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Profile</h1>
+            <p className="text-gray-600 dark:text-gray-400">Manage your personal information and account settings</p>
+          </div>
+        </div>
+        <div className="flex space-x-2">
+          <Button
+            color="primary"
+            variant="flat"
+            startContent={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            }
+            onClick={() => navigate('/profile/security')}
+          >
+            Security
+          </Button>
+          {!isEditing && (
+            <Button
+              color="primary"
+              startContent={
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              }
+              onClick={() => setIsEditing(true)}
+            >
+              Edit Profile
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
-        <div className="lg:col-span-1">
-          <Card>
-            <CardBody className="p-6">
-              <div className="text-center">
-                <Avatar
-                  name={`${currentUser.firstName} ${currentUser.lastName}`}
-                  size="lg"
-                  className="mx-auto mb-4"
-                />
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {currentUser.firstName} {currentUser.lastName}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  {currentUser.email}
-                </p>
-                
-                <div className="flex justify-center mb-4">
+      {/* Profile Card */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center space-x-4">
+              <Avatar 
+                size="lg" 
+                src={user.avatar || '/default-avatar.png'}
+                name={`${user.firstName} ${user.lastName}`}
+                className="w-16 h-16"
+              />
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  {user.firstName} {user.lastName}
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">{user.email}</p>
+                <div className="flex items-center space-x-2 mt-1">
                   <Chip
-                    color={roleInfo.color}
+                    color={getRoleColor(user.role)}
+                    size="sm"
                     variant="flat"
-                    startContent={<RoleIcon className="w-4 h-4" />}
                   >
-                    {roleInfo.label}
+                    {getRoleLabel(user.role)}
                   </Chip>
-                </div>
-
-                <div className="flex justify-center mb-6">
-                  <Badge color="success">Active</Badge>
-                </div>
-
-                <Divider className="mb-4" />
-
-                {/* Account Stats */}
-                <div className="space-y-3 text-left">
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Joined {new Date(currentUser.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Clock className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Last login {new Date(currentUser.lastLogin).toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Shield className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {currentUser.permissions.length} permissions
-                    </span>
-                  </div>
+                  <Badge color="success" variant="flat" size="sm">
+                    Active
+                  </Badge>
                 </div>
               </div>
-            </CardBody>
-          </Card>
-        </div>
+            </div>
+            {isEditing && (
+              <div className="flex space-x-2">
+                <Button
+                  color="default"
+                  variant="flat"
+                  startContent={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  }
+                  onClick={handleCancel}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  color="primary"
+                  startContent={
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  }
+                  onClick={handleSave}
+                  isLoading={saving}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <Divider />
+        <CardBody className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Input
+              label="First Name"
+              value={formData.firstName}
+              onChange={(e) => handleInputChange('firstName', e.target.value)}
+              isReadOnly={!isEditing}
+              variant={isEditing ? "bordered" : "flat"}
+            />
+            <Input
+              label="Last Name"
+              value={formData.lastName}
+              onChange={(e) => handleInputChange('lastName', e.target.value)}
+              isReadOnly={!isEditing}
+              variant={isEditing ? "bordered" : "flat"}
+            />
+            <Input
+              label="Email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => handleInputChange('email', e.target.value)}
+              isReadOnly={!isEditing}
+              variant={isEditing ? "bordered" : "flat"}
+            />
+            <Input
+              label="Phone"
+              value={formData.phone}
+              onChange={(e) => handleInputChange('phone', e.target.value)}
+              isReadOnly={!isEditing}
+              variant={isEditing ? "bordered" : "flat"}
+            />
+            <Input
+              label="Department"
+              value={formData.department}
+              onChange={(e) => handleInputChange('department', e.target.value)}
+              isReadOnly={!isEditing}
+              variant={isEditing ? "bordered" : "flat"}
+            />
+            <Input
+              label="Address"
+              value={formData.address}
+              onChange={(e) => handleInputChange('address', e.target.value)}
+              isReadOnly={!isEditing}
+              variant={isEditing ? "bordered" : "flat"}
+            />
+            <Input
+              label="City"
+              value={formData.city}
+              onChange={(e) => handleInputChange('city', e.target.value)}
+              isReadOnly={!isEditing}
+              variant={isEditing ? "bordered" : "flat"}
+            />
+            <Input
+              label="Country"
+              value={formData.country}
+              onChange={(e) => handleInputChange('country', e.target.value)}
+              isReadOnly={!isEditing}
+              variant={isEditing ? "bordered" : "flat"}
+            />
+          </div>
+          
+          <div className="col-span-full">
+            <Input
+              label="Bio"
+              value={formData.bio}
+              onChange={(e) => handleInputChange('bio', e.target.value)}
+              isReadOnly={!isEditing}
+              variant={isEditing ? "bordered" : "flat"}
+              placeholder="Tell us about yourself..."
+            />
+          </div>
 
-        {/* Settings Panel */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardBody className="p-6">
-              <Tabs 
-                selectedKey={activeTab} 
-                onSelectionChange={(key) => setActiveTab(key as string)}
-              >
-                <Tab key="profile" title="Profile">
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Personal Information
-                      </h3>
-                      <Button
-                        variant="ghost"
-                        onClick={() => setIsEditing(!isEditing)}
-                        startContent={<Edit className="w-4 h-4" />}
-                      >
-                        {isEditing ? 'Cancel' : 'Edit'}
-                      </Button>
-                    </div>
+          {/* Notification Preferences */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold mb-4">Notification Preferences</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Email Notifications</p>
+                  <p className="text-sm text-gray-500">Receive notifications via email</p>
+                </div>
+                <Switch
+                  isSelected={formData.emailNotifications}
+                  onValueChange={(checked) => handleInputChange('emailNotifications', checked)}
+                  isDisabled={!isEditing}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">SMS Notifications</p>
+                  <p className="text-sm text-gray-500">Receive notifications via SMS</p>
+                </div>
+                <Switch
+                  isSelected={formData.smsNotifications}
+                  onValueChange={(checked) => handleInputChange('smsNotifications', checked)}
+                  isDisabled={!isEditing}
+                />
+              </div>
+            </div>
+          </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <CustomInput
-                        label="First Name"
-                        value={formData.firstName}
-                        onChange={(value) => setFormData(prev => ({ ...prev, firstName: value }))}
-                        disabled={!isEditing}
-                      />
-                      <CustomInput
-                        label="Last Name"
-                        value={formData.lastName}
-                        onChange={(value) => setFormData(prev => ({ ...prev, lastName: value }))}
-                        disabled={!isEditing}
-                      />
-                      <CustomInput
-                        label="Email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(value) => setFormData(prev => ({ ...prev, email: value }))}
-                        disabled={!isEditing}
-                      />
-                      <CustomInput
-                        label="Phone"
-                        value={formData.phone}
-                        onChange={(value) => setFormData(prev => ({ ...prev, phone: value }))}
-                        disabled={!isEditing}
-                      />
-                    </div>
-
-                    {isEditing && (
-                      <div className="flex justify-end space-x-4">
-                        <Button
-                          variant="ghost"
-                          onClick={() => setIsEditing(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          color="primary"
-                          onClick={handleSaveProfile}
-                        >
-                          Save Changes
-                        </Button>
-                      </div>
-                    )}
-
-                    <Divider />
-
-                    {/* Current Permissions */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        Current Permissions
-                      </h3>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {currentUser.permissions.map(permission => (
-                          <div
-                            key={permission}
-                            className="p-2 rounded-lg text-sm bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
-                          >
-                            <div className="flex items-center space-x-2">
-                              <div className="w-2 h-2 rounded-full bg-green-500" />
-                              <span className="capitalize">{permission}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </Tab>
-
-                <Tab key="security" title="Security">
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Change Password
-                    </h3>
-                    
-                    <div className="space-y-4">
-                      <CustomInput
-                        label="Current Password"
-                        type="password"
-                        value={formData.currentPassword}
-                        onChange={(value) => setFormData(prev => ({ ...prev, currentPassword: value }))}
-                        placeholder="Enter current password"
-                      />
-                      <CustomInput
-                        label="New Password"
-                        type="password"
-                        value={formData.newPassword}
-                        onChange={(value) => setFormData(prev => ({ ...prev, newPassword: value }))}
-                        placeholder="Enter new password"
-                      />
-                      <CustomInput
-                        label="Confirm New Password"
-                        type="password"
-                        value={formData.confirmPassword}
-                        onChange={(value) => setFormData(prev => ({ ...prev, confirmPassword: value }))}
-                        placeholder="Confirm new password"
-                      />
-                    </div>
-
-                    <div className="flex justify-end">
-                      <Button
-                        color="primary"
-                        onClick={handleChangePassword}
-                        startContent={<Key className="w-4 h-4" />}
-                      >
-                        Update Password
-                      </Button>
-                    </div>
-
-                    <Divider />
-
-                    {/* Security Information */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        Security Information
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                          <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            Account Status
-                          </label>
-                          <p className="text-gray-900 dark:text-white">
-                            <Badge color="success">Secure</Badge>
-                          </p>
-                        </div>
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                          <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            Two-Factor Authentication
-                          </label>
-                          <p className="text-gray-900 dark:text-white">
-                            <Badge color="default">Not Enabled</Badge>
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Tab>
-
-                <Tab key="preferences" title="Preferences">
-                  <div className="space-y-6">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Notification Preferences
-                    </h3>
-                    
-                    <div className="space-y-4">
-                      <label className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            Email Notifications
-                          </span>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Receive notifications via email
-                          </p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={preferences.emailNotifications}
-                          onChange={(e) => setPreferences(prev => ({ 
-                            ...prev, 
-                            emailNotifications: e.target.checked 
-                          }))}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            Push Notifications
-                          </span>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Receive push notifications in browser
-                          </p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={preferences.pushNotifications}
-                          onChange={(e) => setPreferences(prev => ({ 
-                            ...prev, 
-                            pushNotifications: e.target.checked 
-                          }))}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            Sound Alerts
-                          </span>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Play sounds for notifications and alerts
-                          </p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={preferences.soundEnabled}
-                          onChange={(e) => setPreferences(prev => ({ 
-                            ...prev, 
-                            soundEnabled: e.target.checked 
-                          }))}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                      </label>
-                    </div>
-
-                    <Divider />
-
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                        System Preferences
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Language
-                          </label>
-                          <select
-                            value={preferences.language}
-                            onChange={(e) => setPreferences(prev => ({ 
-                              ...prev, 
-                              language: e.target.value 
-                            }))}
-                            className="w-full p-2 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                          >
-                            <option value="en">English</option>
-                            <option value="es">Spanish</option>
-                            <option value="fr">French</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Timezone
-                          </label>
-                          <select
-                            value={preferences.timezone}
-                            onChange={(e) => setPreferences(prev => ({ 
-                              ...prev, 
-                              timezone: e.target.value 
-                            }))}
-                            className="w-full p-2 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                          >
-                            <option value="UTC-8">Pacific Time (UTC-8)</option>
-                            <option value="UTC-5">Eastern Time (UTC-5)</option>
-                            <option value="UTC+0">GMT (UTC+0)</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <Button
-                        color="primary"
-                        onClick={handleSavePreferences}
-                        startContent={<Settings className="w-4 h-4" />}
-                      >
-                        Save Preferences
-                      </Button>
-                    </div>
-                  </div>
-                </Tab>
-              </Tabs>
-            </CardBody>
-          </Card>
-        </div>
-      </div>
+          {/* Account Information */}
+          <div className="border-t pt-6">
+            <h3 className="text-lg font-semibold mb-4">Account Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-500">Member since</p>
+                <p className="font-medium">{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Last updated</p>
+                <p className="font-medium">{user.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
     </div>
   );
 } 

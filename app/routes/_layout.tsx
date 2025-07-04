@@ -235,6 +235,38 @@ const navigation: NavigationItem[] = [
   }
 ];
 
+// Function to filter navigation based on user role
+const getNavigationForRole = (userRole: string): NavigationItem[] => {
+  if (userRole === 'admin') {
+    return navigation; // Admins see everything
+  } else if (userRole === 'cashier') {
+    // Cashiers only see POS-related items and profile
+    return [
+      { name: "Dashboard", icon: DashboardIcon, href: "/dashboard" },
+      { 
+        name: "Sales & POS", 
+        icon: POSIcon, 
+        href: "/pos",
+        submenu: [
+          { name: "Point of Sale", href: "/pos" },
+          { name: "Sales History", href: "/sales" },
+          { name: "Process Refund", href: "/sales/refund" }
+        ]
+      },
+      { 
+        name: "Profile", 
+        icon: UsersIcon, 
+        href: "/profile",
+        submenu: [
+          { name: "My Profile", href: "/profile" },
+          { name: "Change Password", href: "/profile/security" }
+        ]
+      }
+    ];
+  }
+  return [];
+};
+
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -245,6 +277,9 @@ export default function Layout() {
   // Authentication state
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(true);
+
+  // Get filtered navigation based on user role
+  const userNavigation = user ? getNavigationForRole(user.role) : [];
 
   // Check authentication on component mount
   useEffect(() => {
@@ -293,7 +328,7 @@ export default function Layout() {
 
   // Initialize expanded items based on current path
   useEffect(() => {
-    navigation.forEach(item => {
+    userNavigation.forEach(item => {
       if (item.submenu) {
         const isSubmenuActive = item.submenu.some(subItem => 
           location.pathname === subItem.href || 
@@ -306,7 +341,7 @@ export default function Layout() {
         }
       }
     });
-  }, [location.pathname]);
+  }, [location.pathname, userNavigation]);
 
   // Toggle theme
   const toggleTheme = () => {
@@ -325,7 +360,7 @@ export default function Layout() {
   // Get current page title
   const getCurrentPageTitle = () => {
     // Check for submenu items first
-    for (const item of navigation) {
+    for (const item of userNavigation) {
       if (item.submenu) {
         const activeSubmenu = item.submenu.find(subItem => 
           location.pathname === subItem.href || 
@@ -338,7 +373,7 @@ export default function Layout() {
     }
     
     // Check main navigation items
-    const currentPage = navigation.find(item => 
+    const currentPage = userNavigation.find(item => 
       location.pathname === item.href || 
       (item.href === '/dashboard' && location.pathname === '/') ||
       location.pathname.startsWith(item.href + '/')
@@ -450,7 +485,7 @@ export default function Layout() {
           {/* Main Navigation */}
           <nav className="flex-1 overflow-y-auto">
             <div className="py-1">
-              {navigation.map((item) => {
+              {userNavigation.map((item) => {
                 const IconComponent = item.icon;
                 const isActive = isItemActive(item);
                 const isExpanded = expandedItems.includes(item.name);
@@ -526,8 +561,8 @@ export default function Layout() {
             </div>
           </nav>
 
-          {/* System Links */}
-          {!sidebarCollapsed && (
+          {/* System Links - Only for Admin */}
+          {!sidebarCollapsed && user?.role === 'admin' && (
             <div className="border-t border-gray-200 dark:border-gray-700">
               <div className="py-1 px-3">
                 <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
@@ -585,14 +620,16 @@ export default function Layout() {
                 >
                   New Sale
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate('/products')}
-                  className="text-green-600 hover:text-green-700"
-                >
-                  Add Product
-                </Button>
+                {user?.role === 'admin' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/products')}
+                    className="text-green-600 hover:text-green-700"
+                  >
+                    Add Product
+                  </Button>
+                )}
               </div>
 
               <Divider orientation="vertical" className="h-6 hidden md:block" />

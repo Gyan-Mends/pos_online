@@ -1,22 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardBody, Button, Chip } from '@heroui/react';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { useState, useEffect } from 'react';
 import { 
-  Chart as ChartJS, 
-  CategoryScale, 
-  LinearScale, 
-  PointElement, 
-  LineElement, 
-  BarElement, 
-  ArcElement, 
-  Title, 
-  Tooltip, 
+  Card, 
+  CardBody, 
+  CardHeader, 
+  Button, 
+  Spinner,
+  Select,
+  SelectItem,
+  Table,
+  TableHeader,
+  TableColumn,
+  TableBody,
+  TableRow,
+  TableCell,
+  Chip,
+  Input,
+  Pagination,
+  Progress
+} from "@heroui/react";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
   Legend,
-  Filler
+  ArcElement
 } from 'chart.js';
-import { Package, TrendingUp, Star, DollarSign, BarChart3, PieChart } from 'lucide-react';
-import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
-import { salesAPI, productsAPI } from '../../utils/api';
+import { Bar, Doughnut } from 'react-chartjs-2';
+import { format } from 'date-fns';
+import { productsAPI, categoriesAPI, dashboardAPI, salesAPI } from '../../utils/api';
 import { errorToast } from '../../components/toast';
 
 // Register Chart.js components
@@ -26,547 +42,559 @@ ChartJS.register(
   PointElement,
   LineElement,
   BarElement,
-  ArcElement,
   Title,
   Tooltip,
   Legend,
-  Filler
+  ArcElement
 );
 
-interface ProductData {
-  totalProducts: number;
-  totalRevenue: number;
-  averageMargin: number;
-  topSellingProducts: { product: any; quantity: number; revenue: number; profit: number }[];
-  categoryPerformance: { category: string; revenue: number; profit: number; products: number }[];
-  profitMargins: { product: any; margin: number; revenue: number }[];
-  salesTrend: { date: string; sales: number; revenue: number }[];
-  slowMovingProducts: { product: any; lastSold: string; stock: number }[];
-}
-
-export default function ProductReportsPage() {
+const ProductsReport = () => {
+  const [productsData, setProductsData] = useState<any[]>([]);
+  const [categoriesData, setCategoriesData] = useState<any[]>([]);
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [productData, setProductData] = useState<ProductData | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState('30d');
-  const [dateRange, setDateRange] = useState<{start: Date; end: Date}>({
-    start: subDays(new Date(), 30),
-    end: new Date()
+  const [filters, setFilters] = useState({
+    search: '',
+    category: 'all',
+    lowStock: false,
+    inactive: false
+  });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 50,
+    total: 0,
+    pages: 0
   });
 
   useEffect(() => {
-    fetchProductData();
-  }, [dateRange]);
+    loadProductsData();
+  }, [filters, pagination.page]);
 
-  const fetchProductData = async () => {
+  const loadProductsData = async () => {
     try {
       setLoading(true);
-      const startDate = format(startOfDay(dateRange.start), 'yyyy-MM-dd');
-      const endDate = format(endOfDay(dateRange.end), 'yyyy-MM-dd');
       
-      // Fetch sales data
-      const salesResponse = await salesAPI.getAll({
-        startDate,
-        endDate,
-        limit: 10000
-      });
-
-      // Fetch products
-      const productsResponse = await productsAPI.getAll({
-        limit: 10000
-      });
-
-      if (salesResponse.success && productsResponse.success) {
-        generateProductAnalytics(salesResponse.data, productsResponse.data);
+      // Load products data
+      const productsParams = {
+        page: pagination.page,
+        limit: pagination.limit,
+        ...(filters.category !== 'all' && { category: filters.category }),
+        ...(filters.search && { search: filters.search }),
+        ...(filters.lowStock && { lowStock: true }),
+        ...(filters.inactive && { inactive: true }),
+      };
+      
+      const productsResponse = await productsAPI.getAll(productsParams);
+      const products = productsResponse.data || productsResponse;
+      
+      setProductsData(Array.isArray(products) ? products : products.data || []);
+      if (products.pagination) {
+        setPagination(prev => ({
+          ...prev,
+          total: products.pagination.total,
+          pages: products.pagination.pages
+        }));
       }
-    } catch (error: any) {
-      errorToast(error.message || 'Failed to fetch product data');
+      
+      // Load categories
+      const categoriesResponse = await categoriesAPI.getAll();
+      setCategoriesData(categoriesResponse.data || categoriesResponse || []);
+      
+      // Load dashboard data for charts
+      const dashboardResponse = await dashboardAPI.getStats();
+      setDashboardData(dashboardResponse.data || dashboardResponse);
+      
+    } catch (error) {
+      console.error('Error loading products data:', error);
+      errorToast('Failed to load products data');
     } finally {
       setLoading(false);
     }
   };
 
-  const generateProductAnalytics = (sales: any[], products: any[]) => {
-    const totalProducts = products.length;
-    let totalRevenue = 0;
-    let totalProfit = 0;
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount || 0);
+  };
 
-    // Create product map for quick lookup
-    const productMap = new Map();
-    products.forEach(product => {
-      productMap.set(product._id, {
-        ...product,
-        totalSold: 0,
-        totalRevenue: 0,
-        totalProfit: 0,
-        lastSold: null
-      });
-    });
+  const formatDate = (date: string | Date) => {
+    return format(new Date(date), 'MMM dd, yyyy');
+  };
 
-    // Analyze sales data
-    const categoryMap = new Map();
-    const dailySalesMap = new Map();
-
-    sales.forEach(sale => {
-      totalRevenue += sale.totalAmount;
-      
-      const saleDate = format(parseISO(sale.saleDate), 'yyyy-MM-dd');
-      if (!dailySalesMap.has(saleDate)) {
-        dailySalesMap.set(saleDate, { sales: 0, revenue: 0 });
-      }
-      const dayData = dailySalesMap.get(saleDate);
-      dayData.sales += 1;
-      dayData.revenue += sale.totalAmount;
-
-      sale.items.forEach((item: any) => {
-        const productId = item.productId || item.product?._id;
-        const product = productMap.get(productId);
-        
-        if (product) {
-          const itemProfit = item.totalPrice - ((product.costPrice || 0) * item.quantity);
-          
-          product.totalSold += item.quantity;
-          product.totalRevenue += item.totalPrice;
-          product.totalProfit += itemProfit;
-          product.lastSold = sale.saleDate;
-          
-          totalProfit += itemProfit;
-
-          // Category analysis
-          const category = product.category || 'Other';
-          if (!categoryMap.has(category)) {
-            categoryMap.set(category, { revenue: 0, profit: 0, products: new Set() });
-          }
-          const catData = categoryMap.get(category);
-          catData.revenue += item.totalPrice;
-          catData.profit += itemProfit;
-          catData.products.add(productId);
-        }
-      });
-    });
-
-    const averageMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
-
-    // Top selling products
-    const topSellingProducts = Array.from(productMap.values())
-      .filter(p => p.totalSold > 0)
-      .sort((a, b) => b.totalSold - a.totalSold)
-      .slice(0, 10)
-      .map(p => ({
-        product: p,
-        quantity: p.totalSold,
-        revenue: p.totalRevenue,
-        profit: p.totalProfit
-      }));
-
-    // Category performance
-    const categoryPerformance = Array.from(categoryMap.entries())
-      .map(([category, data]) => ({
-        category,
-        revenue: data.revenue,
-        profit: data.profit,
-        products: data.products.size
-      }))
-      .sort((a, b) => b.revenue - a.revenue);
-
-    // Profit margins
-    const profitMargins = Array.from(productMap.values())
-      .filter(p => p.totalRevenue > 0)
-      .map(p => ({
-        product: p,
-        margin: p.totalRevenue > 0 ? (p.totalProfit / p.totalRevenue) * 100 : 0,
-        revenue: p.totalRevenue
-      }))
-      .sort((a, b) => b.margin - a.margin)
-      .slice(0, 10);
-
-    // Sales trend
-    const salesTrend = Array.from(dailySalesMap.entries())
-      .map(([date, data]) => ({ date, ...data }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    // Slow moving products
-    const thirtyDaysAgo = subDays(new Date(), 30);
-    const slowMovingProducts = Array.from(productMap.values())
-      .filter(p => !p.lastSold || parseISO(p.lastSold) < thirtyDaysAgo)
-      .filter(p => p.stockQuantity > 0)
-      .sort((a, b) => b.stockQuantity - a.stockQuantity)
-      .slice(0, 10)
-      .map(p => ({
-        product: p,
-        lastSold: p.lastSold ? format(parseISO(p.lastSold), 'MMM dd, yyyy') : 'Never',
-        stock: p.stockQuantity
-      }));
-
-    setProductData({
+  // Calculate summary statistics
+  const calculateSummary = () => {
+    if (!productsData.length) return null;
+    
+    const totalProducts = productsData.length;
+    const activeProducts = productsData.filter(product => product.isActive).length;
+    const lowStockProducts = productsData.filter(product => product.stockQuantity < 10).length;
+    const outOfStockProducts = productsData.filter(product => product.stockQuantity === 0).length;
+    const totalStockValue = productsData.reduce((sum, product) => 
+      sum + (product.stockQuantity * product.costPrice || 0), 0);
+    const totalRetailValue = productsData.reduce((sum, product) => 
+      sum + (product.stockQuantity * product.sellingPrice || 0), 0);
+    
+    return {
       totalProducts,
-      totalRevenue,
-      averageMargin,
-      topSellingProducts,
-      categoryPerformance,
-      profitMargins,
-      salesTrend,
-      slowMovingProducts
-    });
+      activeProducts,
+      lowStockProducts,
+      outOfStockProducts,
+      totalStockValue,
+      totalRetailValue
+    };
   };
 
-  const setPeriod = (period: string) => {
-    setSelectedPeriod(period);
-    const end = new Date();
-    let start: Date;
+  const summary = calculateSummary();
+
+  // Prepare chart data
+  const getCategoryDistributionData = () => {
+    if (!productsData.length || !categoriesData.length) return { labels: [], datasets: [] };
     
-    switch (period) {
-      case '7d':
-        start = subDays(end, 7);
-        break;
-      case '30d':
-        start = subDays(end, 30);
-        break;
-      case '90d':
-        start = subDays(end, 90);
-        break;
-      case '1y':
-        start = subDays(end, 365);
-        break;
-      default:
-        start = subDays(end, 30);
-    }
+    const categoryCount = categoriesData.map(category => ({
+      name: category.name,
+      count: productsData.filter(product => product.categoryId?._id === category._id).length
+    }));
     
-    setDateRange({ start, end });
-  };
-
-  // Chart configurations
-  const categoryPerformanceConfig = {
-    data: {
-      labels: productData?.categoryPerformance.map(c => c.category) || [],
+    return {
+      labels: categoryCount.map(item => item.name),
       datasets: [
         {
-          label: 'Revenue',
-          data: productData?.categoryPerformance.map(c => c.revenue) || [],
-          backgroundColor: 'rgba(59, 130, 246, 0.6)',
-          borderColor: 'rgb(59, 130, 246)',
-          borderWidth: 1,
-        },
-        {
-          label: 'Profit',
-          data: productData?.categoryPerformance.map(c => c.profit) || [],
-          backgroundColor: 'rgba(16, 185, 129, 0.6)',
-          borderColor: 'rgb(16, 185, 129)',
-          borderWidth: 1,
+          data: categoryCount.map(item => item.count),
+          backgroundColor: [
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(239, 68, 68, 0.8)',
+            'rgba(139, 92, 246, 0.8)',
+            'rgba(236, 72, 153, 0.8)',
+          ],
+          borderWidth: 0,
         },
       ],
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { color: 'rgba(107, 114, 128, 0.1)' },
-          ticks: { color: 'rgb(107, 114, 128)' },
-        },
-        x: {
-          grid: { color: 'rgba(107, 114, 128, 0.1)' },
-          ticks: { color: 'rgb(107, 114, 128)' },
-        },
-      },
-      plugins: {
-        legend: { labels: { color: 'rgb(107, 114, 128)' } },
-      },
-    },
+    };
   };
 
-  const topProductsConfig = {
-    data: {
-      labels: productData?.topSellingProducts.map(p => p.product.name.slice(0, 15) + '...') || [],
+  const getStockLevelsData = () => {
+    if (!productsData.length) return { labels: [], datasets: [] };
+    
+    const stockRanges = [
+      { label: 'Out of Stock', count: productsData.filter(p => p.stockQuantity === 0).length },
+      { label: 'Low Stock (1-9)', count: productsData.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length },
+      { label: 'Medium Stock (10-50)', count: productsData.filter(p => p.stockQuantity >= 10 && p.stockQuantity <= 50).length },
+      { label: 'High Stock (50+)', count: productsData.filter(p => p.stockQuantity > 50).length },
+    ];
+    
+    return {
+      labels: stockRanges.map(item => item.label),
       datasets: [
         {
-          label: 'Quantity Sold',
-          data: productData?.topSellingProducts.map(p => p.quantity) || [],
-          backgroundColor: 'rgba(139, 92, 246, 0.6)',
-          borderColor: 'rgb(139, 92, 246)',
+          label: 'Number of Products',
+          data: stockRanges.map(item => item.count),
+          backgroundColor: [
+            'rgba(239, 68, 68, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+          ],
+          borderColor: [
+            'rgb(239, 68, 68)',
+            'rgb(245, 158, 11)',
+            'rgb(59, 130, 246)',
+            'rgb(16, 185, 129)',
+          ],
           borderWidth: 1,
         },
       ],
-    },
-    options: {
-      responsive: true,
-      indexAxis: 'y' as const,
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { color: 'rgba(107, 114, 128, 0.1)' },
-          ticks: { color: 'rgb(107, 114, 128)' },
-        },
-        x: {
-          grid: { color: 'rgba(107, 114, 128, 0.1)' },
-          ticks: { color: 'rgb(107, 114, 128)' },
-        },
-      },
-      plugins: {
-        legend: { labels: { color: 'rgb(107, 114, 128)' } },
-      },
-    },
+    };
   };
 
-  const salesTrendConfig = {
-    data: {
-      labels: productData?.salesTrend.map(d => format(parseISO(d.date), 'MMM dd')) || [],
-      datasets: [
-        {
-          label: 'Daily Revenue',
-          data: productData?.salesTrend.map(d => d.revenue) || [],
-          borderColor: 'rgb(16, 185, 129)',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          fill: true,
-          tension: 0.4,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { color: 'rgba(107, 114, 128, 0.1)' },
-          ticks: { color: 'rgb(107, 114, 128)' },
-        },
-        x: {
-          grid: { color: 'rgba(107, 114, 128, 0.1)' },
-          ticks: { color: 'rgb(107, 114, 128)' },
-        },
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
       },
-      plugins: {
-        legend: { labels: { color: 'rgb(107, 114, 128)' } },
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
       },
     },
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex justify-center items-center min-h-96">
+        <Spinner size="lg" color="primary" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Product Reports</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Product performance analytics and sales insights
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Products Report
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Product performance, inventory levels, and category analytics
           </p>
         </div>
-        
-        <div className="flex flex-wrap gap-2 mt-4 sm:mt-0">
-          {['7d', '30d', '90d', '1y'].map((period) => (
-            <Button
-              key={period}
-              size="sm"
-              variant={selectedPeriod === period ? 'solid' : 'bordered'}
-              onPress={() => setPeriod(period)}
-            >
-              {period === '7d' && 'Last 7 Days'}
-              {period === '30d' && 'Last 30 Days'}
-              {period === '90d' && 'Last 90 Days'}
-              {period === '1y' && 'Last Year'}
-            </Button>
-          ))}
+        <div className="flex items-center space-x-3">
+          <Button
+            color="primary"
+            variant="flat"
+            onClick={loadProductsData}
+            isLoading={loading}
+          >
+            Refresh
+          </Button>
+          <Button
+            color="secondary"
+            variant="flat"
+          >
+            Export
+          </Button>
         </div>
       </div>
 
-      {/* Key Product Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-r from-blue-500 to-blue-600">
-          <CardBody className="p-6">
-            <div className="text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm">Total Products</p>
-                  <p className="text-2xl font-bold">{productData?.totalProducts.toLocaleString() || 0}</p>
-                </div>
-                <Package className="w-8 h-8 text-blue-200" />
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-green-500 to-green-600">
-          <CardBody className="p-6">
-            <div className="text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm">Product Revenue</p>
-                  <p className="text-2xl font-bold">${productData?.totalRevenue.toLocaleString() || 0}</p>
-                </div>
-                <DollarSign className="w-8 h-8 text-green-200" />
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-purple-500 to-purple-600">
-          <CardBody className="p-6">
-            <div className="text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-purple-100 text-sm">Avg Profit Margin</p>
-                  <p className="text-2xl font-bold">{productData?.averageMargin.toFixed(1) || 0}%</p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-purple-200" />
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-orange-500 to-orange-600">
-          <CardBody className="p-6">
-            <div className="text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-100 text-sm">Active Categories</p>
-                  <p className="text-2xl font-bold">{productData?.categoryPerformance.length || 0}</p>
-                </div>
-                <BarChart3 className="w-8 h-8 text-orange-200" />
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Product Sales Trend */}
+      {/* Filters */}
       <Card>
-        <CardBody className="p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-green-600" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Product Sales Trend</h3>
-          </div>
-          <div className="h-80">
-            <Line {...salesTrendConfig} />
+        <CardBody>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Input
+              placeholder="Search products..."
+              value={filters.search}
+              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+            />
+            <Select
+              placeholder="Select category"
+              selectedKeys={filters.category !== 'all' ? [filters.category] : []}
+              onSelectionChange={(keys) => {
+                const category = Array.from(keys)[0] as string || 'all';
+                setFilters(prev => ({ ...prev, category }));
+              }}
+            >
+              <SelectItem key="all">All Categories</SelectItem>
+              {categoriesData.map((category) => (
+                <SelectItem key={category._id}>{category.name}</SelectItem>
+              ))}
+            </Select>
+            <Select
+              placeholder="Stock level"
+              selectedKeys={filters.lowStock ? ['lowStock'] : []}
+              onSelectionChange={(keys) => {
+                const lowStock = Array.from(keys).includes('lowStock');
+                setFilters(prev => ({ ...prev, lowStock }));
+              }}
+            >
+              <SelectItem key="all">All Stock Levels</SelectItem>
+              <SelectItem key="lowStock">Low Stock Only</SelectItem>
+            </Select>
+            <Select
+              placeholder="Status"
+              selectedKeys={filters.inactive ? ['inactive'] : []}
+              onSelectionChange={(keys) => {
+                const inactive = Array.from(keys).includes('inactive');
+                setFilters(prev => ({ ...prev, inactive }));
+              }}
+            >
+              <SelectItem key="active">Active Only</SelectItem>
+              <SelectItem key="inactive">Include Inactive</SelectItem>
+            </Select>
           </div>
         </CardBody>
       </Card>
 
+      {/* Summary Cards */}
+      {summary && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardBody className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Total Products
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {summary.totalProducts}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {summary.activeProducts} active
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Stock Value (Cost)
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {formatCurrency(summary.totalStockValue)}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Retail: {formatCurrency(summary.totalRetailValue)}
+                  </p>
+                </div>
+                <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Low Stock Alerts
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {summary.lowStockProducts}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Needs attention
+                  </p>
+                </div>
+                <div className="p-3 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
+                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.502 0L4.732 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Out of Stock
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {summary.outOfStockProducts}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Critical
+                  </p>
+                </div>
+                <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Category Performance */}
         <Card>
-          <CardBody className="p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <BarChart3 className="w-5 h-5 text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Category Performance</h3>
-            </div>
-            <div className="h-64">
-              <Bar {...categoryPerformanceConfig} />
+          <CardHeader>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Products by Category
+            </h3>
+          </CardHeader>
+          <CardBody>
+            <div className="h-80">
+              <Doughnut 
+                data={getCategoryDistributionData()} 
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: 'bottom' as const,
+                    },
+                  },
+                }}
+              />
             </div>
           </CardBody>
         </Card>
 
-        {/* Top Selling Products */}
         <Card>
-          <CardBody className="p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Star className="w-5 h-5 text-purple-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top Selling Products</h3>
-            </div>
-            <div className="h-64">
-              <Bar {...topProductsConfig} />
+          <CardHeader>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Stock Level Distribution
+            </h3>
+          </CardHeader>
+          <CardBody>
+            <div className="h-80">
+              <Bar data={getStockLevelsData()} options={chartOptions} />
             </div>
           </CardBody>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Best Profit Margins */}
+      {/* Top Products Performance */}
+      {dashboardData?.topProducts && (
         <Card>
-          <CardBody className="p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <TrendingUp className="w-5 h-5 text-green-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Best Profit Margins</h3>
-            </div>
-            <div className="space-y-3">
-              {productData?.profitMargins.map((item, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{item.product.name}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Revenue: ${item.revenue.toLocaleString()}</p>
-                  </div>
-                  <Chip color="success" size="sm">
-                    {item.margin.toFixed(1)}%
-                  </Chip>
-                </div>
-              ))}
-              {productData?.profitMargins.length === 0 && (
-                <p className="text-center text-gray-500 py-4">No sales data available</p>
-              )}
-            </div>
-          </CardBody>
-        </Card>
-
-        {/* Slow Moving Products */}
-        <Card>
-          <CardBody className="p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Package className="w-5 h-5 text-orange-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Slow Moving Products</h3>
-            </div>
-            <div className="space-y-3">
-              {productData?.slowMovingProducts.map((item, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{item.product.name}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Last sold: {item.lastSold}</p>
+          <CardHeader>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Top Performing Products
+            </h3>
+          </CardHeader>
+          <CardBody>
+            <div className="space-y-4">
+              {dashboardData.topProducts.map((product: any, index: number) => (
+                <div key={index} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
+                      <span className="text-sm font-bold text-blue-600">
+                        #{index + 1}
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">
+                        {product.name}
+                      </h4>
+                      <p className="text-sm text-gray-500">
+                        {product.quantity} sold
+                      </p>
+                    </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900 dark:text-white">{item.stock} in stock</p>
-                    <Chip color="warning" size="sm">
-                      Slow moving
-                    </Chip>
+                    <p className="font-semibold text-gray-900 dark:text-white">
+                      {formatCurrency(product.revenue)}
+                    </p>
+                    <Progress
+                      size="sm"
+                      value={((product.revenue / (dashboardData.topProducts[0]?.revenue || 1)) * 100)}
+                      color="primary"
+                      className="w-20"
+                    />
                   </div>
                 </div>
               ))}
-              {productData?.slowMovingProducts.length === 0 && (
-                <p className="text-center text-gray-500 py-4">No slow moving products</p>
-              )}
             </div>
           </CardBody>
         </Card>
-      </div>
+      )}
 
-      {/* Category Breakdown */}
+      {/* Products Table */}
       <Card>
-        <CardBody className="p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <BarChart3 className="w-5 h-5 text-blue-600" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Category Breakdown</h3>
+        <CardHeader className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Product Inventory
+          </h3>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {productsData.length} of {pagination.total} products
+            </span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Category</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Products</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Revenue</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Profit</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Margin</th>
-                </tr>
-              </thead>
-              <tbody>
-                {productData?.categoryPerformance.map((category, index) => (
-                  <tr key={index} className="border-b border-gray-100 dark:border-gray-800">
-                    <td className="py-3 px-4 text-gray-900 dark:text-white">{category.category}</td>
-                    <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{category.products}</td>
-                    <td className="py-3 px-4 text-gray-600 dark:text-gray-400">${category.revenue.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-gray-600 dark:text-gray-400">${category.profit.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-gray-600 dark:text-gray-400">
-                      {category.revenue > 0 ? ((category.profit / category.revenue) * 100).toFixed(1) : 0}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        </CardHeader>
+        <CardBody>
+          <Table aria-label="Products inventory table">
+            <TableHeader>
+              <TableColumn>PRODUCT</TableColumn>
+              <TableColumn>SKU</TableColumn>
+              <TableColumn>CATEGORY</TableColumn>
+              <TableColumn>STOCK</TableColumn>
+              <TableColumn>COST PRICE</TableColumn>
+              <TableColumn>SELLING PRICE</TableColumn>
+              <TableColumn>STATUS</TableColumn>
+            </TableHeader>
+            <TableBody>
+              {productsData.map((product) => (
+                <TableRow key={product._id}>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {product.name}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {product.description?.substring(0, 50)}...
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-mono text-sm">
+                      {product.sku}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {product.categoryId?.name || 'Uncategorized'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <span className={`font-medium ${
+                        product.stockQuantity === 0 ? 'text-red-600' :
+                        product.stockQuantity < 10 ? 'text-yellow-600' :
+                        'text-green-600'
+                      }`}>
+                        {product.stockQuantity}
+                      </span>
+                      {product.stockQuantity === 0 && (
+                        <Chip size="sm" color="danger" variant="flat">
+                          Out of Stock
+                        </Chip>
+                      )}
+                      {product.stockQuantity > 0 && product.stockQuantity < 10 && (
+                        <Chip size="sm" color="warning" variant="flat">
+                          Low Stock
+                        </Chip>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {formatCurrency(product.costPrice)}
+                  </TableCell>
+                  <TableCell>
+                    {formatCurrency(product.sellingPrice)}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="sm"
+                      color={product.isActive ? 'success' : 'default'}
+                      variant="flat"
+                    >
+                      {product.isActive ? 'Active' : 'Inactive'}
+                    </Chip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          
+          {pagination.pages > 1 && (
+            <div className="flex justify-center mt-6">
+              <Pagination
+                page={pagination.page}
+                total={pagination.pages}
+                onChange={(page) => setPagination(prev => ({ ...prev, page }))}
+              />
+            </div>
+          )}
         </CardBody>
       </Card>
     </div>
   );
-} 
+};
+
+export default ProductsReport;

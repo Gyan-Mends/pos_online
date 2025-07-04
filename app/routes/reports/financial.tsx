@@ -1,22 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardBody, Button } from '@heroui/react';
-import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { useState, useEffect } from 'react';
 import { 
-  Chart as ChartJS, 
-  CategoryScale, 
-  LinearScale, 
-  PointElement, 
-  LineElement, 
-  BarElement, 
-  ArcElement, 
-  Title, 
-  Tooltip, 
+  Card, 
+  CardBody, 
+  CardHeader, 
+  Button, 
+  Spinner,
+  Select,
+  SelectItem,
+  Table,
+  TableHeader,
+  TableColumn,
+  TableBody,
+  TableRow,
+  TableCell,
+  Chip,
+  DateRangePicker
+} from "@heroui/react";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
   Legend,
-  Filler
+  ArcElement
 } from 'chart.js';
-import { DollarSign, TrendingUp, FileText, Calculator, PieChart } from 'lucide-react';
-import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
-import { salesAPI, productsAPI } from '../../utils/api';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
+import { salesAPI, dashboardAPI, purchaseOrdersAPI } from '../../utils/api';
 import { errorToast } from '../../components/toast';
 
 // Register Chart.js components
@@ -26,423 +40,724 @@ ChartJS.register(
   PointElement,
   LineElement,
   BarElement,
-  ArcElement,
   Title,
   Tooltip,
   Legend,
-  Filler
+  ArcElement
 );
 
-interface FinancialData {
-  totalRevenue: number;
-  totalCOGS: number;
-  grossProfit: number;
-  grossProfitMargin: number;
-  totalTax: number;
-  netProfit: number;
-  monthlyRevenue: { month: string; revenue: number; cogs: number; profit: number }[];
-  taxBreakdown: { type: string; amount: number }[];
-  profitTrend: { date: string; profit: number; margin: number }[];
-}
-
-export default function FinancialReportsPage() {
+const FinancialReport = () => {
+  const [financialData, setFinancialData] = useState<any>(null);
+  const [salesData, setSalesData] = useState<any[]>([]);
+  const [expenseData, setExpenseData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [financialData, setFinancialData] = useState<FinancialData | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState('1y');
-  const [dateRange, setDateRange] = useState<{start: Date; end: Date}>({
-    start: subDays(new Date(), 365),
-    end: new Date()
+  const [activeTab, setActiveTab] = useState('overview');
+  const [period, setPeriod] = useState('30');
+  const [dateRange, setDateRange] = useState(() => {
+    const endDate = new Date();
+    const startDate = subDays(endDate, 30);
+    return {
+      start: startOfDay(startDate),
+      end: endOfDay(endDate)
+    };
   });
 
   useEffect(() => {
-    fetchFinancialData();
-  }, [dateRange]);
+    loadFinancialData();
+  }, [period, dateRange]);
 
-  const fetchFinancialData = async () => {
+  const loadFinancialData = async () => {
     try {
       setLoading(true);
-      const startDate = format(startOfDay(dateRange.start), 'yyyy-MM-dd');
-      const endDate = format(endOfDay(dateRange.end), 'yyyy-MM-dd');
       
-      const salesResponse = await salesAPI.getAll({
-        startDate,
-        endDate,
-        limit: 10000
-      });
-
-      const productsResponse = await productsAPI.getAll({
-        limit: 10000
-      });
-
-      if (salesResponse.success && productsResponse.success) {
-        generateFinancialAnalytics(salesResponse.data, productsResponse.data);
-      }
-    } catch (error: any) {
-      errorToast(error.message || 'Failed to fetch financial data');
+      // Load sales data for revenue
+      const salesParams = {
+        limit: 1000,
+        startDate: format(dateRange.start, 'yyyy-MM-dd'),
+        endDate: format(dateRange.end, 'yyyy-MM-dd'),
+      };
+      
+      const salesResponse = await salesAPI.getAll(salesParams) as any;
+      const sales = salesResponse.data || salesResponse;
+      setSalesData(Array.isArray(sales) ? sales : sales.data || []);
+      
+      // Load purchase orders for expenses
+      const expenseParams = {
+        limit: 1000,
+        startDate: format(dateRange.start, 'yyyy-MM-dd'),
+        endDate: format(dateRange.end, 'yyyy-MM-dd'),
+      };
+      
+      const expenseResponse = await purchaseOrdersAPI.getAll(expenseParams) as any;
+      const expenses = expenseResponse.data || expenseResponse;
+      setExpenseData(Array.isArray(expenses) ? expenses : expenses.data || []);
+      
+      // Load dashboard data for summary
+      const dashboardResponse = await dashboardAPI.getStats() as any;
+      setFinancialData(dashboardResponse.data || dashboardResponse);
+      
+    } catch (error) {
+      console.error('Error loading financial data:', error);
+      errorToast('Failed to load financial data');
     } finally {
       setLoading(false);
     }
   };
 
-  const generateFinancialAnalytics = (sales: any[], products: any[]) => {
-    let totalRevenue = 0;
-    let totalCOGS = 0;
-    let totalTax = 0;
-    
-    const productMap = new Map();
-    products.forEach(product => {
-      productMap.set(product._id, product);
-    });
-
-    const monthlyMap = new Map();
-    const dailyProfitMap = new Map();
-
-    sales.forEach(sale => {
-      totalRevenue += sale.totalAmount;
-      totalTax += sale.taxAmount || 0;
-      
-      let saleCOGS = 0;
-      sale.items.forEach((item: any) => {
-        const product = productMap.get(item.productId || item.product?._id);
-        if (product && product.costPrice) {
-          saleCOGS += (product.costPrice * item.quantity);
-        }
-      });
-      
-      totalCOGS += saleCOGS;
-      
-      const month = format(parseISO(sale.saleDate), 'yyyy-MM');
-      if (!monthlyMap.has(month)) {
-        monthlyMap.set(month, { revenue: 0, cogs: 0, profit: 0 });
-      }
-      const monthData = monthlyMap.get(month);
-      monthData.revenue += sale.totalAmount;
-      monthData.cogs += saleCOGS;
-      monthData.profit += (sale.totalAmount - saleCOGS);
-
-      const date = format(parseISO(sale.saleDate), 'yyyy-MM-dd');
-      if (!dailyProfitMap.has(date)) {
-        dailyProfitMap.set(date, { profit: 0, revenue: 0 });
-      }
-      const dayData = dailyProfitMap.get(date);
-      dayData.profit += (sale.totalAmount - saleCOGS);
-      dayData.revenue += sale.totalAmount;
-    });
-
-    const grossProfit = totalRevenue - totalCOGS;
-    const grossProfitMargin = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
-    const netProfit = grossProfit - totalTax;
-
-    const monthlyRevenue = Array.from(monthlyMap.entries())
-      .map(([month, data]) => ({
-        month: format(parseISO(month + '-01'), 'MMM yyyy'),
-        ...data
-      }))
-      .sort((a, b) => a.month.localeCompare(b.month));
-
-    const profitTrend = Array.from(dailyProfitMap.entries())
-      .map(([date, data]) => ({
-        date,
-        profit: data.profit,
-        margin: data.revenue > 0 ? (data.profit / data.revenue) * 100 : 0
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    const taxBreakdown = [
-      { type: 'Sales Tax', amount: totalTax },
-      { type: 'Income Tax (Est.)', amount: netProfit * 0.25 },
-    ];
-
-    setFinancialData({
-      totalRevenue,
-      totalCOGS,
-      grossProfit,
-      grossProfitMargin,
-      totalTax,
-      netProfit,
-      monthlyRevenue,
-      taxBreakdown,
-      profitTrend
-    });
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount || 0);
   };
 
-  const setPeriod = (period: string) => {
-    setSelectedPeriod(period);
-    const end = new Date();
-    let start: Date;
+  const formatDate = (date: string | Date) => {
+    return format(new Date(date), 'MMM dd, yyyy');
+  };
+
+  const formatPercentage = (value: number) => {
+    return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
+  };
+
+  // Calculate financial summary
+  const calculateFinancialSummary = () => {
+    if (!salesData.length) return null;
     
-    switch (period) {
-      case '3m':
-        start = subDays(end, 90);
-        break;
-      case '6m':
-        start = subDays(end, 180);
-        break;
-      case '1y':
-        start = subDays(end, 365);
-        break;
-      case '2y':
-        start = subDays(end, 730);
-        break;
-      default:
-        start = subDays(end, 365);
+    // Revenue calculations
+    const totalRevenue = salesData.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const totalSales = salesData.length;
+    const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
+    
+    // Cost calculations (assuming 70% of revenue is cost)
+    const totalCosts = salesData.reduce((sum, sale) => {
+      const saleItems = sale.items || [];
+      return sum + saleItems.reduce((itemSum: number, item: any) => {
+        return itemSum + ((item.product?.costPrice || 0) * (item.quantity || 0));
+      }, 0);
+    }, 0);
+    
+    // Expense calculations
+    const totalExpenses = expenseData.reduce((sum, expense) => sum + (expense.totalAmount || 0), 0);
+    
+    // Profit calculations
+    const grossProfit = totalRevenue - totalCosts;
+    const netProfit = grossProfit - totalExpenses;
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+    
+    // Growth calculations (comparing to previous period)
+    const previousPeriodRevenue = financialData?.monthlyStats?.revenue || totalRevenue;
+    const revenueGrowth = previousPeriodRevenue > 0 ? ((totalRevenue - previousPeriodRevenue) / previousPeriodRevenue) * 100 : 0;
+    
+    return {
+      totalRevenue,
+      totalCosts,
+      totalExpenses,
+      grossProfit,
+      netProfit,
+      profitMargin,
+      revenueGrowth,
+      avgOrderValue,
+      totalSales
+    };
+  };
+
+  // Get revenue trend data
+  const getRevenueTrendData = () => {
+    if (!financialData?.weeklyTrend || !Array.isArray(financialData.weeklyTrend)) {
+      return { labels: [], datasets: [] };
     }
     
-    setDateRange({ start, end });
-  };
-
-  const revenueVsProfitConfig = {
-    data: {
-      labels: financialData?.monthlyRevenue.map(d => d.month) || [],
+    const validData = financialData.weeklyTrend.filter((item: any) => item && item.date);
+    
+    if (validData.length === 0) {
+      return { labels: [], datasets: [] };
+    }
+    
+    return {
+      labels: validData.map((item: any) => {
+        try {
+          if (typeof item.date === 'string') {
+            return format(parseISO(item.date), 'MMM dd');
+          } else {
+            return format(new Date(item.date), 'MMM dd');
+          }
+        } catch (error) {
+          console.warn('Error parsing date:', item.date);
+          return 'Invalid Date';
+        }
+      }),
       datasets: [
         {
           label: 'Revenue',
-          data: financialData?.monthlyRevenue.map(d => d.revenue) || [],
-          borderColor: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          fill: true,
-          tension: 0.4,
-        },
-        {
-          label: 'Gross Profit',
-          data: financialData?.monthlyRevenue.map(d => d.profit) || [],
+          data: validData.map((item: any) => item.revenue || 0),
           borderColor: 'rgb(16, 185, 129)',
           backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          borderWidth: 2,
           fill: true,
           tension: 0.4,
         },
+        {
+          label: 'Sales Count',
+          data: validData.map((item: any) => (item.count || 0) * avgOrderValue),
+          borderColor: 'rgb(59, 130, 246)',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderWidth: 2,
+          fill: false,
+          tension: 0.4,
+        },
       ],
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { color: 'rgba(107, 114, 128, 0.1)' },
-          ticks: { color: 'rgb(107, 114, 128)' },
-        },
-        x: {
-          grid: { color: 'rgba(107, 114, 128, 0.1)' },
-          ticks: { color: 'rgb(107, 114, 128)' },
-        },
-      },
-      plugins: {
-        legend: { labels: { color: 'rgb(107, 114, 128)' } },
-      },
-    },
+    };
   };
 
-  const profitMarginConfig = {
-    data: {
-      labels: financialData?.profitTrend.slice(-30).map(d => format(parseISO(d.date), 'MMM dd')) || [],
+  // Get profit analysis data
+  const getProfitAnalysisData = () => {
+    const summary = calculateFinancialSummary();
+    if (!summary) return { labels: [], datasets: [] };
+    
+    return {
+      labels: ['Revenue', 'Costs', 'Expenses', 'Net Profit'],
       datasets: [
         {
-          label: 'Profit Margin %',
-          data: financialData?.profitTrend.slice(-30).map(d => d.margin) || [],
-          borderColor: 'rgb(139, 92, 246)',
-          backgroundColor: 'rgba(139, 92, 246, 0.1)',
-          fill: true,
-          tension: 0.4,
+          data: [
+            summary.totalRevenue,
+            summary.totalCosts,
+            summary.totalExpenses,
+            summary.netProfit
+          ],
+          backgroundColor: [
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(239, 68, 68, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(59, 130, 246, 0.8)',
+          ],
+          borderWidth: 0,
         },
       ],
-    },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { color: 'rgba(107, 114, 128, 0.1)' },
-          ticks: { 
-            color: 'rgb(107, 114, 128)',
-            callback: function(value: any) { return value + '%'; }
-          },
-        },
-        x: {
-          grid: { color: 'rgba(107, 114, 128, 0.1)' },
-          ticks: { color: 'rgb(107, 114, 128)' },
-        },
-      },
-      plugins: {
-        legend: { labels: { color: 'rgb(107, 114, 128)' } },
-      },
-    },
+    };
   };
+
+  // Get monthly comparison data
+  const getMonthlyComparisonData = () => {
+    if (!financialData?.monthlyTrend || !Array.isArray(financialData.monthlyTrend)) {
+      return { labels: [], datasets: [] };
+    }
+    
+    const validData = financialData.monthlyTrend.filter((item: any) => item && item.date);
+    
+    if (validData.length === 0) {
+      return { labels: [], datasets: [] };
+    }
+    
+    return {
+      labels: validData.map((item: any) => {
+        try {
+          if (typeof item.date === 'string') {
+            return format(parseISO(item.date), 'MMM');
+          } else {
+            return format(new Date(item.date), 'MMM');
+          }
+        } catch (error) {
+          console.warn('Error parsing date:', item.date);
+          return 'Invalid Date';
+        }
+      }),
+      datasets: [
+        {
+          label: 'Revenue',
+          data: validData.map((item: any) => item.revenue || 0),
+          backgroundColor: 'rgba(16, 185, 129, 0.8)',
+          borderColor: 'rgb(16, 185, 129)',
+          borderWidth: 1,
+        },
+        {
+          label: 'Profit',
+          data: validData.map((item: any) => (item.revenue || 0) * 0.3), // Assuming 30% profit margin
+          backgroundColor: 'rgba(59, 130, 246, 0.8)',
+          borderColor: 'rgb(59, 130, 246)',
+          borderWidth: 1,
+        },
+      ],
+    };
+  };
+
+  const summary = calculateFinancialSummary();
+  const avgOrderValue = summary?.avgOrderValue || 0;
+
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'revenue', label: 'Revenue' },
+    { id: 'profit', label: 'Profit & Loss' },
+    { id: 'cashflow', label: 'Cash Flow' },
+  ];
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex justify-center items-center min-h-96">
+        <Spinner size="lg" color="primary" />
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Financial Reports</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Revenue analysis, profit tracking, and financial insights
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Financial Report
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Revenue, profit, expenses, and financial analytics
           </p>
         </div>
-        
-        <div className="flex flex-wrap gap-2 mt-4 sm:mt-0">
-          {['3m', '6m', '1y', '2y'].map((period) => (
-            <Button
-              key={period}
-              size="sm"
-              variant={selectedPeriod === period ? 'solid' : 'bordered'}
-              onPress={() => setPeriod(period)}
-            >
-              {period === '3m' && 'Last 3 Months'}
-              {period === '6m' && 'Last 6 Months'}
-              {period === '1y' && 'Last Year'}
-              {period === '2y' && 'Last 2 Years'}
-            </Button>
-          ))}
+        <div className="flex items-center space-x-3">
+          <Select
+            placeholder="Select period"
+            selectedKeys={[period]}
+            onSelectionChange={(keys) => {
+              const newPeriod = Array.from(keys)[0] as string;
+              setPeriod(newPeriod);
+            }}
+            className="w-40"
+          >
+            <SelectItem key="7">Last 7 Days</SelectItem>
+            <SelectItem key="30">Last 30 Days</SelectItem>
+            <SelectItem key="90">Last 90 Days</SelectItem>
+            <SelectItem key="365">Last Year</SelectItem>
+          </Select>
+          <Button
+            color="primary"
+            variant="flat"
+            onClick={loadFinancialData}
+            isLoading={loading}
+          >
+            Refresh
+          </Button>
+          <Button
+            color="secondary"
+            variant="flat"
+          >
+            Export
+          </Button>
         </div>
       </div>
 
-      {/* Key Financial Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-r from-green-500 to-green-600">
-          <CardBody className="p-6">
-            <div className="text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-100 text-sm">Total Revenue</p>
-                  <p className="text-2xl font-bold">${financialData?.totalRevenue.toLocaleString() || 0}</p>
-                </div>
-                <DollarSign className="w-8 h-8 text-green-200" />
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-blue-500 to-blue-600">
-          <CardBody className="p-6">
-            <div className="text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-100 text-sm">Gross Profit</p>
-                  <p className="text-2xl font-bold">${financialData?.grossProfit.toLocaleString() || 0}</p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-blue-200" />
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-purple-500 to-purple-600">
-          <CardBody className="p-6">
-            <div className="text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-purple-100 text-sm">Profit Margin</p>
-                  <p className="text-2xl font-bold">{financialData?.grossProfitMargin.toFixed(1) || 0}%</p>
-                </div>
-                <Calculator className="w-8 h-8 text-purple-200" />
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="bg-gradient-to-r from-orange-500 to-orange-600">
-          <CardBody className="p-6">
-            <div className="text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-100 text-sm">Net Profit</p>
-                  <p className="text-2xl font-bold">${financialData?.netProfit.toLocaleString() || 0}</p>
-                </div>
-                <FileText className="w-8 h-8 text-orange-200" />
-              </div>
-            </div>
-          </CardBody>
-        </Card>
+      {/* Tabs */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="-mb-px flex space-x-8">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === tab.id
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      {/* Revenue vs Profit Trend */}
-      <Card>
-        <CardBody className="p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-blue-600" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Revenue vs Profit Analysis</h3>
-          </div>
-          <div className="h-80">
-            <Line {...revenueVsProfitConfig} />
-          </div>
-        </CardBody>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Profit Margin Trend */}
-        <Card>
-          <CardBody className="p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Calculator className="w-5 h-5 text-purple-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Profit Margin Trend</h3>
-            </div>
-            <div className="h-64">
-              <Line {...profitMarginConfig} />
-            </div>
-          </CardBody>
-        </Card>
-
-        {/* Tax Summary */}
-        <Card>
-          <CardBody className="p-6">
-            <div className="flex items-center space-x-2 mb-4">
-              <Calculator className="w-5 h-5 text-orange-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Tax Summary</h3>
-            </div>
-            <div className="space-y-4">
-              {financialData?.taxBreakdown.map((tax, index) => (
-                <div key={index} className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <span className="text-gray-700 dark:text-gray-300">{tax.type}</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">${tax.amount.toLocaleString()}</span>
+      {/* Summary Cards */}
+      {summary && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardBody className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Total Revenue
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {formatCurrency(summary.totalRevenue)}
+                  </p>
+                  <p className="text-sm text-green-600">
+                    {formatPercentage(summary.revenueGrowth)}
+                  </p>
                 </div>
-              ))}
-            </div>
-          </CardBody>
-        </Card>
-      </div>
+                <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
 
-      {/* Monthly P&L Summary */}
-      <Card>
-        <CardBody className="p-6">
-          <div className="flex items-center space-x-2 mb-4">
-            <FileText className="w-5 h-5 text-blue-600" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Monthly P&L Summary</h3>
+          <Card>
+            <CardBody className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Gross Profit
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {formatCurrency(summary.grossProfit)}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {((summary.grossProfit / summary.totalRevenue) * 100).toFixed(1)}% margin
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Net Profit
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {formatCurrency(summary.netProfit)}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {summary.profitMargin.toFixed(1)}% margin
+                  </p>
+                </div>
+                <div className="p-3 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
+                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Total Expenses
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {formatCurrency(summary.totalExpenses)}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {expenseData.length} transactions
+                  </p>
+                </div>
+                <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Revenue Trend
+              </h3>
+            </CardHeader>
+            <CardBody>
+              <div className="h-80">
+                <Line 
+                  data={getRevenueTrendData()} 
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'top' as const,
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          callback: function(value: any) {
+                            return formatCurrency(value);
+                          },
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Financial Breakdown
+              </h3>
+            </CardHeader>
+            <CardBody>
+              <div className="h-80">
+                <Doughnut 
+                  data={getProfitAnalysisData()} 
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'bottom' as const,
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'revenue' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Monthly Revenue Comparison
+              </h3>
+            </CardHeader>
+            <CardBody>
+              <div className="h-80">
+                <Bar 
+                  data={getMonthlyComparisonData()} 
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        position: 'top' as const,
+                      },
+                    },
+                    scales: {
+                      y: {
+                        beginAtZero: true,
+                        ticks: {
+                          callback: function(value: any) {
+                            return formatCurrency(value);
+                          },
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Revenue Details
+              </h3>
+            </CardHeader>
+            <CardBody>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {summary?.totalSales || 0}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400">Total Sales</p>
+                </div>
+                <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {formatCurrency(summary?.avgOrderValue || 0)}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400">Avg Order Value</p>
+                </div>
+                <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                    {formatPercentage(summary?.revenueGrowth || 0)}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400">Growth Rate</p>
+                </div>
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      )}
+
+      {activeTab === 'profit' && summary && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Profit & Loss Statement
+                </h3>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center py-2 border-b">
+                    <span className="font-medium">Total Revenue</span>
+                    <span className="font-bold text-green-600">
+                      {formatCurrency(summary.totalRevenue)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b">
+                    <span className="font-medium">Cost of Goods Sold</span>
+                    <span className="font-bold text-red-600">
+                      -{formatCurrency(summary.totalCosts)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b">
+                    <span className="font-medium">Gross Profit</span>
+                    <span className="font-bold text-blue-600">
+                      {formatCurrency(summary.grossProfit)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b">
+                    <span className="font-medium">Operating Expenses</span>
+                    <span className="font-bold text-red-600">
+                      -{formatCurrency(summary.totalExpenses)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-3 border-t-2 border-gray-300">
+                    <span className="text-lg font-bold">Net Profit</span>
+                    <span className="text-lg font-bold text-blue-600">
+                      {formatCurrency(summary.netProfit)}
+                    </span>
+                  </div>
+                </div>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Key Metrics
+                </h3>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center py-2">
+                    <span className="font-medium">Gross Profit Margin</span>
+                    <span className="font-bold">
+                      {((summary.grossProfit / summary.totalRevenue) * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="font-medium">Net Profit Margin</span>
+                    <span className="font-bold">
+                      {summary.profitMargin.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="font-medium">Expense Ratio</span>
+                    <span className="font-bold">
+                      {((summary.totalExpenses / summary.totalRevenue) * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="font-medium">Revenue Growth</span>
+                    <span className="font-bold">
+                      {formatPercentage(summary.revenueGrowth)}
+                    </span>
+                  </div>
+                </div>
+              </CardBody>
+            </Card>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Month</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Revenue</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">COGS</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Profit</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Margin</th>
-                </tr>
-              </thead>
-              <tbody>
-                {financialData?.monthlyRevenue.slice(-6).map((month, index) => (
-                  <tr key={index} className="border-b border-gray-100 dark:border-gray-800">
-                    <td className="py-3 px-4 text-gray-900 dark:text-white">{month.month}</td>
-                    <td className="py-3 px-4 text-gray-600 dark:text-gray-400">${month.revenue.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-gray-600 dark:text-gray-400">${month.cogs.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-gray-600 dark:text-gray-400">${month.profit.toLocaleString()}</td>
-                    <td className="py-3 px-4 text-gray-600 dark:text-gray-400">
-                      {month.revenue > 0 ? ((month.profit / month.revenue) * 100).toFixed(1) : 0}%
-                    </td>
-                  </tr>
+        </div>
+      )}
+
+      {activeTab === 'cashflow' && (
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Recent Transactions
+            </h3>
+          </CardHeader>
+          <CardBody>
+            <Table aria-label="Cash flow transactions">
+              <TableHeader>
+                <TableColumn>DATE</TableColumn>
+                <TableColumn>TYPE</TableColumn>
+                <TableColumn>DESCRIPTION</TableColumn>
+                <TableColumn>AMOUNT</TableColumn>
+                <TableColumn>STATUS</TableColumn>
+              </TableHeader>
+              <TableBody>
+                {salesData.slice(0, 10).map((transaction) => (
+                  <TableRow key={transaction._id}>
+                    <TableCell>
+                      {formatDate(transaction.saleDate || transaction.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="sm" color="success" variant="flat">
+                        Revenue
+                      </Chip>
+                    </TableCell>
+                    <TableCell>
+                      Sale - {transaction.receiptNumber}
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-semibold text-green-600">
+                        +{formatCurrency(transaction.totalAmount)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="sm"
+                        color={transaction.status === 'completed' ? 'success' : 'warning'}
+                        variant="flat"
+                      >
+                        {transaction.status}
+                      </Chip>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </CardBody>
-      </Card>
+                {expenseData.slice(0, 5).map((expense) => (
+                  <TableRow key={expense._id}>
+                    <TableCell>
+                      {formatDate(expense.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="sm" color="danger" variant="flat">
+                        Expense
+                      </Chip>
+                    </TableCell>
+                    <TableCell>
+                      Purchase Order - {expense.orderNumber}
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-semibold text-red-600">
+                        -{formatCurrency(expense.totalAmount)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="sm"
+                        color={
+                          expense.status === 'completed' ? 'success' :
+                          expense.status === 'pending' ? 'warning' : 'default'
+                        }
+                        variant="flat"
+                      >
+                        {expense.status}
+                      </Chip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
-} 
+};
+
+export default FinancialReport;
