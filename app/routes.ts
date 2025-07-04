@@ -28,6 +28,11 @@ export default [
         route("/customers/:id", "routes/customers/view.tsx"),
         route("/customers/:id/history", "routes/customers/history.tsx"),
         
+        // Order Management & Tracking
+        route("/orders", "routes/orders/index.tsx"),
+        route("/orders/dashboard", "routes/orders/dashboard.tsx"),
+        route("/orders/tracking", "routes/orders/tracking.tsx"),
+        
         // Reports & Analytics
         route("/reports", "routes/reports/index.tsx"),
         route("/reports/sales", "routes/reports/sales.tsx"),
@@ -69,6 +74,8 @@ export default [
     route("/api/suppliers/*", "routes/api/suppliers.tsx"),
     route("/api/cart/*", "routes/api/cart.tsx"),
     route("/api/wishlist/*", "routes/api/wishlist.tsx"),
+    route("/api/paystack/*", "routes/api/paystack.tsx"),
+    route("/api/orders/*", "routes/api/orders.tsx"),
     
     // Auth Route
     route("/", "routes/login.tsx")

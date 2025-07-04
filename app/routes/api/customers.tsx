@@ -1,15 +1,152 @@
 import { data } from 'react-router';
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 import Customer from '../../models/Customer';
 import Sale from '../../models/Sale';
 import '../../mongoose.server';
 
+// Helper function to hash password
+const hashPassword = async (password: string): Promise<string> => {
+  const salt = await bcrypt.genSalt(12);
+  return bcrypt.hash(password, salt);
+};
+
+// Helper function to compare password
+const comparePassword = async (password: string, hashedPassword: string): Promise<boolean> => {
+  return bcrypt.compare(password, hashedPassword);
+};
+
+// Customer Authentication Functions
+const authenticateCustomer = async (email: string, password: string) => {
+  try {
+    // Find customer by email
+    const customer = await Customer.findOne({ 
+      email: email.toLowerCase(),
+      isActive: true 
+    });
+
+    if (!customer) {
+      return { success: false, message: 'Invalid email or password' };
+    }
+
+    // Check if customer has password in notes (temporary solution)
+    if (!customer.notes || !customer.notes.startsWith('pwd:')) {
+      return { success: false, message: 'Account not set up for login. Please contact support.' };
+    }
+
+    // Extract hashed password from notes
+    const hashedPassword = customer.notes.replace('pwd:', '').split('|')[0];
+    
+    // Verify password
+    const isPasswordValid = await comparePassword(password, hashedPassword);
+    
+    if (!isPasswordValid) {
+      return { success: false, message: 'Invalid email or password' };
+    }
+
+    // Return customer data without password
+    const customerData = {
+      _id: customer._id,
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      email: customer.email,
+      phone: customer.phone,
+      address: customer.address,
+      dateOfBirth: customer.dateOfBirth,
+      loyaltyPoints: customer.loyaltyPoints,
+      totalPurchases: customer.totalPurchases,
+      totalSpent: customer.totalSpent,
+      isActive: customer.isActive,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt
+    };
+
+    return { success: true, data: customerData };
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return { success: false, message: 'Authentication failed' };
+  }
+};
+
+const createCustomerWithPassword = async (customerData: any, password: string) => {
+  try {
+    // Validate required fields
+    if (!customerData.firstName || !customerData.lastName || !customerData.email || !password) {
+      return { success: false, message: 'First name, last name, email, and password are required' };
+    }
+
+    // Check for duplicate email
+    const existingCustomer = await Customer.findOne({ 
+      email: customerData.email.toLowerCase(),
+      isActive: true 
+    });
+    
+    if (existingCustomer) {
+      return { success: false, message: 'Customer with this email already exists' };
+    }
+
+    // Hash password
+    const hashedPassword = await hashPassword(password);
+    
+    // Create customer with password stored in notes (temporary solution)
+    const customer = new Customer({
+      firstName: customerData.firstName,
+      lastName: customerData.lastName,
+      email: customerData.email.toLowerCase(),
+      phone: customerData.phone,
+      address: customerData.address,
+      dateOfBirth: customerData.dateOfBirth,
+      notes: `pwd:${hashedPassword}|Customer account created for e-commerce`,
+      loyaltyPoints: 0,
+      totalPurchases: 0,
+      totalSpent: 0,
+      isActive: true
+    });
+    
+    await customer.save();
+    
+    // Return customer data without password
+    const responseData = {
+      _id: customer._id,
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      email: customer.email,
+      phone: customer.phone,
+      address: customer.address,
+      dateOfBirth: customer.dateOfBirth,
+      loyaltyPoints: customer.loyaltyPoints,
+      totalPurchases: customer.totalPurchases,
+      totalSpent: customer.totalSpent,
+      isActive: customer.isActive,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt
+    };
+    
+    return { success: true, data: responseData, message: 'Customer account created successfully' };
+  } catch (error) {
+    console.error('Customer creation error:', error);
+    return { success: false, message: 'Failed to create customer account' };
+  }
+};
+
 // GET /api/customers - Get all customers
 // GET /api/customers/{id}/purchases - Get customer purchase history
+// GET /api/customers/auth/login - Customer login (POST method will handle this)
 export async function loader({ request }: { request: Request }) {
   try {
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/');
+    
+    // Handle customer authentication route
+    if (pathParts.includes('auth')) {
+      return data(
+        {
+          success: false,
+          message: 'Use POST method for authentication'
+        },
+        { status: 405 }
+      );
+    }
     
     // Check if this is a purchase history request: /api/customers/{id}/purchases
     if (pathParts.length === 5 && pathParts[4] === 'purchases') {
@@ -67,9 +204,26 @@ export async function loader({ request }: { request: Request }) {
         );
       }
       
+      // Remove password from notes before sending response
+      const customerData = {
+        _id: customer._id,
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        email: customer.email,
+        phone: customer.phone,
+        address: customer.address,
+        dateOfBirth: customer.dateOfBirth,
+        loyaltyPoints: customer.loyaltyPoints,
+        totalPurchases: customer.totalPurchases,
+        totalSpent: customer.totalSpent,
+        isActive: customer.isActive,
+        createdAt: customer.createdAt,
+        updatedAt: customer.updatedAt
+      };
+      
       return data({
         success: true,
-        data: customer
+        data: customerData
       });
     }
     
@@ -97,9 +251,26 @@ export async function loader({ request }: { request: Request }) {
     
     const total = await Customer.countDocuments(query);
     
+    // Remove passwords from notes before sending response
+    const sanitizedCustomers = customers.map(customer => ({
+      _id: customer._id,
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      email: customer.email,
+      phone: customer.phone,
+      address: customer.address,
+      dateOfBirth: customer.dateOfBirth,
+      loyaltyPoints: customer.loyaltyPoints,
+      totalPurchases: customer.totalPurchases,
+      totalSpent: customer.totalSpent,
+      isActive: customer.isActive,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt
+    }));
+    
     return data({
       success: true,
-      data: customers,
+      data: sanitizedCustomers,
       meta: {
         page,
         limit,
@@ -120,9 +291,83 @@ export async function loader({ request }: { request: Request }) {
 }
 
 // POST /api/customers - Create new customer
+// POST /api/customers/auth/login - Customer login
+// POST /api/customers/auth/signup - Customer signup with password
 export async function action({ request }: { request: Request }) {
   try {
     const method = request.method;
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    
+    // Handle authentication routes
+    if (pathParts.includes('auth')) {
+      const authAction = pathParts[pathParts.length - 1];
+      
+      if (authAction === 'login') {
+        // Customer login
+        const { email, password } = await request.json();
+        
+        if (!email || !password) {
+          return data(
+            {
+              success: false,
+              message: 'Email and password are required'
+            },
+            { status: 400 }
+          );
+        }
+        
+        const result = await authenticateCustomer(email, password);
+        
+        if (result.success) {
+          return data({
+            success: true,
+            data: { customer: result.data },
+            message: 'Login successful'
+          });
+        } else {
+          return data(
+            {
+              success: false,
+              message: result.message
+            },
+            { status: 401 }
+          );
+        }
+      }
+      
+      if (authAction === 'signup') {
+        // Customer signup
+        const { password, ...customerData } = await request.json();
+        
+        const result = await createCustomerWithPassword(customerData, password);
+        
+        if (result.success) {
+          return data({
+            success: true,
+            data: { customer: result.data },
+            message: result.message
+          });
+        } else {
+          const status = result.message?.includes('already exists') ? 409 : 400;
+          return data(
+            {
+              success: false,
+              message: result.message
+            },
+            { status }
+          );
+        }
+      }
+      
+      return data(
+        {
+          success: false,
+          message: 'Invalid authentication action'
+        },
+        { status: 400 }
+      );
+    }
     
     if (method === 'POST') {
       const customerData = await request.json();
@@ -195,8 +440,6 @@ export async function action({ request }: { request: Request }) {
     }
     
     // Handle PUT and DELETE by parsing URL for customer ID
-    const url = new URL(request.url);
-    const pathParts = url.pathname.split('/');
     const customerId = pathParts[pathParts.length - 1];
     
     if (!mongoose.Types.ObjectId.isValid(customerId)) {

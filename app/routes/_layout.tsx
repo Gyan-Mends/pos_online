@@ -120,6 +120,12 @@ const TruckIcon = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
+const OrdersIcon = ({ className = "w-5 h-5" }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+  </svg>
+);
+
 // Add these type definitions at the top of the file
 type SubMenuItem = {
   name: string;
@@ -180,6 +186,16 @@ const navigation: NavigationItem[] = [
     submenu: [
       { name: "All Customers", href: "/customers" },
       { name: "Purchase History", href: "/customers/history" }
+    ]
+  },
+  { 
+    name: "Orders", 
+    icon: OrdersIcon, 
+    href: "/orders",
+    submenu: [
+      { name: "Order Management", href: "/orders" },
+      { name: "Tracking Dashboard", href: "/orders/dashboard" },
+      { name: "Order Tracking", href: "/orders/tracking" }
     ]
   },
   { 
