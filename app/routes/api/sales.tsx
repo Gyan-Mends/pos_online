@@ -17,6 +17,7 @@ export async function loader({ request }: { request: Request }) {
     const customerId = url.searchParams.get('customerId');
     const sellerId = url.searchParams.get('sellerId');
     const status = url.searchParams.get('status');
+    const source = url.searchParams.get('source');
     
     // Check if this is a request for a specific sale by ID
     const pathParts = url.pathname.split('/');
@@ -69,6 +70,7 @@ export async function loader({ request }: { request: Request }) {
     if (customerId) query.customerId = customerId;
     if (sellerId) query.sellerId = sellerId;
     if (status) query.status = status;
+    if (source) query.source = source;
     
     // Get total count for pagination
     const total = await Sale.countDocuments(query);

@@ -94,6 +94,17 @@ const saleSchema = new mongoose.Schema({
     enum: ['pending', 'completed', 'refunded', 'partially_refunded'],
     default: 'completed'
   },
+  source: {
+    type: String,
+    enum: ['pos', 'ecommerce', 'phone', 'email', 'other'],
+    default: 'pos',
+    required: true
+  },
+  orderNumber: {
+    type: String,
+    sparse: true,
+    index: true
+  },
   notes: String,
   saleDate: {
     type: Date,

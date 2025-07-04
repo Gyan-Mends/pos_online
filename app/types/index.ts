@@ -131,6 +131,8 @@ export interface Sale {
   changeAmount: number;
   payments: Payment[];
   status: 'pending' | 'completed' | 'refunded' | 'partially_refunded';
+  source: 'pos' | 'ecommerce' | 'phone' | 'email' | 'other';
+  orderNumber?: string;
   notes?: string;
   saleDate: string;
   createdAt: string;

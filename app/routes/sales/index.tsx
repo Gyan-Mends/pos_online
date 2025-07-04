@@ -38,6 +38,7 @@ export default function SalesHistoryPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [sourceFilter, setSourceFilter] = useState('all');
 
   useEffect(() => {
     loadSales();
@@ -45,7 +46,7 @@ export default function SalesHistoryPage() {
 
   useEffect(() => {
     loadSales();
-  }, [startDate, endDate, statusFilter]);
+  }, [startDate, endDate, statusFilter, sourceFilter]);
 
   const loadSales = async () => {
     try {
@@ -54,6 +55,7 @@ export default function SalesHistoryPage() {
       
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
+      if (sourceFilter !== 'all') params.source = sourceFilter;
       
       const response = await salesAPI.getAll(params);
       let salesData = (response as any)?.data || response || [];
@@ -171,6 +173,44 @@ export default function SalesHistoryPage() {
             <Package className="w-4 h-4 text-gray-400" />
             <span className="text-sm">{sale.items.length} item(s)</span>
           </div>
+        );
+      }
+    },
+    {
+      key: 'source',
+      title: 'Source',
+      render: (value: any, sale: Sale) => {
+        if (!sale || !sale.source) return <span>-</span>;
+        
+        const getSourceColor = (source: string) => {
+          switch (source) {
+            case 'ecommerce': return 'primary';
+            case 'pos': return 'success';
+            case 'phone': return 'warning';
+            case 'email': return 'secondary';
+            default: return 'default';
+          }
+        };
+        
+        const getSourceIcon = (source: string) => {
+          switch (source) {
+            case 'ecommerce': return '🛒';
+            case 'pos': return '🏪';
+            case 'phone': return '📞';
+            case 'email': return '📧';
+            default: return '📋';
+          }
+        };
+        
+        return (
+          <Chip 
+            color={getSourceColor(sale.source)}
+            variant="flat"
+            size="sm"
+            startContent={<span className="text-xs">{getSourceIcon(sale.source)}</span>}
+          >
+            {sale.source.replace('_', ' ').toUpperCase()}
+          </Chip>
         );
       }
     },
@@ -344,7 +384,7 @@ export default function SalesHistoryPage() {
       {/* Filters */}
       <Card>
         <CardBody className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <Input
               placeholder="Search by receipt, customer, or notes..."
               value={searchQuery}
@@ -376,6 +416,19 @@ export default function SalesHistoryPage() {
               <SelectItem key="pending">Pending</SelectItem>
               <SelectItem key="partially_refunded">Partially Refunded</SelectItem>
               <SelectItem key="refunded">Refunded</SelectItem>
+            </Select>
+            
+            <Select
+              label="Source"
+              selectedKeys={[sourceFilter]}
+              onSelectionChange={(keys) => setSourceFilter(Array.from(keys)[0] as string)}
+            >
+              <SelectItem key="all">All Sources</SelectItem>
+              <SelectItem key="pos">🏪 POS (In-House)</SelectItem>
+              <SelectItem key="ecommerce">🛒 E-Commerce</SelectItem>
+              <SelectItem key="phone">📞 Phone Order</SelectItem>
+              <SelectItem key="email">📧 Email Order</SelectItem>
+              <SelectItem key="other">📋 Other</SelectItem>
             </Select>
           </div>
         </CardBody>

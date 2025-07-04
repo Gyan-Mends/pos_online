@@ -2,6 +2,7 @@ import { data } from 'react-router';
 import mongoose from '../../mongoose.server';
 import Order from '../../models/Order';
 import User from '../../models/User';
+import Sale from '../../models/Sale';
 
 // Helper function to get current user (for status updates)
 async function getCurrentUser(request: Request) {
@@ -9,6 +10,59 @@ async function getCurrentUser(request: Request) {
   // For now, we'll find any admin user
   const user = await User.findOne({ role: 'admin' });
   return user;
+}
+
+// Helper function to convert order to sale
+async function convertOrderToSale(order: any, currentUser: any) {
+  try {
+    // Check if sale already exists for this order
+    const existingSale = await Sale.findOne({ orderNumber: order.orderNumber });
+    if (existingSale) {
+      console.log(`Sale already exists for order ${order.orderNumber}`);
+      return existingSale;
+    }
+
+    // Create sale from order
+    const saleData = {
+      customerId: order.customerId,
+      sellerId: currentUser._id,
+      orderNumber: order.orderNumber,
+      source: order.source || 'ecommerce',
+      items: order.items.map((item: any) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discount: 0,
+        discountType: 'percentage',
+        totalPrice: item.totalPrice
+      })),
+      subtotal: order.subtotal,
+      taxAmount: order.taxAmount,
+      discountAmount: order.discountAmount,
+      totalAmount: order.totalAmount,
+      amountPaid: order.totalAmount,
+      changeAmount: 0,
+      payments: [{
+        method: order.paymentInfo.method,
+        amount: order.totalAmount,
+        reference: order.paymentInfo.reference,
+        status: 'completed'
+      }],
+      status: 'completed',
+      notes: `Sale from e-commerce order ${order.orderNumber}`,
+      saleDate: order.deliveredAt || new Date()
+    };
+
+    const sale = new Sale(saleData);
+    await sale.save();
+
+    console.log(`Successfully created sale for order ${order.orderNumber}`);
+    return sale;
+
+  } catch (error) {
+    console.error('Error converting order to sale:', error);
+    throw error;
+  }
 }
 
 // GET /api/orders - Get all orders with filtering and pagination
@@ -198,6 +252,11 @@ export async function action({ request }: { request: Request }) {
           { path: 'shippedBy', select: 'firstName lastName' },
           { path: 'statusHistory.updatedBy', select: 'firstName lastName' }
         ]);
+
+        // Convert order to sale if status is delivered
+        if (newStatus === 'delivered') {
+          await convertOrderToSale(order, currentUser);
+        }
 
         return data({
           success: true,

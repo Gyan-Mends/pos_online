@@ -353,6 +353,7 @@ export default function POSPage() {
           amount: paymentMethod === 'cash' ? amountReceived : cart.totalAmount,
           status: 'completed'
         }],
+        source: 'pos',
         notes: `POS Sale - Payment: ${paymentMethod}`
       };
       
