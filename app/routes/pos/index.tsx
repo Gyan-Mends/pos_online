@@ -41,7 +41,7 @@ import CustomInput from '../../components/CustomInput';
 import { useStoreData } from '../../hooks/useStore';
 import type { Product, Customer, CartItem, Cart } from '../../types';
 
-const DEFAULT_TAX_RATE = 0.15; // 15% tax rate
+const DEFAULT_TAX_RATE = 0; // Tax disabled by default
 const CURRENCY = '₵'; // Ghana Cedis
 
 export default function POSPage() {
@@ -126,7 +126,8 @@ export default function POSPage() {
 
   const getTaxRate = () => {
     // Get tax rate from store settings or use default
-    return store?.taxSettings?.rate || DEFAULT_TAX_RATE;
+    // Use nullish coalescing to properly handle 0 as a valid tax rate
+    return store?.taxSettings?.rate ?? DEFAULT_TAX_RATE;
   };
 
   const loadData = async () => {
