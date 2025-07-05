@@ -182,8 +182,8 @@ function DataTable<T extends Record<string, any>>({
       {/* Table */}
       <div className={` rounded-lg shadow overflow-hidden ${tableClassName}`}>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="dark:bg-default">
+          <table className="w-full customed-dark-card !border-none">
+            <thead className="">
               <tr>
                 {columns.map((column) => (
                   <th
@@ -284,7 +284,7 @@ function DataTable<T extends Record<string, any>>({
               </div>
               <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                  <p className="text-sm text-gray-700 ">
                     Showing <span className="font-medium">{startRecord}</span> to{' '}
                     <span className="font-medium">{endRecord}</span> of{' '}
                     <span className="font-medium">{sortedData.length}</span> results

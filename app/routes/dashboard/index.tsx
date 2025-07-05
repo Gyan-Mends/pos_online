@@ -26,6 +26,7 @@ import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { format, parseISO } from 'date-fns';
 import { dashboardAPI } from '../../utils/api';
 import { errorToast } from '../../components/toast';
+import { useStoreData } from '../../hooks/useStore';
 import DataTable, { type Column } from '../../components/DataTable';
 
 // Register Chart.js components
@@ -126,6 +127,7 @@ export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const { store, formatCurrency: storeFormatCurrency, isStoreOpen, getBusinessHours } = useStoreData();
 
   useEffect(() => {
     // Get user info from localStorage
@@ -151,9 +153,10 @@ export default function Dashboard() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    // Use store's currency formatting if available, fallback to default
+    return store ? storeFormatCurrency(amount) : new Intl.NumberFormat('en-GH', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'GHS',
     }).format(amount || 0);
   };
 
@@ -358,6 +361,42 @@ export default function Dashboard() {
           Refresh
         </Button>
       </div>
+
+      {/* Store Status */}
+      {store && (
+        <Card>
+          <CardBody className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    {store.name}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {store.address.street}, {store.address.city}
+                  </p>
+                </div>
+                <Divider orientation="vertical" className="h-8" />
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${isStoreOpen() ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <span className={`text-sm font-medium ${isStoreOpen() ? 'text-green-600' : 'text-red-600'}`}>
+                    {isStoreOpen() ? 'Open' : 'Closed'}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Today's Hours</p>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {(() => {
+                    const hours = getBusinessHours();
+                    return hours?.isClosed ? 'Closed' : `${hours?.open} - ${hours?.close}`;
+                  })()}
+                </p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

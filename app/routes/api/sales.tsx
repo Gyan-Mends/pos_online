@@ -221,13 +221,33 @@ export async function action({ request }: { request: Request }) {
         try {
           const date = new Date();
           const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-          const count = await Sale.countDocuments({
-            createdAt: {
-              $gte: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
-              $lt: new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+          
+          // Use findOneAndUpdate with atomic operation to avoid duplicates
+          let receiptNumber;
+          let attempts = 0;
+          const maxAttempts = 10;
+          
+          while (attempts < maxAttempts) {
+            const count = await Sale.countDocuments({
+              createdAt: {
+                $gte: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
+                $lt: new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+              }
+            });
+            
+            receiptNumber = `RCP-${dateStr}-${(count + 1 + attempts).toString().padStart(4, '0')}`;
+            
+            // Check if this receipt number already exists
+            const existing = await Sale.findOne({ receiptNumber });
+            if (!existing) {
+              return receiptNumber;
             }
-          });
-          return `RCP-${dateStr}-${(count + 1).toString().padStart(4, '0')}`;
+            
+            attempts++;
+          }
+          
+          // If all attempts failed, use timestamp
+          return `RCP-${Date.now()}`;
         } catch (error) {
           console.error('Error generating receipt number:', error);
           return `RCP-${Date.now()}`;

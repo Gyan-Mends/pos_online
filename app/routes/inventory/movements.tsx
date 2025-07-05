@@ -492,7 +492,7 @@ export default function InventoryMovementsPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {getStatsCards().map((stat, index) => (
-          <Card key={index} className="border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+          <Card key={index} className="customed-dark-card">
             <CardBody className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -513,8 +513,7 @@ export default function InventoryMovementsPage() {
       </div>
 
       {/* Filters */}
-      <Card className="border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
-        <CardBody className="p-4">
+    
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Input
               placeholder="Search by product name, SKU, or reference..."
@@ -568,8 +567,7 @@ export default function InventoryMovementsPage() {
               Clear Filters
             </Button>
           </div>
-        </CardBody>
-      </Card>
+      
 
       {/* Movements DataTable */}
       

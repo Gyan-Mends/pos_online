@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { 
-  Card, 
+import {
+  Card,
   CardBody,
   Input,
   Button,
@@ -18,14 +18,14 @@ import {
   Tabs,
   Tab
 } from '@heroui/react';
-import { 
-  Search, 
-  ShoppingCart, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  User, 
-  CreditCard, 
+import {
+  Search,
+  ShoppingCart,
+  Plus,
+  Minus,
+  Trash2,
+  User,
+  CreditCard,
   Banknote,
   Receipt,
   UserPlus,
@@ -38,12 +38,16 @@ import {
 import { successToast, errorToast } from '../../components/toast';
 import { productsAPI, customersAPI, salesAPI } from '../../utils/api';
 import CustomInput from '../../components/CustomInput';
+import { useStoreData } from '../../hooks/useStore';
 import type { Product, Customer, CartItem, Cart } from '../../types';
 
-const TAX_RATE = 0.15; // 15% tax rate
+const DEFAULT_TAX_RATE = 0.15; // 15% tax rate
 const CURRENCY = '₵'; // Ghana Cedis
 
 export default function POSPage() {
+  // Store data
+  const { store, formatCurrency: storeFormatCurrency, formatDate, isStoreOpen } = useStoreData();
+  
   // State management
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -59,21 +63,21 @@ export default function POSPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
-  
+
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money'>('cash');
   const [amountReceived, setAmountReceived] = useState<number>(0);
   const [change, setChange] = useState<number>(0);
-  
+
   // Discount state
   const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [discountValue, setDiscountValue] = useState<number>(0);
-  
+
   // Modals
   const { isOpen: isCustomerModalOpen, onOpen: openCustomerModal, onOpenChange: onCustomerModalChange } = useDisclosure();
   const { isOpen: isPaymentModalOpen, onOpen: openPaymentModal, onOpenChange: onPaymentModalChange } = useDisclosure();
   const { isOpen: isReceiptModalOpen, onOpen: openReceiptModal, onOpenChange: onReceiptModalChange } = useDisclosure();
-  
+
   // New customer form
   const [newCustomer, setNewCustomer] = useState({
     firstName: '',
@@ -120,6 +124,11 @@ export default function POSPage() {
     }
   };
 
+  const getTaxRate = () => {
+    // Get tax rate from store settings or use default
+    return store?.taxSettings?.rate || DEFAULT_TAX_RATE;
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -127,10 +136,10 @@ export default function POSPage() {
         productsAPI.getAll({ limit: 1000 }),
         customersAPI.getAll({ limit: 1000 })
       ]);
-      
+
       const productsData = (productsResponse as any)?.data || productsResponse || [];
       const customersData = (customersResponse as any)?.data || customersResponse || [];
-      
+
       // Normalize products to have both _id and id fields
       const normalizedProducts = productsData
         .filter((p: Product) => p.isActive && p.stockQuantity > 0)
@@ -138,7 +147,7 @@ export default function POSPage() {
           ...p,
           id: p._id || p.id
         }));
-      
+
       setProducts(normalizedProducts);
       setCustomers(customersData);
     } catch (error) {
@@ -154,9 +163,9 @@ export default function POSPage() {
       setFilteredProducts(products.slice(0, 20)); // Show first 20 products
       return;
     }
-    
+
     const query = searchQuery.toLowerCase();
-    const filtered = products.filter(product => 
+    const filtered = products.filter(product =>
       product.name.toLowerCase().includes(query) ||
       product.sku.toLowerCase().includes(query) ||
       product.barcode?.toLowerCase().includes(query)
@@ -171,7 +180,7 @@ export default function POSPage() {
   const addToCart = (product: Product) => {
     const productId = getProductId(product);
     const existingItem = cart.items.find(item => item.productId === productId);
-    
+
     if (existingItem) {
       updateQuantity(productId, existingItem.quantity + 1);
     } else {
@@ -183,7 +192,7 @@ export default function POSPage() {
         discount: 0,
         discountType: 'percentage'
       };
-      
+
       setCart(prev => ({
         ...prev,
         items: [...prev.items, newItem]
@@ -196,19 +205,19 @@ export default function POSPage() {
       removeFromCart(productId);
       return;
     }
-    
+
     const product = products.find(p => getProductId(p) === productId);
     if (!product) return;
-    
+
     if (newQuantity > product.stockQuantity) {
       errorToast(`Only ${product.stockQuantity} items available in stock`);
       return;
     }
-    
+
     setCart(prev => ({
       ...prev,
-      items: prev.items.map(item => 
-        item.productId === productId 
+      items: prev.items.map(item =>
+        item.productId === productId
           ? { ...item, quantity: newQuantity }
           : item
       )
@@ -225,22 +234,22 @@ export default function POSPage() {
   const calculateCart = () => {
     let subtotal = 0;
     let totalDiscount = 0;
-    
+
     // Ensure cart.items exists and is an array
     if (!cart.items || !Array.isArray(cart.items)) {
       console.warn('Cart items is not a valid array:', cart.items);
       return;
     }
-    
+
     cart.items.forEach(item => {
       // Validate item properties
       const quantity = Number(item.quantity) || 0;
       const unitPrice = Number(item.unitPrice) || 0;
       const discount = Number(item.discount) || 0;
-      
+
       const itemTotal = quantity * unitPrice;
       subtotal += itemTotal;
-      
+
       // Calculate item discount
       if (discount > 0) {
         if (item.discountType === 'percentage') {
@@ -250,7 +259,7 @@ export default function POSPage() {
         }
       }
     });
-    
+
     // Apply overall cart discount
     const discountVal = Number(discountValue) || 0;
     if (discountVal > 0) {
@@ -260,17 +269,17 @@ export default function POSPage() {
         totalDiscount += discountVal;
       }
     }
-    
+
     const discountedSubtotal = Math.max(0, subtotal - totalDiscount);
-    const taxAmount = discountedSubtotal * TAX_RATE;
+    const taxAmount = discountedSubtotal * getTaxRate();
     const totalAmount = discountedSubtotal + taxAmount;
-    
+
     // Ensure all values are valid numbers
     const validSubtotal = Number(subtotal) || 0;
     const validTaxAmount = Number(taxAmount) || 0;
     const validDiscountAmount = Number(totalDiscount) || 0;
     const validTotalAmount = Number(totalAmount) || 0;
-    
+
     console.log('Cart calculation:', {
       items: cart.items.length,
       subtotal: validSubtotal,
@@ -278,7 +287,7 @@ export default function POSPage() {
       discountAmount: validDiscountAmount,
       totalAmount: validTotalAmount
     });
-    
+
     setCart(prev => ({
       ...prev,
       subtotal: validSubtotal,
@@ -309,7 +318,7 @@ export default function POSPage() {
       errorToast('Cart is empty');
       return;
     }
-    
+
     if (paymentMethod === 'cash' && amountReceived < cart.totalAmount) {
       errorToast('Insufficient payment amount');
       return;
@@ -319,13 +328,13 @@ export default function POSPage() {
       errorToast('User not authenticated');
       return;
     }
-    
+
     try {
       setProcessingPayment(true);
-      
+
       // Debug cart values
       console.log('Cart before payment:', cart);
-      
+
       // Prepare sale data
       const saleData = {
         customerId: selectedCustomer?._id || selectedCustomer?.id,
@@ -337,7 +346,7 @@ export default function POSPage() {
           discount: item.discount,
           discountType: item.discountType,
           totalPrice: (item.quantity * item.unitPrice) - (
-            item.discountType === 'percentage' 
+            item.discountType === 'percentage'
               ? (item.quantity * item.unitPrice * item.discount) / 100
               : item.discount * item.quantity
           )
@@ -356,23 +365,48 @@ export default function POSPage() {
         source: 'pos',
         notes: `POS Sale - Payment: ${paymentMethod}`
       };
-      
+
       console.log('Sale data being sent:', saleData);
-      
+
       // Create the sale in the database
       const response = await salesAPI.create(saleData);
+      console.log('Raw sale response:', response);
+      
       const sale = (response as any)?.data || response;
-      
-      console.log('Sale response received:', sale);
-      
-      setCompletedSale(sale);
+      console.log('Extracted sale data:', sale);
+
+      if (!sale || !sale.receiptNumber) {
+        console.error('Invalid sale response - missing receipt number:', sale);
+        errorToast('Failed to generate receipt number');
+        return;
+      }
+
+      // Ensure the sale has all the necessary data for the receipt
+      const completeSale = {
+        ...sale,
+        receiptNumber: sale.receiptNumber,
+        items: sale.items || cart.items.map(cartItem => ({
+          ...cartItem,
+          product: cartItem.product,
+          productId: cartItem.product
+        })),
+        subtotal: sale.subtotal || cart.subtotal,
+        taxAmount: sale.taxAmount || cart.taxAmount,
+        discountAmount: sale.discountAmount || cart.discountAmount,
+        totalAmount: sale.totalAmount || cart.totalAmount,
+        amountPaid: sale.amountPaid || (paymentMethod === 'cash' ? amountReceived : cart.totalAmount),
+        createdAt: sale.createdAt || new Date().toISOString()
+      };
+
+      console.log('Complete sale data for receipt:', completeSale);
+      setCompletedSale(completeSale);
       successToast('Payment processed successfully!');
       onPaymentModalChange();
       openReceiptModal();
-      
+
       // Reload products to get updated stock quantities
       await loadData();
-      
+
     } catch (error: any) {
       errorToast(error.message || 'Payment processing failed');
       console.error('Payment error:', error);
@@ -386,7 +420,7 @@ export default function POSPage() {
       errorToast('First name and last name are required');
       return;
     }
-    
+
     try {
       const customerData = {
         ...newCustomer,
@@ -395,16 +429,16 @@ export default function POSPage() {
         totalSpent: 0,
         isActive: true
       };
-      
+
       const response = await customersAPI.create(customerData);
       const createdCustomer = (response as any)?.data || response;
-      
+
       const customer: Customer = {
         ...createdCustomer,
         id: createdCustomer._id || createdCustomer.id,
         _id: createdCustomer._id || createdCustomer.id
       };
-      
+
       setCustomers(prev => [...prev, customer]);
       setSelectedCustomer(customer);
       setNewCustomer({ firstName: '', lastName: '', email: '', phone: '' });
@@ -419,20 +453,20 @@ export default function POSPage() {
   const formatCurrency = (amount: number | undefined | null) => {
     if (amount === undefined || amount === null || isNaN(amount)) {
       console.warn('formatCurrency received invalid amount:', amount);
-      return `${CURRENCY}0.00`;
+      return store ? storeFormatCurrency(0) : `${CURRENCY}0.00`;
     }
-    return `${CURRENCY}${amount.toFixed(2)}`;
+    return store ? storeFormatCurrency(amount) : `${CURRENCY}${amount.toFixed(2)}`;
   };
 
   const printReceipt = () => {
     if (!completedSale) return;
-    
+
     const receiptWindow = window.open('', '_blank', 'width=300,height=600');
     if (!receiptWindow) {
       errorToast('Unable to open print window. Please allow popups for this site.');
       return;
     }
-    
+
     const receiptHTML = `
       <!DOCTYPE html>
       <html>
@@ -465,8 +499,12 @@ export default function POSPage() {
       </head>
       <body>
         <div class="center bold">
-          <div>STORE RECEIPT</div>
-          <div>Point of Sale System</div>
+          <div>${store?.name || 'STORE RECEIPT'}</div>
+          ${store?.receiptSettings?.headerText ? `<div>${store.receiptSettings.headerText}</div>` : ''}
+          ${store?.receiptSettings?.showAddress && store?.address ? `<div>${store.address.street}, ${store.address.city}</div>` : ''}
+          ${store?.receiptSettings?.showPhone && store?.phone ? `<div>${store.phone}</div>` : ''}
+          ${store?.receiptSettings?.showEmail && store?.email ? `<div>${store.email}</div>` : ''}
+          ${store?.receiptSettings?.showWebsite && store?.website ? `<div>${store.website}</div>` : ''}
         </div>
         <div class="line"></div>
         
@@ -478,15 +516,26 @@ export default function POSPage() {
         <div class="line"></div>
         
         <div class="bold">ITEMS:</div>
-        ${completedSale.items?.map((item: any) => `
+        ${completedSale.items?.map((item: any) => {
+          // Try multiple ways to get the product name - be more thorough
+          const productName = item.product?.name || 
+                            item.productId?.name || 
+                            cart.items.find(cartItem => cartItem.productId === item.productId || cartItem.productId === item.productId?._id)?.product?.name || 
+                            'Unknown Item';
+          const unitPrice = item.unitPrice || item.product?.price || 0;
+          const quantity = item.quantity || 0;
+          const itemTotal = quantity * unitPrice;
+          
+          return `
           <div class="item-row">
-            <div class="item-name">${item.product?.name || 'Unknown Item'}</div>
+            <div class="item-name">${productName}</div>
           </div>
           <div class="item-row">
-            <div>${item.quantity} x ${formatCurrency(item.unitPrice)}</div>
-            <div class="item-price">${formatCurrency(item.quantity * item.unitPrice)}</div>
+            <div>${quantity} x ${formatCurrency(unitPrice)}</div>
+            <div class="item-price">${formatCurrency(itemTotal)}</div>
           </div>
-        `).join('') || ''}
+        `;
+        }).join('') || 'No items found'}
         
         <div class="line"></div>
         
@@ -503,7 +552,7 @@ export default function POSPage() {
         ` : ''}
         
         <div class="total-row">
-          <div>Tax (${(TAX_RATE * 100).toFixed(0)}%):</div>
+          <div>Tax (${(getTaxRate() * 100).toFixed(0)}%):</div>
           <div class="right">${formatCurrency(completedSale.taxAmount)}</div>
         </div>
         
@@ -529,7 +578,7 @@ export default function POSPage() {
         <div class="line"></div>
         
         <div class="center">
-          <div>Thank you for your business!</div>
+          <div>${store?.receiptSettings?.footerText || 'Thank you for your business!'}</div>
           <div>Please come again</div>
         </div>
         
@@ -540,13 +589,13 @@ export default function POSPage() {
       </body>
       </html>
     `;
-    
+
     receiptWindow.document.write(receiptHTML);
     receiptWindow.document.close();
-    
+
     // Auto-focus the print window
     receiptWindow.focus();
-    
+
     // Optional: Auto-print after a short delay
     setTimeout(() => {
       receiptWindow.print();
@@ -569,7 +618,17 @@ export default function POSPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
+          <div className="flex items-center space-x-3">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
+            {store && (
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${isStoreOpen() ? 'bg-green-500' : 'bg-red-500'}`} />
+                <span className={`text-sm font-medium ${isStoreOpen() ? 'text-green-600' : 'text-red-600'}`}>
+                  {isStoreOpen() ? 'Open' : 'Closed'}
+                </span>
+              </div>
+            )}
+          </div>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Process sales transactions and manage the cash register
           </p>
@@ -600,69 +659,74 @@ export default function POSPage() {
         {/* Product Selection Area */}
         <div className="lg:col-span-2 space-y-4">
           {/* Search */}
-        
-              <Input
-                placeholder="Search products by name, SKU, or barcode..."
-                value={searchQuery}
-                onValueChange={setSearchQuery}
-                startContent={<Search className="w-4 h-4 text-gray-400" />}
-                variant="bordered"
-                size="lg"
-              />
-          
-          
+
+          <Input
+            placeholder="Search products by name, SKU, or barcode..."
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+            startContent={<Search className="w-4 h-4 text-gray-400" />}
+            variant="bordered"
+            size="lg"
+          />
+
+
           {/* Products Grid */}
-         
-              <div style={{ 
-                scrollBehavior: 'smooth',
-                scrollbarWidth: 'thin',
-                scrollbarColor: ' transparent',
-                scrollbarGutter: 'stable',
-               }} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 h-[66vh] overflow-y-auto">
-                {filteredProducts.map((product) => (
-                  <div
-                    key={getProductId(product)}
-                    className="p-3 border border-black/20 dark:border-white/20 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-[oklch(0.21_0.006_285.885)] transition-colors"
-                    onClick={() => addToCart(product)}
-                  >
-                    <div className="text-center">
-                      <div className="w-20 h-20 bg-gray-100 customed-dark-card rounded-lg flex items-center justify-center mx-auto mb-2 overflow-hidden">
-                        {product.images && product.images.length > 0 ? (
-                          <img 
-                            src={product.images[0]} 
-                            alt={product.name}
-                            className="h-20 w-20  rounded-lg"
-                          />
-                        ) : (
-                          <Tag className="w-6 h-6 text-gray-400" />
-                        )}
-                      </div>
-                      <h3 className="font-medium text-sm text-gray-900 dark:text-white mb-1 line-clamp-2">
-                        {product.name}
-                      </h3>
-                      <p className="text-xs text-gray-500 mb-1">{product.sku}</p>
-                      <p className="text-sm font-bold text-blue-600 dark:text-blue-400">
-                        {formatCurrency(product.price)}
-                      </p>
-                      <p className="text-xs text-gray-500">Stock: {product.stockQuantity}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {filteredProducts.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <Search className="w-12 h-12 mx-auto mb-2" />
-                  <p>No products found</p>
+          <div style={{
+            scrollBehavior: 'smooth',
+            scrollbarWidth: 'thin',
+            scrollbarColor: ' transparent',
+            scrollbarGutter: 'stable',
+          }} className="grid grid-cols-2 mt-4 md:grid-cols-2 lg:grid-cols-5 gap-2">
+
+
+            {filteredProducts.map((product) => (
+              <div
+                key={getProductId(product)}
+                className=""
+                onClick={() => addToCart(product)}
+              >
+                <div className="relative md:h-40 md:w-40  overflow-hidden rounded-xl bg-gray-100 dark:bg-[#18181c] aspect-square group-hover:shadow-lg transition-shadow duration-200">
+                  {product.images && product.images.length > 0 ? (
+
+                    <img
+                      src={product.images[0]}
+                      alt={product.name}
+                     
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Tag className="w-6 h-6 text-gray-400" />
+                  )}
                 </div>
-              )}
-           
+                <div className="p-2 ">
+
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white/70 line-clamp-2">
+                    {product.name}
+                  </h3>
+                  <p className="text-xs text-gray-500 mb-1">{product.sku}</p>
+                  <p className="text-md font-medium font-bold text-blue-600 dark:text-blue-400">
+                    {formatCurrency(product.price)}
+                  </p>
+                  <p className="text-xs text-gray-500">Stock: {product.stockQuantity}</p>
+                </div>
+              </div>
+
+            ))}
+          </div>
+
+          {filteredProducts.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              <Search className="w-12 h-12 mx-auto mb-2" />
+              <p>No products found</p>
+            </div>
+          )}
+
         </div>
 
         {/* Cart and Payment Area */}
         <div className="space-y-4">
           {/* Cart */}
-          <Card className="customed-dark-card">
+          <Card className="customed-dark-card !shadow-sm">
             <CardBody className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center">
@@ -681,13 +745,13 @@ export default function POSPage() {
                   </Button>
                 )}
               </div>
-              
-              <div style={{ 
+
+              <div style={{
                 scrollBehavior: 'smooth',
                 scrollbarWidth: 'thin',
                 scrollbarColor: 'gray transparent',
                 scrollbarGutter: 'stable',
-               }} className="space-y-3 max-h-64 overflow-y-auto">
+              }} className="space-y-3 max-h-64 overflow-y-auto">
                 {cart.items.map((item) => (
                   <div key={item.productId} className="flex items-center justify-between p-2  rounded-lg border border-black/20 dark:border-white/20">
                     <div className="flex-1 min-w-0">
@@ -696,7 +760,7 @@ export default function POSPage() {
                       </p>
                       <p className="text-xs text-gray-500">{formatCurrency(item.unitPrice)} each</p>
                     </div>
-                    
+
                     <div className="flex items-center space-x-2">
                       <Button
                         size="sm"
@@ -706,11 +770,11 @@ export default function POSPage() {
                       >
                         <Minus className="w-3 h-3" />
                       </Button>
-                      
+
                       <span className="w-8 text-center text-sm font-medium">
                         {item.quantity}
                       </span>
-                      
+
                       <Button
                         size="sm"
                         isIconOnly
@@ -719,7 +783,7 @@ export default function POSPage() {
                       >
                         <Plus className="w-3 h-3" />
                       </Button>
-                      
+
                       <Button
                         size="sm"
                         isIconOnly
@@ -733,7 +797,7 @@ export default function POSPage() {
                   </div>
                 ))}
               </div>
-              
+
               {cart.items.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <ShoppingCart className="w-12 h-12 mx-auto mb-2" />
@@ -748,7 +812,7 @@ export default function POSPage() {
             <Card className="customed-dark-card">
               <CardBody className="p-2">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Order Summary</h3>
-                
+
                 {/* Discount Input */}
                 <div className="space-y-2 mb-4">
                   <div className="flex space-x-2">
@@ -778,33 +842,33 @@ export default function POSPage() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Subtotal:</span>
                     <span>{formatCurrency(cart.subtotal)}</span>
                   </div>
-                  
+
                   {cart.discountAmount > 0 && (
                     <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
                       <span>Discount:</span>
                       <span>-{formatCurrency(cart.discountAmount)}</span>
                     </div>
                   )}
-                  
+
                   <div className="flex justify-between text-sm">
-                    <span>Tax ({(TAX_RATE * 100).toFixed(0)}%):</span>
+                    <span>Tax ({(getTaxRate() * 100).toFixed(0)}%):</span>
                     <span>{formatCurrency(cart.taxAmount)}</span>
                   </div>
-                  
+
                   <Divider />
-                  
+
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total:</span>
                     <span>{formatCurrency(cart.totalAmount)}</span>
                   </div>
                 </div>
-                
+
                 <Button
                   color="primary"
                   size="md"
@@ -827,9 +891,9 @@ export default function POSPage() {
             <>
               <ModalHeader>Select Customer</ModalHeader>
               <ModalBody>
-                <Tabs classNames={{ 
+                <Tabs classNames={{
                   tabList: 'customed-dark-card',
-                 }}>
+                }}>
                   <Tab key="existing" title="Existing Customers">
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                       <div
@@ -847,7 +911,7 @@ export default function POSPage() {
                           </div>
                         </div>
                       </div>
-                      
+
                       {customers.map((customer) => (
                         <div
                           key={customer._id || customer.id}
@@ -868,7 +932,7 @@ export default function POSPage() {
                       ))}
                     </div>
                   </Tab>
-                  
+
                   <Tab key="new" title="New Customer">
                     <div className="space-y-4 flex flex-col gap-2">
                       <div className="grid grid-cols-2  gap-4">
@@ -887,7 +951,7 @@ export default function POSPage() {
                           required
                         />
                       </div>
-                      
+
                       <CustomInput
                         label="Email"
                         type="email"
@@ -895,14 +959,14 @@ export default function POSPage() {
                         value={newCustomer.email}
                         onChange={(value) => setNewCustomer(prev => ({ ...prev, email: value }))}
                       />
-                      
+
                       <CustomInput
                         label="Phone"
                         placeholder="Enter phone number"
                         value={newCustomer.phone}
                         onChange={(value) => setNewCustomer(prev => ({ ...prev, phone: value }))}
                       />
-                      
+
                       <Button
                         color="primary"
                         onClick={createCustomer}
@@ -951,7 +1015,7 @@ export default function POSPage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Payment Method */}
                   <div className='mt-2'>
                     <label className="block text-sm font-medium mb-2">Payment Method</label>
@@ -974,12 +1038,12 @@ export default function POSPage() {
                       </Button>
                     </div>
                   </div>
-                  
+
                   {/* Cash Payment Details */}
                   {paymentMethod === 'cash' && (
                     <div className="space-y-3 !mt-2">
                       <CustomInput
-                      
+
                         label="Amount Received"
                         type="number"
                         placeholder="0.00"
@@ -987,9 +1051,9 @@ export default function POSPage() {
                         onChange={(value) => setAmountReceived(parseFloat(value) || 0)}
                         min="0"
                         step="0.01"
-                        
+
                       />
-                      
+
                       {change > 0 && (
                         <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                           <div className="flex justify-between items-center">
@@ -1000,7 +1064,7 @@ export default function POSPage() {
                           </div>
                         </div>
                       )}
-                      
+
                       {/* Quick Amount Buttons */}
                       <div className="grid grid-cols-4 gap-2">
                         {[
@@ -1056,7 +1120,7 @@ export default function POSPage() {
                   <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto">
                     <Check className="w-8 h-8 text-green-600 dark:text-green-400" />
                   </div>
-                  
+
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                       Payment Completed!
@@ -1065,7 +1129,7 @@ export default function POSPage() {
                       Transaction processed successfully
                     </p>
                   </div>
-                  
+
                   {completedSale && (
                     <div className="p-4 customed-dark-card rounded-lg">
                       <div className="space-y-2 text-sm">

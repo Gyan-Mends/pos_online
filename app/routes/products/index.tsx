@@ -469,7 +469,7 @@ export default function ProductsPage() {
         {stats.map((stat) => {
           const IconComponent = stat.icon;
           return (
-            <Card key={stat.title} className="border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+            <Card key={stat.title} className="customed-dark-card">
               <CardBody className="p-4">
                 <div className="flex items-center justify-between">
                   <div>

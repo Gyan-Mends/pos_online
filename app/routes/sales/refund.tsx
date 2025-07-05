@@ -228,7 +228,7 @@ export default function RefundPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `$${Math.abs(amount).toFixed(2)}`;
+    return `GH₵${Math.abs(amount).toFixed(2)}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -434,7 +434,7 @@ export default function RefundPage() {
               </div>
 
               {/* Refund Reason */}
-              <div>
+              <div className="py-2 mb-4">
                 <CustomInput
                   label="Refund Reason"
                   placeholder="Enter reason for refund (e.g., defective product, customer request, etc.)"
@@ -443,8 +443,7 @@ export default function RefundPage() {
                   required
                 />
               </div>
-
-              {/* Refund Summary */}
+              
               <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
                 <div className="flex justify-between items-center">
                   <div>

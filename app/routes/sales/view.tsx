@@ -54,9 +54,9 @@ export default function SaleViewPage() {
 
   const formatCurrency = (amount: number) => {
     if (amount === undefined || amount === null || isNaN(amount)) {
-      return '$0.00';
+      return 'GH₵0.00';
     }
-    return `$${Math.abs(amount).toFixed(2)}`;
+    return `GH₵${Math.abs(amount).toFixed(2)}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -106,6 +106,160 @@ export default function SaleViewPage() {
       case 'refund': return <RefreshCcw className="w-4 h-4" />;
       default: return <CreditCard className="w-4 h-4" />;
     }
+  };
+
+  const printReceipt = (sale: any) => {
+    if (!sale) return;
+    
+    const receiptWindow = window.open('', '_blank', 'width=300,height=600');
+    if (!receiptWindow) {
+      alert('Unable to open print window. Please allow popups for this site.');
+      return;
+    }
+    
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - ${sale.receiptNumber}</title>
+        <style>
+          body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            margin: 0;
+            padding: 10px;
+            width: 280px;
+            color: #000;
+            background: #fff;
+          }
+          .center { text-align: center; }
+          .right { text-align: right; }
+          .bold { font-weight: bold; }
+          .line { border-bottom: 1px dashed #000; margin: 5px 0; }
+          .item-row { display: flex; justify-content: space-between; margin: 2px 0; }
+          .item-name { flex: 1; }
+          .item-price { text-align: right; }
+          .total-row { display: flex; justify-content: space-between; margin: 3px 0; }
+          .total-label { font-weight: bold; }
+          .total-amount { font-weight: bold; text-align: right; }
+          .header { margin-bottom: 10px; }
+          .footer { margin-top: 10px; }
+          @media print {
+            body { width: auto; margin: 0; padding: 5px; }
+            .no-print { display: none !important; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="center bold header">
+          <div>STORE RECEIPT</div>
+          <div>Point of Sale System</div>
+        </div>
+        <div class="line"></div>
+        
+        <div>Receipt #: ${sale.receiptNumber || 'N/A'}</div>
+        <div>Date: ${formatDate(sale.saleDate || sale.createdAt)}</div>
+        <div>Customer: ${sale.customer 
+          ? `${sale.customer.firstName} ${sale.customer.lastName}`
+          : 'Walk-in Customer'}</div>
+        <div>Seller: ${sale.seller 
+          ? `${sale.seller.firstName} ${sale.seller.lastName}`
+          : 'Unknown Seller'}</div>
+        
+        <div class="line"></div>
+        
+        <div class="bold">ITEMS:</div>
+        ${(sale.items || []).map((item: any) => {
+          const productName = item.product?.name || item.productId?.name || 'Unknown Item';
+          const unitPrice = item.unitPrice || 0;
+          const quantity = item.quantity || 0;
+          const totalPrice = quantity * unitPrice;
+          
+          return `
+          <div class="item-row">
+            <div class="item-name">${productName}</div>
+          </div>
+          <div class="item-row">
+            <div>${quantity} x ${formatCurrency(unitPrice)}</div>
+            <div class="item-price">${formatCurrency(totalPrice)}</div>
+          </div>
+          ${item.discount > 0 ? `
+          <div class="item-row">
+            <div>Discount (${item.discountType === 'percentage' ? item.discount + '%' : formatCurrency(item.discount)})</div>
+            <div class="item-price">-${formatCurrency(
+              item.discountType === 'percentage' 
+                ? (totalPrice * item.discount) / 100
+                : item.discount * quantity
+            )}</div>
+          </div>
+          ` : ''}
+        `;
+        }).join('')}
+        
+        <div class="line"></div>
+        
+        <div class="total-row">
+          <div>Subtotal:</div>
+          <div class="right">${formatCurrency(sale.subtotal || 0)}</div>
+        </div>
+        
+        ${(sale.discountAmount || 0) > 0 ? `
+          <div class="total-row">
+            <div>Discount:</div>
+            <div class="right">-${formatCurrency(sale.discountAmount)}</div>
+          </div>
+        ` : ''}
+        
+        <div class="total-row">
+          <div>Tax:</div>
+          <div class="right">${formatCurrency(sale.taxAmount || 0)}</div>
+        </div>
+        
+        <div class="line"></div>
+        
+        <div class="total-row bold">
+          <div class="total-label">TOTAL:</div>
+          <div class="total-amount">${formatCurrency(sale.totalAmount || 0)}</div>
+        </div>
+        
+        <div class="total-row">
+          <div>Amount Paid:</div>
+          <div class="right">${formatCurrency(sale.amountPaid || 0)}</div>
+        </div>
+        
+        ${(sale.changeAmount || 0) > 0 ? `
+          <div class="total-row">
+            <div>Change:</div>
+            <div class="right">${formatCurrency(sale.changeAmount)}</div>
+          </div>
+        ` : ''}
+        
+        <div class="line"></div>
+        
+        <div class="center footer">
+          <div>Thank you for your business!</div>
+          <div>Please come again</div>
+        </div>
+        
+        <div class="center no-print" style="margin-top: 20px;">
+          <button onclick="window.print()" style="padding: 10px 20px; font-size: 14px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Print Receipt</button>
+          <button onclick="window.close()" style="padding: 10px 20px; font-size: 14px; margin-left: 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>
+        </div>
+      </body>
+      </html>
+    `;
+    
+    receiptWindow.document.write(receiptHTML);
+    receiptWindow.document.close();
+    
+    // Auto-focus the print window
+    receiptWindow.focus();
+    
+    // Optional: Auto-print after a short delay
+    setTimeout(() => {
+      receiptWindow.print();
+    }, 500);
   };
 
   if (loading) {
@@ -161,13 +315,8 @@ export default function SaleViewPage() {
         <div className="flex items-center space-x-3">
           <Button
             variant="ghost"
-            startContent={<Download className="w-4 h-4" />}
-          >
-            Export
-          </Button>
-          <Button
-            variant="ghost"
             startContent={<Printer className="w-4 h-4" />}
+            onClick={() => printReceipt(sale)}
           >
             Print Receipt
           </Button>
@@ -188,8 +337,8 @@ export default function SaleViewPage() {
         {/* Main Sale Information */}
         <div className="lg:col-span-2 space-y-6">
           {/* Sale Header */}
-          <Card>
-            <CardBody className="p-6">
+          <div>
+            <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-4">
                   <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
@@ -247,12 +396,12 @@ export default function SaleViewPage() {
                   </p>
                 </div>
               </div>
-            </CardBody>
-          </Card>
+            </div>
+          </div>
 
           {/* Items */}
-          <Card>
-            <CardBody className="p-6">
+          <div className="">
+            <div className="p-6">
               <div className="flex items-center space-x-2 mb-4">
                 <Package className="w-5 h-5 text-gray-400" />
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -262,7 +411,7 @@ export default function SaleViewPage() {
 
               <div className="space-y-3">
                 {(sale.items || []).map((item, index) => (
-                  <div key={index} className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div key={index} className="flex justify-between items-center p-4 bg-gray-50 customed-dark-card !border-none shadow-sm rounded-lg">
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900 dark:text-white">
                         {item.product?.name || 'Unknown Product'}
@@ -301,71 +450,10 @@ export default function SaleViewPage() {
                   </div>
                 ))}
               </div>
-            </CardBody>
-          </Card>
+            </div>
+          </div>
 
-          {/* Payment Information */}
-          <Card>
-            <CardBody className="p-6">
-              <div className="flex items-center space-x-2 mb-4">
-                <CreditCard className="w-5 h-5 text-gray-400" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Payment Information
-                </h3>
-              </div>
-
-              <div className="space-y-3">
-                {(sale.payments || []).map((payment, index) => (
-                  <div key={index} className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      {getPaymentMethodIcon(payment.method)}
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white capitalize">
-                          {payment.method}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Status: {payment.status}
-                        </p>
-                        {payment.reference && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Ref: {payment.reference}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <p className={`font-medium ${payment.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {payment.amount < 0 ? '-' : ''}{formatCurrency(payment.amount)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              {sale.changeAmount > 0 && (
-                <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-green-800 dark:text-green-200">Change Given:</span>
-                    <span className="font-bold text-green-800 dark:text-green-200">
-                      {formatCurrency(sale.changeAmount)}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </CardBody>
-          </Card>
-
-          {/* Notes */}
-          {sale.notes && (
-            <Card>
-              <CardBody className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                  Notes
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                  {sale.notes}
-                </p>
-              </CardBody>
-            </Card>
-          )}
+         
         </div>
 
         {/* Sidebar - Summary */}
@@ -440,45 +528,69 @@ export default function SaleViewPage() {
             </CardBody>
           </Card>
 
-          {/* Quick Actions */}
+         {/* it comes here */}
+          {/* Payment Information */}
           <Card>
             <CardBody className="p-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Quick Actions
-              </h3>
-              
-              <div className="space-y-3">
-                <Button
-                  className="w-full"
-                  variant="bordered"
-                  startContent={<Printer className="w-4 h-4" />}
-                >
-                  Print Receipt
-                </Button>
-                
-                <Button
-                  className="w-full"
-                  variant="bordered"
-                  startContent={<Download className="w-4 h-4" />}
-                >
-                  Download PDF
-                </Button>
-                
-                {sale.status !== 'refunded' && sale.totalAmount > 0 && (
-                  <Link to={`/sales/refund?receipt=${sale.receiptNumber}`}>
-                    <Button
-                      className="w-full"
-                      color="warning"
-                      variant="bordered"
-                      startContent={<RefreshCcw className="w-4 h-4" />}
-                    >
-                      Process Refund
-                    </Button>
-                  </Link>
-                )}
+              <div className="flex items-center space-x-2 mb-4">
+                <CreditCard className="w-5 h-5 text-gray-400" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Payment Information
+                </h3>
               </div>
+
+              <div className="space-y-3">
+                {(sale.payments || []).map((payment, index) => (
+                  <div key={index} className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      {getPaymentMethodIcon(payment.method)}
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white capitalize">
+                          {payment.method}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Status: {payment.status}
+                        </p>
+                        {payment.reference && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Ref: {payment.reference}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <p className={`font-medium ${payment.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {payment.amount < 0 ? '-' : ''}{formatCurrency(payment.amount)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {sale.changeAmount > 0 && (
+                <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-green-800 dark:text-green-200">Change Given:</span>
+                    <span className="font-bold text-green-800 dark:text-green-200">
+                      {formatCurrency(sale.changeAmount)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </CardBody>
           </Card>
+
+          {/* Notes */}
+          {sale.notes && (
+            <Card>
+              <CardBody className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                  Notes
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                  {sale.notes}
+                </p>
+              </CardBody>
+            </Card>
+          )}
         </div>
       </div>
     </div>

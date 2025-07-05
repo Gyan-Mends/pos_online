@@ -229,7 +229,7 @@ export const profileAPI = {
     const userData = localStorage.getItem('user');
     if (userData) {
       const user = JSON.parse(userData);
-      const response = await apiRequest.put(`/api/users/${user._id}`, profileData);
+      const response = await apiRequest.put(`/api/users/${user._id}`, profileData) as any;
       if (response.success) {
         localStorage.setItem('user', JSON.stringify(response.data));
       }
@@ -644,6 +644,17 @@ export const auditAPI = {
     format: 'csv' | 'pdf' | 'excel';
     filters?: any;
   }) => apiRequest.get('/api/audit/export', params),
+};
+
+// Store API
+export const storeAPI = {
+  getStore: () => apiRequest.get('/api/store'),
+  
+  updateStore: (storeData: any) => apiRequest.post('/api/store', storeData),
+  
+  createStore: (storeData: any) => apiRequest.post('/api/store', storeData),
+  
+  deleteStore: () => apiRequest.delete('/api/store'),
 };
 
 export default api; 

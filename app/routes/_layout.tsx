@@ -21,6 +21,7 @@ import { authAPI } from "../utils/api";
 import { successToast, errorToast } from "../components/toast";
 import type { User } from "../types";
 import { Toaster } from "react-hot-toast";
+import { useStoreData } from "../hooks/useStore";
 
 // Icons (using simple SVG icons)
 const DashboardIcon = ({ className = "w-5 h-5" }) => (
@@ -169,23 +170,22 @@ const navigation: NavigationItem[] = [
       { name: "Adjustments", href: "/inventory/adjustments" }
     ]
   },
-  { 
-    name: "Procurement", 
-    icon: TruckIcon, 
-    href: "/purchase-orders",
-    submenu: [
-      { name: "Purchase Orders", href: "/purchase-orders" },
-      { name: "Suppliers", href: "/suppliers" },
-      { name: "Receiving", href: "/purchase-orders/receiving" }
-    ]
-  },
+  // { 
+  //   name: "Procurement", 
+  //   icon: TruckIcon, 
+  //   href: "/purchase-orders",
+  //   submenu: [
+  //     { name: "Purchase Orders", href: "/purchase-orders" },
+  //     { name: "Suppliers", href: "/suppliers" },
+  //     { name: "Receiving", href: "/purchase-orders/receiving" }
+  //   ]
+  // },
   { 
     name: "Customers", 
     icon: CustomersIcon, 
     href: "/customers",
     submenu: [
       { name: "All Customers", href: "/customers" },
-      { name: "Purchase History", href: "/customers/history" }
     ]
   },
   { 
@@ -226,11 +226,6 @@ const navigation: NavigationItem[] = [
     href: "/settings",
     submenu: [
       { name: "Store Information", href: "/settings/store" },
-      { name: "Tax Configuration", href: "/settings/tax" },
-      { name: "Payment Methods", href: "/settings/payments" },
-      { name: "Receipt Templates", href: "/settings/receipts" },
-      { name: "Printers", href: "/settings/printers" },
-      { name: "Backup & Restore", href: "/settings/backup" }
     ]
   }
 ];
@@ -273,6 +268,7 @@ export default function Layout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const { store } = useStoreData();
   
   // Authentication state
   const [user, setUser] = useState<User | null>(null);
@@ -470,12 +466,16 @@ export default function Layout() {
           {!sidebarCollapsed && (
             <div className="flex items-center space-x-2">
               
-              <span className="font-bold text-gray-900 dark:text-white font-heading">Point of Sale</span>
+              <span className="font-bold text-gray-900 dark:text-white font-heading">
+                {store?.name || 'Point of Sale'}
+              </span>
             </div>
           )}
           {sidebarCollapsed && (
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mx-auto">
-              <span className="text-white font-bold text-sm">POS</span>
+              <span className="text-white font-bold text-sm">
+                {store?.name ? store.name.substring(0, 3).toUpperCase() : 'POS'}
+              </span>
             </div>
           )}
         </div>
@@ -576,14 +576,7 @@ export default function Layout() {
                 >
                   Audit Trail
                 </Button>
-                <Button
-                  variant="light"
-                  className="w-full justify-start h-8 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  onClick={() => navigate('/logs')}
-                  startContent={<LogsIcon className="w-4 h-4" />}
-                >
-                  System Logs
-                </Button>
+               
               </div>
             </div>
           )}
@@ -611,28 +604,8 @@ export default function Layout() {
             
             <div className="flex items-center space-x-4">
               {/* Quick Actions */}
-              <div className="hidden md:flex items-center space-x-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate('/pos')}
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  New Sale
-                </Button>
-                {user?.role === 'admin' && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate('/products')}
-                    className="text-green-600 hover:text-green-700"
-                  >
-                    Add Product
-                  </Button>
-                )}
-              </div>
+             
 
-              <Divider orientation="vertical" className="h-6 hidden md:block" />
 
               {/* Theme Toggle */}
               <div className="flex items-center space-x-2">
@@ -652,19 +625,20 @@ export default function Layout() {
               {/* User Profile Dropdown */}
               <Dropdown placement="bottom-end">
                 <DropdownTrigger>
-                  <Button variant="light" size="sm" className="text-gray-700 dark:text-gray-300">
+                  <button>
                     <div className="flex items-center space-x-2">
                       <Avatar 
                         size="sm" 
-                        name={user ? `${user.firstName} ${user.lastName}` : 'User'} 
+                        // show users image
+                        name={user?.avatar || 'User'}
                         src={user?.avatar}
                         className="flex-shrink-0" 
                       />
-                      <span className="text-sm font-medium text-gray-900 dark:text-white hidden sm:block">
+                      {/* <span className="text-sm font-medium text-gray-900 dark:text-white hidden sm:block">
                         {user ? `${user.firstName} ${user.lastName}` : 'User'}
-                      </span>
+                      </span> */}
                     </div>
-                  </Button>
+                  </button>
                 </DropdownTrigger>
                 <DropdownMenu 
                   onAction={(key) => {
@@ -675,18 +649,7 @@ export default function Layout() {
                       case 'security':
                         navigate('/profile/security');
                         break;
-                      case 'preferences':
-                        navigate('/settings');
-                        break;
-                      case 'notifications':
-                        navigate('/profile/notifications');
-                        break;
-                      case 'activity':
-                        navigate('/profile/activity');
-                        break;
-                      case 'help':
-                        window.open('https://docs.example.com', '_blank');
-                        break;
+                     
                       case 'logout':
                         handleLogout();
                         break;
@@ -702,18 +665,7 @@ export default function Layout() {
                   <DropdownItem key="security" startContent={<LockIcon className="w-4 h-4" />}>
                     Security Settings
                   </DropdownItem>
-                  <DropdownItem key="preferences" startContent={<SettingsIcon className="w-4 h-4" />}>
-                    Preferences
-                  </DropdownItem>
-                  <DropdownItem key="notifications" startContent={<BellIcon className="w-4 h-4" />}>
-                    Notifications
-                  </DropdownItem>
-                  <DropdownItem key="activity" startContent={<ClockIcon className="w-4 h-4" />}>
-                    Activity Log
-                  </DropdownItem>
-                  <DropdownItem key="help" startContent={<HelpIcon className="w-4 h-4" />}>
-                    Help & Support
-                  </DropdownItem>
+                  
                   <DropdownItem key="logout" className="text-danger" color="danger" startContent={<LogoutIcon className="w-4 h-4" />}>
                     Logout
                   </DropdownItem>

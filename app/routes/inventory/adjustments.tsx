@@ -241,7 +241,7 @@ export default function InventoryAdjustmentsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Adjustment Form */}
         <div className="lg:col-span-2">
-          <Card className="border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+          <Card className="customed-dark-card">
             <CardHeader className="pb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Create Stock Adjustment
@@ -405,7 +405,7 @@ export default function InventoryAdjustmentsPage() {
 
         {/* Adjustment Batch */}
         <div>
-          <Card className="border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+          <Card className="customed-dark-card">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

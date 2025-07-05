@@ -326,7 +326,7 @@ export default function ProductViewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Product Summary Card */}
         <div className="lg:col-span-1">
-          <Card className="border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+          <Card className="customed-dark-card">
             <CardBody className="p-6">
               <div className="text-center">
                 <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
@@ -445,13 +445,13 @@ export default function ProductViewPage() {
 
         {/* Details Panel */}
         <div className="lg:col-span-2">
-          <Card className="border border-gray-200 bg-gray-50 dark:bg-gray-800 dark:border-gray-700">
+          <Card className="customed-dark-card">
             <CardBody className="p-6">
               <Tabs 
                 selectedKey={activeTab} 
                 onSelectionChange={(key) => setActiveTab(key as string)}
                 classNames={{
-                  tabList: "bg-gray-50 dark:bg-gray-900 dark:border-gray-700",
+                  tabList: "dark:bg-default",
                   tab: "text-gray-900 dark:text-white",
                   tabContent: "text-gray-900 dark:text-white",
                 }}
@@ -464,7 +464,7 @@ export default function ProductViewPage() {
                         Stock Information
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="p-4  ">
                           <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             Current Stock
                           </label>
@@ -476,7 +476,7 @@ export default function ProductViewPage() {
                           </p>
                         </div>
                         
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="p-4  ">
                           <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             Stock Level
                           </label>
@@ -493,7 +493,7 @@ export default function ProductViewPage() {
                           </div>
                         </div>
                         
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="p-4  ">
                           <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             Min Stock Level
                           </label>
@@ -505,7 +505,7 @@ export default function ProductViewPage() {
                           )}
                         </div>
                         
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="p-4  ">
                           <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             Max Stock Level
                           </label>
@@ -523,7 +523,7 @@ export default function ProductViewPage() {
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {product.supplier && (
-                          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <div className="p-4  ">
                             <label className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center">
                               <Truck className="w-4 h-4 mr-1" />
                               Supplier
@@ -533,7 +533,7 @@ export default function ProductViewPage() {
                         )}
                         
                         {product.batchNumber && (
-                          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <div className="p-4  ">
                             <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                               Batch Number
                             </label>
@@ -542,7 +542,7 @@ export default function ProductViewPage() {
                         )}
                         
                         {product.expiryDate && (
-                          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <div className="p-4  ">
                             <label className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center">
                               <Calendar className="w-4 h-4 mr-1" />
                               Expiry Date
@@ -556,7 +556,7 @@ export default function ProductViewPage() {
                           </div>
                         )}
                         
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="p-4  ">
                           <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             Tax Settings
                           </label>
@@ -575,7 +575,7 @@ export default function ProductViewPage() {
                           </p>
                         </div>
                         
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="p-4  ">
                           <label className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center">
                             <Clock className="w-4 h-4 mr-1" />
                             Created
@@ -585,7 +585,7 @@ export default function ProductViewPage() {
                           </p>
                         </div>
 
-                        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="p-4  ">
                           <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             Last Updated
                           </label>
@@ -605,7 +605,7 @@ export default function ProductViewPage() {
                         {stockMovements.map((movement) => (
                           <div
                             key={movement.id}
-                            className="flex items-start space-x-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                            className="flex items-start space-x-4 p-4  "
                           >
                             <div className="flex-shrink-0 w-8 h-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-full flex items-center justify-center">
                               {getMovementIcon(movement.type)}

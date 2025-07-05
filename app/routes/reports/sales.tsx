@@ -34,6 +34,7 @@ import { Line, Bar, Pie } from 'react-chartjs-2';
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { salesAPI, dashboardAPI, customersAPI, usersAPI } from '../../utils/api';
 import { errorToast, successToast } from '../../components/toast';
+import { useStoreData } from '../../hooks/useStore';
 
 // Register Chart.js components
 ChartJS.register(
@@ -52,6 +53,7 @@ const SalesReport = () => {
   const [salesData, setSalesData] = useState<any[]>([]);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { store, formatCurrency: storeFormatCurrency, formatDate: storeFormatDate } = useStoreData();
   const [dateRange, setDateRange] = useState(() => {
     const endDate = new Date();
     const startDate = subDays(endDate, 30);
@@ -97,7 +99,7 @@ const SalesReport = () => {
         ...(filters.customer !== 'all' && { customerId: filters.customer }),
       };
       
-      const salesResponse = await salesAPI.getAll(salesParams);
+      const salesResponse = await salesAPI.getAll(salesParams) as any;
       const sales = salesResponse.data || salesResponse;
       
       setSalesData(Array.isArray(sales) ? sales : sales.data || []);
@@ -110,7 +112,7 @@ const SalesReport = () => {
       }
       
       // Load dashboard data for charts
-      const dashboardResponse = await dashboardAPI.getStats();
+      const dashboardResponse = await dashboardAPI.getStats() as any;
       setDashboardData(dashboardResponse.data || dashboardResponse);
       
     } catch (error) {
@@ -122,14 +124,16 @@ const SalesReport = () => {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+    // Use store's currency formatting if available, fallback to default
+    return store ? storeFormatCurrency(amount) : new Intl.NumberFormat('en-GH', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'GHS',
     }).format(amount || 0);
   };
 
   const formatDate = (date: string | Date) => {
-    return format(new Date(date), 'MMM dd, yyyy');
+    // Use store's date formatting if available, fallback to default
+    return store ? storeFormatDate(date) : format(new Date(date), 'MMM dd, yyyy');
   };
 
   const formatTime = (date: string | Date) => {
@@ -283,9 +287,7 @@ const SalesReport = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardBody>
+  
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Input
               placeholder="Search sales..."
@@ -328,8 +330,7 @@ const SalesReport = () => {
               {/* Add customer options dynamically */}
             </Select>
           </div>
-        </CardBody>
-      </Card>
+     
 
       {/* Summary Cards */}
       {summary && (
@@ -457,8 +458,8 @@ const SalesReport = () => {
       </div>
 
       {/* Sales Table */}
-      <Card>
-        <CardHeader className="flex justify-between items-center">
+    
+        <div className="flex justify-between items-center">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Sales Transactions
           </h3>
@@ -467,9 +468,9 @@ const SalesReport = () => {
               {salesData.length} of {pagination.total} sales
             </span>
           </div>
-        </CardHeader>
-        <CardBody>
-          <Table aria-label="Sales transactions table">
+        </div>
+        <div>
+          <Table aria-label="Sales transactions ">
             <TableHeader>
               <TableColumn>RECEIPT</TableColumn>
               <TableColumn>DATE</TableColumn>
@@ -557,8 +558,8 @@ const SalesReport = () => {
               />
             </div>
           )}
-        </CardBody>
-      </Card>
+        </div>
+     
     </div>
   );
 };

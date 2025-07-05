@@ -78,6 +78,7 @@ export default [
     route("/api/paystack/*", "routes/api/paystack.tsx"),
     route("/api/orders/*", "routes/api/orders.tsx"),
     route("/api/audit/*", "routes/api/audit.tsx"),
+    route("/api/store", "routes/api/store.tsx"),
     
     // Auth Route
     route("/", "routes/login.tsx")

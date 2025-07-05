@@ -76,9 +76,9 @@ export default function SalesHistoryPage() {
 
   const formatCurrency = (amount: number) => {
     if (amount === undefined || amount === null || isNaN(amount)) {
-      return '$0.00';
+      return 'GH₵0.00';
     }
-    return `$${Math.abs(amount).toFixed(2)}`;
+    return `GH₵${Math.abs(amount).toFixed(2)}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -435,16 +435,14 @@ export default function SalesHistoryPage() {
       </Card>
 
       {/* Sales Table */}
-      <Card>
-        <CardBody className="p-0">
+     
           <DataTable
             data={filteredSales}
             columns={columns}
             loading={loading}
             emptyText="No sales found"
           />
-        </CardBody>
-      </Card>
+
     </div>
   );
 } 

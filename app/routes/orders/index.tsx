@@ -260,8 +260,7 @@ const OrdersPage = () => {
       </div>
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardBody>
+     
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <Input
               placeholder="Search orders..."
@@ -319,19 +318,17 @@ const OrdersPage = () => {
               onChange={(e) => handleFilterChange('dateTo', e.target.value)}
             />
           </div>
-        </CardBody>
-      </Card>
+        
 
       {/* Orders Table */}
-      <Card>
-        <CardBody>
+    
           {loading ? (
             <div className="flex justify-center py-8">
               <Spinner size="lg" />
             </div>
           ) : (
             <>
-              <Table aria-label="Orders table">
+              <Table aria-label="Orders table " className='mt-6'> 
                 <TableHeader>
                   <TableColumn>ORDER#</TableColumn>
                   <TableColumn>CUSTOMER</TableColumn>
@@ -418,7 +415,7 @@ const OrdersPage = () => {
                       </TableCell>
                     </TableRow>
                   ))}
-                </TableBody>
+                  </TableBody>
               </Table>
 
               {/* Pagination */}
@@ -433,8 +430,7 @@ const OrdersPage = () => {
               )}
             </>
           )}
-        </CardBody>
-      </Card>
+       
 
       {/* Order Details/Update Modal */}
       <Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
