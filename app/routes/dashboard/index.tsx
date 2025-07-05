@@ -26,6 +26,7 @@ import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { format, parseISO } from 'date-fns';
 import { dashboardAPI } from '../../utils/api';
 import { errorToast } from '../../components/toast';
+import DataTable, { type Column } from '../../components/DataTable';
 
 // Register Chart.js components
 ChartJS.register(
@@ -269,6 +270,69 @@ export default function Dashboard() {
 
   const todayChange = formatPercentage(dashboardData.todayStats.revenueChange);
   const monthlyChange = formatPercentage(dashboardData.monthlyStats.revenueChange);
+
+  // Define columns for recent sales data table
+  const recentSalesColumns: Column<any>[] = [
+    {
+      key: 'customer',
+      title: 'Customer',
+      render: (_, record) => (
+        <div className="flex items-center space-x-3">
+          <Avatar
+            size="sm"
+            name={(record.customerId?.firstName || 'W')[0]}
+            className="flex-shrink-0"
+          />
+          <div>
+            <p className="font-medium text-gray-900 dark:text-white">
+              {record.customerId 
+                ? `${record.customerId.firstName} ${record.customerId.lastName}` 
+                : 'Walk-in Customer'
+              }
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'receiptNumber',
+      title: 'Receipt & Items',
+      render: (_, record) => (
+        <div>
+          <p className="font-medium text-gray-900 dark:text-white">
+            {record.receiptNumber}
+          </p>
+          <p className="text-sm text-gray-500">
+            {record.items?.length || 0} items
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'totalAmount',
+      title: 'Total Amount',
+      align: 'right' as const,
+      render: (value) => (
+        <p className="font-semibold text-gray-900 dark:text-white">
+          {formatCurrency(value)}
+        </p>
+      ),
+    },
+    {
+      key: 'status',
+      title: 'Status',
+      align: 'center' as const,
+      render: (value) => (
+        <Chip
+          size="sm"
+          color={value === 'completed' ? 'success' : 'warning'}
+          variant="flat"
+        >
+          {value}
+        </Chip>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -534,42 +598,15 @@ export default function Dashboard() {
             </Button>
           </CardHeader>
           <CardBody>
-            <div className="space-y-4">
-              {dashboardData.recentSales.map((sale, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Avatar
-                      size="sm"
-                      name={(sale.customerId?.firstName || 'W')[0]}
-                      className="flex-shrink-0"
-                    />
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {sale.customerId 
-                          ? `${sale.customerId.firstName} ${sale.customerId.lastName}` 
-                          : 'Walk-in Customer'
-                        }
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {sale.receiptNumber} • {sale.items?.length || 0} items
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(sale.totalAmount)}
-                    </p>
-                    <Chip
-                      size="sm"
-                      color={sale.status === 'completed' ? 'success' : 'warning'}
-                      variant="flat"
-                    >
-                      {sale.status}
-                    </Chip>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <DataTable
+              data={dashboardData.recentSales}
+              columns={recentSalesColumns}
+              pageSize={5}
+              showSearch={false}
+              showPagination={false}
+              emptyText="No recent sales found"
+              tableClassName="shadow-none"
+            />
           </CardBody>
         </Card>
 

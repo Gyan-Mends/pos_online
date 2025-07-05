@@ -180,10 +180,10 @@ function DataTable<T extends Record<string, any>>({
       )}
 
       {/* Table */}
-      <div className={`bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${tableClassName}`}>
+      <div className={` rounded-lg shadow overflow-hidden ${tableClassName}`}>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-700">
+            <thead className="dark:bg-default">
               <tr>
                 {columns.map((column) => (
                   <th
@@ -191,7 +191,7 @@ function DataTable<T extends Record<string, any>>({
                     className={`px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider ${
                       column.align === 'center' ? 'text-center' : 
                       column.align === 'right' ? 'text-right' : 'text-left'
-                    } ${column.sortable !== false ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600' : ''}`}
+                    } ${column.sortable !== false ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-default hover:rounded' : ''}`}
                     style={{ width: column.width }}
                     onClick={() => handleSort(String(column.key))}
                   >
@@ -220,7 +220,7 @@ function DataTable<T extends Record<string, any>>({
                 ))}
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className=" divide-y divide-gray-200 dark:divide-gray-700">
               {paginatedData.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length} className="px-6 py-12 text-center">
@@ -234,7 +234,7 @@ function DataTable<T extends Record<string, any>>({
                 paginatedData.map((record, index) => (
                   <tr
                     key={index}
-                    className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                    className={`hover:bg-gray-50 dark:hover:bg-default${
                       onRowClick ? 'cursor-pointer' : ''
                     } ${rowClassName ? rowClassName(record, index) : ''}`}
                     onClick={() => onRowClick?.(record, index)}
