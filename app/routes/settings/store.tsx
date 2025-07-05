@@ -15,7 +15,7 @@ import {
   Tab,
   Chip
 } from "@heroui/react";
-import { Store, Clock, Receipt, Bell, Share2, Save, AlertCircle } from 'lucide-react';
+import { Store, Clock, Receipt, Bell, Share2, Save, AlertCircle, Calculator } from 'lucide-react';
 import { storeAPI } from '../../utils/api';
 import { errorToast, successToast } from '../../components/toast';
 
@@ -72,6 +72,11 @@ const StoreSettingsPage = () => {
       twitter: '',
       instagram: '',
       linkedin: ''
+    },
+    taxSettings: {
+      rate: 0,
+      type: 'percentage',
+      name: 'VAT'
     }
   });
 
@@ -528,6 +533,158 @@ const StoreSettingsPage = () => {
                       onChange={(e) => handleInputChange('receiptSettings.footerText', e.target.value)}
                       rows={2}
                     />
+                  </div>
+                </div>
+              </div>
+            </Tab>
+
+            {/* Tax Settings Tab */}
+            <Tab
+              key="tax"
+              title={
+                <div className="flex items-center space-x-2">
+                  <Calculator className="w-4 h-4" />
+                  <span>Tax Settings</span>
+                </div>
+              }
+            >
+              <div className="space-y-6 mt-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Tax Configuration</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Tax Name"
+                      placeholder="VAT, Sales Tax, etc."
+                      value={storeData.taxSettings?.name || 'VAT'}
+                      onChange={(e) => handleInputChange('taxSettings.name', e.target.value)}
+                      description="The name that will appear on receipts"
+                    />
+                    <Select
+                      label="Tax Type"
+                      selectedKeys={storeData.taxSettings?.type ? [storeData.taxSettings.type] : ['percentage']}
+                      onSelectionChange={(keys) => handleInputChange('taxSettings.type', Array.from(keys)[0])}
+                      description="How the tax is calculated"
+                    >
+                      <SelectItem key="percentage">Percentage</SelectItem>
+                      <SelectItem key="fixed">Fixed Amount</SelectItem>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Tax Rate</h3>
+                  <div className="space-y-4">
+                    {/* Tax Enable/Disable Toggle */}
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <span className="font-medium">Enable Tax</span>
+                        <p className="text-sm text-gray-500">Turn tax calculation on or off</p>
+                      </div>
+                      <Switch
+                        isSelected={(storeData.taxSettings?.rate || 0) > 0}
+                        onValueChange={(value) => {
+                          if (value) {
+                            // Enable tax with default rate
+                            const defaultRate = storeData.taxSettings?.type === 'fixed' ? 5.00 : 0.15;
+                            handleInputChange('taxSettings.rate', defaultRate);
+                          } else {
+                            // Disable tax by setting rate to 0
+                            handleInputChange('taxSettings.rate', 0);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Tax Rate Input */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Input
+                        type="number"
+                        label={storeData.taxSettings?.type === 'fixed' ? 'Tax Amount' : 'Tax Rate (%)'}
+                        placeholder={storeData.taxSettings?.type === 'fixed' ? '0.00 (Enter 0 to disable)' : '0 (Enter 0 to disable)'}
+                        value={storeData.taxSettings?.type === 'fixed' 
+                          ? (storeData.taxSettings?.rate || 0).toString() 
+                          : ((storeData.taxSettings?.rate || 0) * 100).toString()
+                        }
+                        onChange={(e) => {
+                          const inputValue = e.target.value;
+                          const value = inputValue === '' ? 0 : parseFloat(inputValue);
+                          const rate = storeData.taxSettings?.type === 'fixed' ? value : value / 100;
+                          handleInputChange('taxSettings.rate', rate);
+                        }}
+                        step={storeData.taxSettings?.type === 'fixed' ? '0.01' : '0.1'}
+                        min="0"
+                        max={storeData.taxSettings?.type === 'fixed' ? undefined : '100'}
+                        startContent={
+                          storeData.taxSettings?.type === 'fixed' ? 
+                          <div className="pointer-events-none flex items-center">
+                            <span className="text-default-400 text-small">{storeData.currency || 'GHS'}</span>
+                          </div> : 
+                          undefined
+                        }
+                        endContent={
+                          storeData.taxSettings?.type === 'percentage' ? 
+                          <div className="pointer-events-none flex items-center">
+                            <span className="text-default-400 text-small">%</span>
+                          </div> : 
+                          undefined
+                        }
+                        description={
+                          storeData.taxSettings?.type === 'fixed' 
+                            ? 'Fixed tax amount added to each sale (Set to 0 to disable tax)' 
+                            : 'Percentage of sale amount added as tax (Set to 0 to disable tax)'
+                        }
+                        isDisabled={(storeData.taxSettings?.rate || 0) === 0}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`p-4 rounded-lg ${
+                  (storeData.taxSettings?.rate || 0) > 0 
+                    ? 'bg-blue-50 dark:bg-blue-900/20' 
+                    : 'bg-gray-50 dark:bg-gray-900/20'
+                }`}>
+                  <div className="flex items-start space-x-3">
+                    <div className="flex-shrink-0">
+                      <Calculator className={`w-5 h-5 mt-0.5 ${
+                        (storeData.taxSettings?.rate || 0) > 0 
+                          ? 'text-blue-600' 
+                          : 'text-gray-400'
+                      }`} />
+                    </div>
+                    <div>
+                      <h4 className={`font-medium mb-1 ${
+                        (storeData.taxSettings?.rate || 0) > 0 
+                          ? 'text-blue-900 dark:text-blue-200' 
+                          : 'text-gray-600 dark:text-gray-400'
+                      }`}>
+                        Current Tax Configuration
+                      </h4>
+                      <div className={`text-sm ${
+                        (storeData.taxSettings?.rate || 0) > 0 
+                          ? 'text-blue-700 dark:text-blue-300' 
+                          : 'text-gray-600 dark:text-gray-400'
+                      }`}>
+                        <p><strong>Name:</strong> {storeData.taxSettings?.name || 'VAT'}</p>
+                        <p><strong>Type:</strong> {storeData.taxSettings?.type === 'fixed' ? 'Fixed Amount' : 'Percentage'}</p>
+                        <p><strong>Rate:</strong> {
+                          (storeData.taxSettings?.rate || 0) === 0 
+                            ? 'Disabled (0%)' 
+                            : storeData.taxSettings?.type === 'fixed' 
+                              ? `${storeData.currency || 'GHS'} ${(storeData.taxSettings?.rate || 0).toFixed(2)}`
+                              : `${((storeData.taxSettings?.rate || 0) * 100).toFixed(1)}%`
+                        }</p>
+                        <p className="mt-2 text-xs">
+                          <strong>Example:</strong> On a {storeData.currency || 'GHS'} 100 sale, tax would be {' '}
+                          {(storeData.taxSettings?.rate || 0) === 0 
+                            ? `${storeData.currency || 'GHS'} 0.00 (No tax)`
+                            : storeData.taxSettings?.type === 'fixed' 
+                              ? `${storeData.currency || 'GHS'} ${(storeData.taxSettings?.rate || 0).toFixed(2)}`
+                              : `${storeData.currency || 'GHS'} ${((storeData.taxSettings?.rate || 0) * 100).toFixed(2)}`
+                          }
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

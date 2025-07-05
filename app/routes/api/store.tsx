@@ -64,6 +64,7 @@ export async function action({ request }: ActionFunctionArgs) {
       receiptSettings: body.receiptSettings || {},
       notifications: body.notifications || {},
       socialMedia: body.socialMedia || {},
+      taxSettings: body.taxSettings || { rate: 0, type: 'percentage', name: 'VAT' },
       isActive: true,
     };
 

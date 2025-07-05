@@ -81,4 +81,4 @@ WishlistSchema.pre('save', function(next) {
   next();
 });
 
-export const Wishlist = mongoose.model<IWishlist>('Wishlist', WishlistSchema); 
+export const Wishlist = mongoose.models.Wishlist || mongoose.model<IWishlist>('Wishlist', WishlistSchema); 

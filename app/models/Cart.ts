@@ -150,4 +150,4 @@ CartSchema.methods.clearCart = function() {
   this.totalItems = 0;
 };
 
-export default mongoose.model<ICart>('Cart', CartSchema); 
+export default mongoose.models.Cart || mongoose.model<ICart>('Cart', CartSchema); 

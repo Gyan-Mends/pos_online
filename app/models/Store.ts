@@ -68,6 +68,13 @@ export interface IStore extends Document {
     linkedin?: string;
   };
   
+  // Tax Settings
+  taxSettings?: {
+    rate: number;
+    type: string;
+    name: string;
+  };
+  
   // System Settings
   isActive: boolean;
   createdAt: Date;
@@ -197,6 +204,11 @@ const storeSchema = new Schema<IStore>({
     instagram: { type: String, trim: true },
     linkedin: { type: String, trim: true },
   },
+  taxSettings: {
+    rate: { type: Number, default: 0 },
+    type: { type: String, enum: ['percentage', 'fixed'], default: 'percentage' },
+    name: { type: String, default: 'VAT' },
+  },
   isActive: {
     type: Boolean,
     default: true,
@@ -209,5 +221,5 @@ const storeSchema = new Schema<IStore>({
 storeSchema.index({ email: 1 });
 storeSchema.index({ isActive: 1 });
 
-// Export the model
-export default mongoose.model<IStore>('Store', storeSchema); 
+// Export the model (check if it already exists to avoid recompilation error)
+export default mongoose.models.Store || mongoose.model<IStore>('Store', storeSchema); 

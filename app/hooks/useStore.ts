@@ -50,6 +50,7 @@ interface StoreInfo {
   taxSettings?: {
     rate: number;
     type: string;
+    name: string;
   };
   socialMedia?: {
     facebook?: string;
@@ -137,8 +138,9 @@ export const useStoreData = () => {
             monthlyReports: false
           },
           taxSettings: {
-            rate: 0.15,
-            type: 'percentage'
+            rate: 0,
+            type: 'percentage',
+            name: 'VAT'
           }
         });
       }

@@ -108,5 +108,5 @@ AuditLogSchema.virtual('userDisplay').get(function() {
   return 'Unknown User';
 });
 
-const AuditLog = mongoose.model('AuditLog', AuditLogSchema);
+const AuditLog = mongoose.models.AuditLog || mongoose.model('AuditLog', AuditLogSchema);
 export default AuditLog; 

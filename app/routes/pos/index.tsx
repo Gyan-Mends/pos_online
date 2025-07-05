@@ -551,10 +551,11 @@ export default function POSPage() {
           </div>
         ` : ''}
         
+        ${getTaxRate() > 0 ? `
         <div class="total-row">
-          <div>Tax (${(getTaxRate() * 100).toFixed(0)}%):</div>
+          <div>${store?.taxSettings?.name || 'Tax'} (${(getTaxRate() * 100).toFixed(0)}%):</div>
           <div class="right">${formatCurrency(completedSale.taxAmount)}</div>
-        </div>
+        </div>` : ''}
         
         <div class="line"></div>
         
@@ -856,10 +857,12 @@ export default function POSPage() {
                     </div>
                   )}
 
-                  <div className="flex justify-between text-sm">
-                    <span>Tax ({(getTaxRate() * 100).toFixed(0)}%):</span>
-                    <span>{formatCurrency(cart.taxAmount)}</span>
-                  </div>
+                  {getTaxRate() > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span>{store?.taxSettings?.name || 'Tax'} ({(getTaxRate() * 100).toFixed(0)}%):</span>
+                      <span>{formatCurrency(cart.taxAmount)}</span>
+                    </div>
+                  )}
 
                   <Divider />
 
@@ -1005,10 +1008,12 @@ export default function POSPage() {
                           <span>-{formatCurrency(cart.discountAmount)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between">
-                        <span>Tax:</span>
-                        <span>{formatCurrency(cart.taxAmount)}</span>
-                      </div>
+                      {getTaxRate() > 0 && (
+                        <div className="flex justify-between">
+                          <span>{store?.taxSettings?.name || 'Tax'}:</span>
+                          <span>{formatCurrency(cart.taxAmount)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between font-bold text-lg border-t pt-1">
                         <span>Total:</span>
                         <span>{formatCurrency(cart.totalAmount)}</span>
