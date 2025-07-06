@@ -74,15 +74,17 @@ export default function ProductsPage() {
         console.log('Sample category data:', categoriesData[0]);
       }
       
-      // Add id field for compatibility
+      // Add id field for compatibility and ensure _id is preserved
       const processedProducts = Array.isArray(productsData) ? productsData.map((p: any) => ({
         ...p,
-        id: p._id || p.id
+        id: p._id || p.id,
+        _id: p._id || p.id // Ensure _id is available for updates
       })) : [];
       
       const processedCategories = Array.isArray(categoriesData) ? categoriesData.map((c: any) => ({
         ...c,
-        id: c._id || c.id
+        id: c._id || c.id,
+        _id: c._id || c.id // Ensure _id is available
       })) : [];
       
       setProducts(processedProducts);
@@ -195,14 +197,24 @@ export default function ProductsPage() {
 
   // Open drawer for editing product
   const handleEditProduct = (product: Product) => {
+    console.log('Editing product:', product);
     setSelectedProduct(product);
     setIsEditing(true);
+    
+    // Handle categoryId - it might be populated object or just ID
+    let categoryId = '';
+    if (typeof product.categoryId === 'string') {
+      categoryId = product.categoryId;
+    } else if (product.categoryId && typeof product.categoryId === 'object') {
+      categoryId = (product.categoryId as any)._id || (product.categoryId as any).id || '';
+    }
+    
     setFormData({
       name: product.name,
       description: product.description || '',
       sku: product.sku,
       barcode: product.barcode || '',
-      categoryId: product.categoryId,
+      categoryId: categoryId,
       price: product.price,
       costPrice: product.costPrice,
       stockQuantity: product.stockQuantity,
@@ -218,6 +230,14 @@ export default function ProductsPage() {
       supplier: product.supplier || '',
       location: product.location || '',
     });
+    
+    console.log('Form data set for editing:', {
+      name: product.name,
+      categoryId: categoryId,
+      price: product.price,
+      stockQuantity: product.stockQuantity
+    });
+    
     setIsDrawerOpen(true);
   };
 
@@ -235,18 +255,39 @@ export default function ProductsPage() {
       }
 
       if (isEditing && selectedProduct) {
-        await productsAPI.update(selectedProduct.id, formData);
+        // Use _id if available, otherwise use id
+        const productId = selectedProduct._id || selectedProduct.id;
+        console.log('Updating product with ID:', productId, 'Form data:', formData);
+        
+        const result = await productsAPI.update(productId, formData);
+        console.log('Update result:', result);
+        
         successToast('Product updated successfully');
       } else {
-        await productsAPI.create(formData);
+        console.log('Creating new product with form data:', formData);
+        
+        const result = await productsAPI.create(formData);
+        console.log('Create result:', result);
+        
         successToast('Product created successfully');
       }
 
       setIsDrawerOpen(false);
       fetchData(); // Reload products after create/update
     } catch (error: any) {
-      errorToast(error.message || 'Failed to save product');
       console.error('Error saving product:', error);
+      
+      // Handle different error formats
+      let errorMessage = 'Failed to save product';
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.error) {
+        errorMessage = error.error;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      errorToast(errorMessage);
     }
   };
 
@@ -502,16 +543,18 @@ export default function ProductsPage() {
       {/* Product Form Drawer */}
       <Drawer
         isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        title={isEditing ? 'Edit Product' : 'Add New Product'}
+        onClose={() => {
+          setIsDrawerOpen(false);
+          setSelectedProduct(null);
+          setIsEditing(false);
+        }}
+        title={isEditing && selectedProduct ? `Edit Product: ${selectedProduct.name}` : 'Add New Product'}
         size="lg"
       >
         <div className="space-y-6">
           {/* Basic Information */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Basic Information
-            </h3>
+           
             <div className="space-y-4">
               <CustomInput
                 label="Product Name"
@@ -555,7 +598,7 @@ export default function ProductsPage() {
                   <select
                     value={formData.categoryId}
                     onChange={(e) => handleInputChange('categoryId', e.target.value)}
-                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white customed-dark-card text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     required
                   >
                     <option value="">Select Category</option>
@@ -781,7 +824,11 @@ export default function ProductsPage() {
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
             <Button
               variant="ghost"
-              onClick={() => setIsDrawerOpen(false)}
+              onClick={() => {
+                setIsDrawerOpen(false);
+                setSelectedProduct(null);
+                setIsEditing(false);
+              }}
             >
               Cancel
             </Button>

@@ -434,7 +434,7 @@ export default function InventoryAdjustmentsPage() {
                     return (
                       <div
                         key={item.id}
-                        className="p-3 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
+                        className="p-3 customed-dark-card rounded-lg"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">

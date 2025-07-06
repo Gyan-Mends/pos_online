@@ -316,13 +316,7 @@ export default function SalesHistoryPage() {
           >
             Refresh
           </Button>
-          <Button
-            color="primary"
-            variant="ghost"
-            startContent={<Download className="w-4 h-4" />}
-          >
-            Export
-          </Button>
+         
           <Link to="/sales/refund">
             <Button
               color="warning"
@@ -382,31 +376,30 @@ export default function SalesHistoryPage() {
       </div>
 
       {/* Filters */}
-      <Card>
-        <CardBody className="p-4">
+     
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <Input
-              placeholder="Search by receipt, customer, or notes..."
-              value={searchQuery}
-              onValueChange={setSearchQuery}
-              startContent={<Search className="w-4 h-4 text-gray-400" />}
-            />
+           
             
             <Input
+            labelPlacement='outside'
               type="date"
               label="Start Date"
+             
               value={startDate}
               onValueChange={setStartDate}
             />
             
             <Input
+            labelPlacement='outside'
               type="date"
               label="End Date"
+             
               value={endDate}
               onValueChange={setEndDate}
             />
             
             <Select
+            labelPlacement='outside'
               label="Status"
               selectedKeys={[statusFilter]}
               onSelectionChange={(keys) => setStatusFilter(Array.from(keys)[0] as string)}
@@ -419,6 +412,7 @@ export default function SalesHistoryPage() {
             </Select>
             
             <Select
+            labelPlacement='outside'
               label="Source"
               selectedKeys={[sourceFilter]}
               onSelectionChange={(keys) => setSourceFilter(Array.from(keys)[0] as string)}
@@ -431,8 +425,7 @@ export default function SalesHistoryPage() {
               <SelectItem key="other">📋 Other</SelectItem>
             </Select>
           </div>
-        </CardBody>
-      </Card>
+        
 
       {/* Sales Table */}
      

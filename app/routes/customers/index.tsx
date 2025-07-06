@@ -34,7 +34,6 @@ import {
   Calendar,
   DollarSign,
   ShoppingBag,
-  Plus,
   UserX
 } from 'lucide-react';
 import { Link } from 'react-router';
@@ -74,7 +73,6 @@ export default function CustomersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Modal states
-  const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
   const { isOpen: isViewOpen, onOpen: onViewOpen, onClose: onViewClose } = useDisclosure();
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
@@ -96,16 +94,34 @@ export default function CustomersPage() {
       console.log('👥 Customers Data:', customersData);
       console.log('📊 Number of customers:', customersData.length);
       
-      setCustomers(customersData);
+      // Process customer data to ensure proper structure and defaults
+      const processedCustomers = Array.isArray(customersData) ? customersData.map((customer: any) => ({
+        ...customer,
+        _id: customer._id || customer.id,
+        id: customer._id || customer.id,
+        firstName: customer.firstName || '',
+        lastName: customer.lastName || '',
+        email: customer.email || '',
+        phone: customer.phone || '',
+        loyaltyPoints: customer.loyaltyPoints || 0,
+        totalPurchases: customer.totalPurchases || 0,
+        totalSpent: customer.totalSpent || 0,
+        isActive: customer.isActive !== undefined ? customer.isActive : true,
+        address: customer.address || {},
+        notes: customer.notes || ''
+      })) : [];
       
-      if (customersData.length === 0) {
+      setCustomers(processedCustomers);
+      
+      if (processedCustomers.length === 0) {
         console.warn('⚠️ No customers found in response');
       } else {
-        console.log('✅ Successfully loaded customers:', customersData.length);
+        console.log('✅ Successfully loaded customers:', processedCustomers.length);
       }
     } catch (error) {
       console.error('❌ Error loading customers:', error);
       errorToast('Failed to load customers: ' + (error as any)?.message);
+      setCustomers([]); // Ensure customers is always an array
     } finally {
       setLoading(false);
     }
@@ -140,16 +156,11 @@ export default function CustomersPage() {
         await customersAPI.update(editingCustomer._id, formData);
         successToast('Customer updated successfully');
         onEditClose();
-      } else {
-        await customersAPI.create(formData);
-        successToast('Customer created successfully');
-        onCreateClose();
+        resetForm();
+        loadCustomers();
       }
-      
-      resetForm();
-      loadCustomers();
     } catch (error: any) {
-      errorToast(error.message || 'Failed to save customer');
+      errorToast(error.message || 'Failed to update customer');
     } finally {
       setIsSubmitting(false);
     }
@@ -178,16 +189,16 @@ export default function CustomersPage() {
   const handleEdit = (customer: Customer) => {
     setEditingCustomer(customer);
     setFormData({
-      firstName: customer.firstName,
-      lastName: customer.lastName,
+      firstName: customer.firstName || '',
+      lastName: customer.lastName || '',
       email: customer.email || '',
       phone: customer.phone || '',
-      address: customer.address || {
-        street: '',
-        city: '',
-        state: '',
-        zipCode: '',
-        country: ''
+      address: {
+        street: customer.address?.street || '',
+        city: customer.address?.city || '',
+        state: customer.address?.state || '',
+        zipCode: customer.address?.zipCode || '',
+        country: customer.address?.country || ''
       },
       dateOfBirth: customer.dateOfBirth || '',
       notes: customer.notes || ''
@@ -231,20 +242,35 @@ export default function CustomersPage() {
   };
 
   const getCustomerInitials = (customer: Customer) => {
-    if (!customer || !customer.firstName || !customer.lastName) {
-      return 'N/A';
-    }
-    return `${customer.firstName.charAt(0)}${customer.lastName.charAt(0)}`.toUpperCase();
+    if (!customer) return 'N/A';
+    
+    const firstName = customer.firstName || '';
+    const lastName = customer.lastName || '';
+    
+    if (!firstName && !lastName) return 'N/A';
+    
+    const firstInitial = firstName.charAt(0) || '';
+    const lastInitial = lastName.charAt(0) || '';
+    
+    return `${firstInitial}${lastInitial}`.toUpperCase() || 'N/A';
   };
 
   const filteredCustomers = customers.filter(customer => {
     if (!customer) return false;
+    
     const searchTerm = searchQuery.toLowerCase();
+    
+    // Safely handle string fields with proper null/undefined checks
+    const firstName = customer.firstName || '';
+    const lastName = customer.lastName || '';
+    const email = customer.email || '';
+    const phone = customer.phone || '';
+    
     return (
-      customer.firstName?.toLowerCase().includes(searchTerm) ||
-      customer.lastName?.toLowerCase().includes(searchTerm) ||
-      (customer.email && customer.email.toLowerCase().includes(searchTerm)) ||
-      (customer.phone && customer.phone.includes(searchTerm))
+      firstName.toLowerCase().includes(searchTerm) ||
+      lastName.toLowerCase().includes(searchTerm) ||
+      email.toLowerCase().includes(searchTerm) ||
+      phone.includes(searchTerm)
     );
   });
 
@@ -252,8 +278,14 @@ export default function CustomersPage() {
     {
       key: 'customer',
       title: 'Customer',
-      render: (customer) => {
+      render: (value, customer) => {
         if (!customer) return <div>Invalid customer data</div>;
+        
+        // Get customer details from the model
+        const firstName = customer.firstName || '';
+        const lastName = customer.lastName || '';
+        const email = customer.email || '';
+        const phone = customer.phone || '';
         
         return (
           <div className="flex items-center gap-3">
@@ -264,21 +296,16 @@ export default function CustomersPage() {
             />
             <div className="flex flex-col">
               <span className="font-medium text-gray-900 dark:text-white">
-                {customer.firstName || 'N/A'} {customer.lastName || 'N/A'}
+                {`${firstName} ${lastName}`.trim() || 'N/A'}
               </span>
               <div className="flex items-center gap-4 text-sm text-gray-500">
-                {customer.email && (
+                {email && (
                   <div className="flex items-center gap-1">
                     <Mail className="w-3 h-3" />
-                    <span>{customer.email}</span>
+                    <span>{email}</span>
                   </div>
                 )}
-                {customer.phone && (
-                  <div className="flex items-center gap-1">
-                    <Phone className="w-3 h-3" />
-                    <span>{customer.phone}</span>
-                  </div>
-                )}
+                
               </div>
             </div>
           </div>
@@ -286,19 +313,51 @@ export default function CustomersPage() {
       }
     },
     {
+      key: 'contact',
+      title: 'Contact Info',
+      render: (value, customer) => {
+        if (!customer) return <div>-</div>;
+        
+        const email = customer.email || '';
+        const phone = customer.phone || '';
+        const dateOfBirth = customer.dateOfBirth || '';
+        
+        return (
+          <div className="flex flex-col gap-1 text-sm">
+            
+            {phone && (
+              <div className="flex items-center gap-1 text-gray-600 dark:text-gray-400">
+                <Phone className="w-3 h-3" />
+                <span>{phone}</span>
+              </div>
+            )}
+           
+          </div>
+        );
+      }
+    },
+    {
       key: 'location',
       title: 'Location',
-      render: (customer) => {
+      render: (value, customer) => {
         if (!customer) return <div>-</div>;
+        
+                 // Get address details from the model
+         const address = customer.address as any || {};
+         const street = address.street || '';
+         const city = address.city || '';
+         const state = address.state || '';
+         const zipCode = address.zipCode || '';
+         const country = address.country || '';
+        
+        const addressParts = [street, city, state, zipCode, country].filter(Boolean);
+        const displayAddress = addressParts.length > 0 ? addressParts.join(', ') : 'No address';
         
         return (
           <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
             <MapPin className="w-4 h-4" />
-            <span>
-              {customer.address && customer.address.city && customer.address.state ? 
-                `${customer.address.city}, ${customer.address.state}` : 
-                'No address'
-              }
+            <span title={displayAddress}>
+              {city && state ? `${city}, ${state}` : displayAddress}
             </span>
           </div>
         );
@@ -307,18 +366,22 @@ export default function CustomersPage() {
     {
       key: 'stats',
       title: 'Purchase Stats',
-      render: (customer) => {
+      render: (value, customer) => {
         if (!customer) return <div>-</div>;
+        
+        // Get purchase stats from the model
+        const totalPurchases = customer.totalPurchases || 0;
+        const totalSpent = customer.totalSpent || 0;
         
         return (
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-1 text-sm">
               <ShoppingBag className="w-3 h-3 text-blue-500" />
-              <span className="font-medium">{customer.totalPurchases || 0} orders</span>
+              <span className="font-medium">{totalPurchases} orders</span>
             </div>
             <div className="flex items-center gap-1 text-sm">
               <DollarSign className="w-3 h-3 text-green-500" />
-              <span className="font-medium">{formatCurrency(customer.totalSpent || 0)}</span>
+              <span className="font-medium">{formatCurrency(totalSpent)}</span>
             </div>
           </div>
         );
@@ -327,13 +390,16 @@ export default function CustomersPage() {
     {
       key: 'loyalty',
       title: 'Loyalty',
-      render: (customer) => {
+      render: (value, customer) => {
         if (!customer) return <div>-</div>;
+        
+        // Get loyalty points from the model
+        const loyaltyPoints = customer.loyaltyPoints || 0;
         
         return (
           <div className="flex items-center gap-2">
             <Heart className="w-4 h-4 text-red-500" />
-            <span className="font-medium">{customer.loyaltyPoints || 0} pts</span>
+            <span className="font-medium">{loyaltyPoints} pts</span>
           </div>
         );
       }
@@ -341,30 +407,46 @@ export default function CustomersPage() {
     {
       key: 'status',
       title: 'Status',
-      render: (customer) => {
+      render: (value, customer) => {
         if (!customer) return <div>-</div>;
+        
+        // Get status from the model (defaults to true)
+        const isActive = customer.isActive !== undefined ? customer.isActive : true;
         
         return (
           <Chip 
             size="sm" 
-            color={customer.isActive ? 'success' : 'danger'}
+            color={isActive ? 'success' : 'danger'}
             variant="flat"
           >
-            {customer.isActive ? 'Active' : 'Inactive'}
+            {isActive ? 'Active' : 'Inactive'}
           </Chip>
         );
       }
     },
     {
-      key: 'joined',
-      title: 'Joined',
-      render: (customer) => {
-        if (!customer || !customer.createdAt) return <div>-</div>;
+      key: 'timestamps',
+      title: 'Created',
+      render: (value, customer) => {
+        if (!customer) return <div>-</div>;
+        
+        // Get timestamps from the model
+        const createdAt = customer.createdAt || '';
+        const updatedAt = customer.updatedAt || '';
         
         return (
-          <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-            <Calendar className="w-4 h-4" />
-            <span>{formatDate(customer.createdAt)}</span>
+          <div className="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-400">
+            {createdAt && (
+              <div className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                <span>{formatDate(createdAt)}</span>
+              </div>
+            )}
+            {updatedAt && updatedAt !== createdAt && (
+              <div className="flex items-center gap-1">
+                <span className="text-xs">Updated: {formatDate(updatedAt)}</span>
+              </div>
+            )}
           </div>
         );
       }
@@ -372,7 +454,7 @@ export default function CustomersPage() {
     {
       key: 'actions',
       title: 'Actions',
-      render: (customer) => {
+      render: (value, customer) => {
         if (!customer) return <div>-</div>;
         
         return (
@@ -382,6 +464,7 @@ export default function CustomersPage() {
               variant="ghost"
               isIconOnly
               onPress={() => handleView(customer)}
+              title="View Details"
             >
               <Eye className="w-4 h-4" />
             </Button>
@@ -390,6 +473,7 @@ export default function CustomersPage() {
               variant="ghost"
               isIconOnly
               onPress={() => handleEdit(customer)}
+              title="Edit Customer"
             >
               <Edit className="w-4 h-4" />
             </Button>
@@ -399,6 +483,7 @@ export default function CustomersPage() {
               isIconOnly
               color="danger"
               onPress={() => handleDeleteClick(customer)}
+              title="Delete Customer"
             >
               <Trash2 className="w-4 h-4" />
             </Button>
@@ -413,10 +498,14 @@ export default function CustomersPage() {
     total: filteredCustomers.length,
     newThisMonth: filteredCustomers.filter(c => {
       if (!c || !c.createdAt) return false;
-      const createdDate = new Date(c.createdAt);
-      const thisMonth = new Date();
-      return createdDate.getMonth() === thisMonth.getMonth() && 
-             createdDate.getFullYear() === thisMonth.getFullYear();
+      try {
+        const createdDate = new Date(c.createdAt);
+        const thisMonth = new Date();
+        return createdDate.getMonth() === thisMonth.getMonth() && 
+               createdDate.getFullYear() === thisMonth.getFullYear();
+      } catch (error) {
+        return false;
+      }
     }).length,
     loyaltyMembers: filteredCustomers.filter(c => c && (c.loyaltyPoints || 0) > 0).length,
     vipCustomers: filteredCustomers.filter(c => c && (c.totalSpent || 0) > 1000).length
@@ -431,18 +520,7 @@ export default function CustomersPage() {
             Manage customer relationships and track purchase history
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button 
-            color="primary"
-            startContent={<Plus className="w-4 h-4" />}
-            onPress={() => {
-              resetForm();
-              onCreateOpen();
-            }}
-          >
-            Add Customer
-          </Button>
-        </div>
+
       </div>
 
       {/* Summary Cards */}
@@ -493,40 +571,23 @@ export default function CustomersPage() {
               <Star className="w-8 h-8 text-yellow-500" />
             </div>
           </CardBody>
-        </Card>
+                </Card>
       </div>
 
-      {/* Customers Table */}
-      <Card className="customed-dark-card">
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Customers</h3>
-            <div className="flex gap-3">
-              <Input
-                placeholder="Search customers..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                startContent={<Search className="w-4 h-4" />}
-                className="w-64"
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardBody className="pt-0">
-          <DataTable
-            data={filteredCustomers}
-            columns={columns}
-            loading={loading}
-            emptyText="No customers found"
-          />
-        </CardBody>
-      </Card>
+      
 
-      {/* Create/Edit Customer Modal */}
+      {/* Customers Table */}
+      <DataTable
+        data={filteredCustomers}
+        columns={columns}
+        loading={loading}
+        emptyText="No customers found"
+      />
+
+      {/* Edit Customer Modal */}
       <Modal 
-        isOpen={isCreateOpen || isEditOpen} 
+        isOpen={isEditOpen} 
         onClose={() => {
-          onCreateClose();
           onEditClose();
           resetForm();
         }}
@@ -536,20 +597,20 @@ export default function CustomersPage() {
         <ModalContent>
           <form onSubmit={handleSubmit}>
             <ModalHeader className="flex flex-col gap-1">
-              {editingCustomer ? 'Edit Customer' : 'Add New Customer'}
+              Edit Customer
             </ModalHeader>
             <ModalBody className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <CustomInput
                   label="First Name"
                   value={formData.firstName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                  onChange={(value) => setFormData(prev => ({ ...prev, firstName: value }))}
                   required
                 />
                 <CustomInput
                   label="Last Name"
                   value={formData.lastName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                  onChange={(value) => setFormData(prev => ({ ...prev, lastName: value }))}
                   required
                 />
               </div>
@@ -559,12 +620,12 @@ export default function CustomersPage() {
                   label="Email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  onChange={(value) => setFormData(prev => ({ ...prev, email: value }))}
                 />
                 <CustomInput
                   label="Phone"
                   value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(value) => setFormData(prev => ({ ...prev, phone: value }))}
                 />
               </div>
 
@@ -572,7 +633,7 @@ export default function CustomersPage() {
                 label="Date of Birth"
                 type="date"
                 value={formData.dateOfBirth}
-                onChange={(e) => setFormData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
+                onChange={(value) => setFormData(prev => ({ ...prev, dateOfBirth: value }))}
               />
 
               <Divider />
@@ -582,9 +643,9 @@ export default function CustomersPage() {
                 <CustomInput
                   label="Street Address"
                   value={formData.address?.street || ''}
-                  onChange={(e) => setFormData(prev => ({ 
+                  onChange={(value) => setFormData(prev => ({ 
                     ...prev, 
-                    address: { ...prev.address!, street: e.target.value }
+                    address: { ...prev.address!, street: value }
                   }))}
                 />
                 
@@ -592,17 +653,17 @@ export default function CustomersPage() {
                   <CustomInput
                     label="City"
                     value={formData.address?.city || ''}
-                    onChange={(e) => setFormData(prev => ({ 
+                    onChange={(value) => setFormData(prev => ({ 
                       ...prev, 
-                      address: { ...prev.address!, city: e.target.value }
+                      address: { ...prev.address!, city: value }
                     }))}
                   />
                   <CustomInput
                     label="State"
                     value={formData.address?.state || ''}
-                    onChange={(e) => setFormData(prev => ({ 
+                    onChange={(value) => setFormData(prev => ({ 
                       ...prev, 
-                      address: { ...prev.address!, state: e.target.value }
+                      address: { ...prev.address!, state: value }
                     }))}
                   />
                 </div>
@@ -611,17 +672,17 @@ export default function CustomersPage() {
                   <CustomInput
                     label="Zip Code"
                     value={formData.address?.zipCode || ''}
-                    onChange={(e) => setFormData(prev => ({ 
+                    onChange={(value) => setFormData(prev => ({ 
                       ...prev, 
-                      address: { ...prev.address!, zipCode: e.target.value }
+                      address: { ...prev.address!, zipCode: value }
                     }))}
                   />
                   <CustomInput
                     label="Country"
                     value={formData.address?.country || ''}
-                    onChange={(e) => setFormData(prev => ({ 
+                    onChange={(value) => setFormData(prev => ({ 
                       ...prev, 
-                      address: { ...prev.address!, country: e.target.value }
+                      address: { ...prev.address!, country: value }
                     }))}
                   />
                 </div>
@@ -640,7 +701,6 @@ export default function CustomersPage() {
                 color="danger" 
                 variant="light" 
                 onPress={() => {
-                  onCreateClose();
                   onEditClose();
                   resetForm();
                 }}
@@ -652,7 +712,7 @@ export default function CustomersPage() {
                 type="submit"
                 isLoading={isSubmitting}
               >
-                {editingCustomer ? 'Update Customer' : 'Create Customer'}
+                Update Customer
               </Button>
             </ModalFooter>
           </form>
@@ -701,7 +761,12 @@ export default function CustomersPage() {
                         <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                           <MapPin className="w-4 h-4" />
                           <span>
-                            {selectedCustomer.address.street}, {selectedCustomer.address.city}, {selectedCustomer.address.state} {selectedCustomer.address.zipCode}
+                            {[
+                              selectedCustomer.address.street,
+                              selectedCustomer.address.city,
+                              selectedCustomer.address.state,
+                              selectedCustomer.address.zipCode
+                            ].filter(Boolean).join(', ') || 'No address'}
                           </span>
                         </div>
                       )}

@@ -596,7 +596,7 @@ export default function InventoryMovementsPage() {
               // View Mode
               <>
                 {/* Movement Summary */}
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="p-4  rounded-lg">
                   <div className="flex items-center justify-between mb-4">
                     <Chip
                       size="lg"
@@ -646,7 +646,7 @@ export default function InventoryMovementsPage() {
 
                 {/* Stock Information */}
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="text-center p-4 rounded-lg">
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-400 block mb-2">
                       Previous Stock
                     </label>
@@ -655,7 +655,7 @@ export default function InventoryMovementsPage() {
                     </p>
                   </div>
                   
-                  <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="text-center p-4  rounded-lg  ">
                     <label className="text-sm font-medium text-blue-600 dark:text-blue-400 block mb-2">
                       Change
                     </label>
@@ -664,7 +664,7 @@ export default function InventoryMovementsPage() {
                     </p>
                   </div>
                   
-                  <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="text-center p-4 rounded-lg">
                     <label className="text-sm font-medium text-gray-600 dark:text-gray-400 block mb-2">
                       New Stock
                     </label>
@@ -677,19 +677,19 @@ export default function InventoryMovementsPage() {
                 {/* Additional Details */}
                 <div className="space-y-4">
                   {selectedMovement.reference && (
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="p-4  rounded-lg">
                       <label className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center mb-2">
                         <FileText className="w-4 h-4 mr-2" />
                         Reference
                       </label>
-                      <p className="text-gray-900 dark:text-white font-mono text-sm bg-white dark:bg-gray-700 p-2 rounded border">
+                      <p className="text-gray-900 dark:text-white font-mono text-sm bg-white customed-dark-card p-2 rounded border">
                         {selectedMovement.reference}
                       </p>
                     </div>
                   )}
 
                   {selectedMovement.unitCost > 0 && (
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="p-4  rounded-lg">
                       <label className="text-sm font-medium text-gray-600 dark:text-gray-400 block mb-2">
                         Unit Cost
                       </label>
@@ -700,7 +700,7 @@ export default function InventoryMovementsPage() {
                   )}
 
                   {selectedMovement.totalValue > 0 && (
-                    <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="p-4  rounded-lg">
                       <label className="text-sm font-medium text-green-600 dark:text-green-400 block mb-2">
                         Total Value
                       </label>
@@ -711,7 +711,7 @@ export default function InventoryMovementsPage() {
                   )}
 
                   {(selectedMovement as any).userId && (
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="p-4  rounded-lg">
                       <label className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center mb-2">
                         <User className="w-4 h-4 mr-2" />
                         Processed By
@@ -726,7 +726,7 @@ export default function InventoryMovementsPage() {
                   )}
 
                   {selectedMovement.notes && (
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="p-4  rounded-lg">
                       <label className="text-sm font-medium text-gray-600 dark:text-gray-400 block mb-2">
                         Notes
                       </label>
@@ -741,7 +741,7 @@ export default function InventoryMovementsPage() {
               // Edit Mode
               <>
                 {/* Product Info (Read-only) */}
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div className="p-4  rounded-lg">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                     Product Information
                   </h3>
@@ -765,7 +765,7 @@ export default function InventoryMovementsPage() {
                     <select
                       value={editFormData.type}
                       onChange={(e) => handleEditFormChange('type', e.target.value)}
-                      className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white customed-dark-card text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       {movementTypes.filter(t => t.key !== 'all').map((type) => (
                         <option key={type.key} value={type.key}>

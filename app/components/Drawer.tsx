@@ -90,7 +90,7 @@ const Drawer = ({ isOpen, onClose, title, children, size = "md" }: DrawerProps) 
     <>
       {/* Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full ${sizeClasses[size]} bg-white dark:bg-gray-800 shadow-2xl z-50 transform transition-all duration-300 ease-in-out border-l border-gray-200 dark:border-gray-700 ${
+        className={`fixed top-0 right-0 h-full ${sizeClasses[size]} z-50 transform transition-all duration-300 ease-in-out customed-dark-card ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

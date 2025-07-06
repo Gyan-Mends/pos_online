@@ -374,7 +374,7 @@ const StoreSettingsPage = () => {
                   <h3 className="text-lg font-semibold mb-4">Weekly Schedule</h3>
                   <div className="space-y-4">
                     {daysOfWeek.map((day) => (
-                      <div key={day} className="flex items-center space-x-4 p-4 border rounded-lg">
+                      <div key={day} className="flex items-center space-x-4 p-4  rounded-lg">
                         <div className="w-24">
                           <span className="font-medium capitalize">{day}</span>
                         </div>
@@ -462,7 +462,7 @@ const StoreSettingsPage = () => {
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Receipt Display Options</h3>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4  rounded-lg">
                       <div>
                         <span className="font-medium">Show Logo</span>
                         <p className="text-sm text-gray-500">Display store logo on receipts</p>
@@ -472,7 +472,7 @@ const StoreSettingsPage = () => {
                         onValueChange={(value) => handleInputChange('receiptSettings.showLogo', value)}
                       />
                     </div>
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4  rounded-lg">
                       <div>
                         <span className="font-medium">Show Address</span>
                         <p className="text-sm text-gray-500">Display store address on receipts</p>
@@ -482,7 +482,7 @@ const StoreSettingsPage = () => {
                         onValueChange={(value) => handleInputChange('receiptSettings.showAddress', value)}
                       />
                     </div>
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4  rounded-lg">
                       <div>
                         <span className="font-medium">Show Phone</span>
                         <p className="text-sm text-gray-500">Display phone number on receipts</p>
@@ -492,7 +492,7 @@ const StoreSettingsPage = () => {
                         onValueChange={(value) => handleInputChange('receiptSettings.showPhone', value)}
                       />
                     </div>
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4  rounded-lg">
                       <div>
                         <span className="font-medium">Show Email</span>
                         <p className="text-sm text-gray-500">Display email address on receipts</p>
@@ -502,7 +502,7 @@ const StoreSettingsPage = () => {
                         onValueChange={(value) => handleInputChange('receiptSettings.showEmail', value)}
                       />
                     </div>
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4  rounded-lg">
                       <div>
                         <span className="font-medium">Show Website</span>
                         <p className="text-sm text-gray-500">Display website URL on receipts</p>
@@ -575,7 +575,7 @@ const StoreSettingsPage = () => {
                   <h3 className="text-lg font-semibold mb-4">Tax Rate</h3>
                   <div className="space-y-4">
                     {/* Tax Enable/Disable Toggle */}
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4  rounded-lg">
                       <div>
                         <span className="font-medium">Enable Tax</span>
                         <p className="text-sm text-gray-500">Turn tax calculation on or off</p>
@@ -704,7 +704,7 @@ const StoreSettingsPage = () => {
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Alert Settings</h3>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4  rounded-lg">
                       <div>
                         <span className="font-medium">Low Stock Alerts</span>
                         <p className="text-sm text-gray-500">Get notified when products are running low</p>
@@ -732,7 +732,7 @@ const StoreSettingsPage = () => {
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Report Settings</h3>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4  rounded-lg">
                       <div>
                         <span className="font-medium">Daily Reports</span>
                         <p className="text-sm text-gray-500">Receive daily sales and inventory reports</p>
@@ -742,7 +742,7 @@ const StoreSettingsPage = () => {
                         onValueChange={(value) => handleInputChange('notifications.dailyReports', value)}
                       />
                     </div>
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4  rounded-lg">
                       <div>
                         <span className="font-medium">Weekly Reports</span>
                         <p className="text-sm text-gray-500">Receive weekly summary reports</p>
@@ -752,7 +752,7 @@ const StoreSettingsPage = () => {
                         onValueChange={(value) => handleInputChange('notifications.weeklyReports', value)}
                       />
                     </div>
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4  rounded-lg">
                       <div>
                         <span className="font-medium">Monthly Reports</span>
                         <p className="text-sm text-gray-500">Receive monthly analytics reports</p>
