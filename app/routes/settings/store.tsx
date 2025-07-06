@@ -197,8 +197,8 @@ const StoreSettingsPage = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Store Information
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+      </h1>
+      <p className="text-gray-600 dark:text-gray-400">
             Configure your store information and business details
           </p>
         </div>
