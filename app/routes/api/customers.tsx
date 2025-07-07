@@ -1,24 +1,26 @@
 import { data } from 'react-router';
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
-import Customer from '../../models/Customer';
-import Sale from '../../models/Sale';
-import '../../mongoose.server';
+import type { Route } from './+types/customers';
 
 // Helper function to hash password
 const hashPassword = async (password: string): Promise<string> => {
-  const salt = await bcrypt.genSalt(12);
-  return bcrypt.hash(password, salt);
+  const bcrypt = await import('bcryptjs');
+  const salt = await bcrypt.default.genSalt(12);
+  return bcrypt.default.hash(password, salt);
 };
 
 // Helper function to compare password
 const comparePassword = async (password: string, hashedPassword: string): Promise<boolean> => {
-  return bcrypt.compare(password, hashedPassword);
+  const bcrypt = await import('bcryptjs');
+  return bcrypt.default.compare(password, hashedPassword);
 };
 
 // Customer Authentication Functions
 const authenticateCustomer = async (email: string, password: string) => {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: Customer } = await import('../../models/Customer');
+    
     // Find customer by email
     const customer = await Customer.findOne({ 
       email: email.toLowerCase(),
@@ -70,6 +72,10 @@ const authenticateCustomer = async (email: string, password: string) => {
 
 const createCustomerWithPassword = async (customerData: any, password: string) => {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: Customer } = await import('../../models/Customer');
+    
     // Validate required fields
     if (!customerData.firstName || !customerData.lastName || !customerData.email || !password) {
       return { success: false, message: 'First name, last name, email, and password are required' };
@@ -134,6 +140,12 @@ const createCustomerWithPassword = async (customerData: any, password: string) =
 // GET /api/customers/auth/login - Customer login (POST method will handle this)
 export async function loader({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: Customer } = await import('../../models/Customer');
+    const { default: Sale } = await import('../../models/Sale');
+    
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/');
     
@@ -252,7 +264,7 @@ export async function loader({ request }: { request: Request }) {
     const total = await Customer.countDocuments(query);
     
     // Remove passwords from notes before sending response
-    const sanitizedCustomers = customers.map(customer => ({
+    const sanitizedCustomers = customers.map((customer: any) => ({
       _id: customer._id,
       firstName: customer.firstName,
       lastName: customer.lastName,
@@ -295,6 +307,11 @@ export async function loader({ request }: { request: Request }) {
 // POST /api/customers/auth/signup - Customer signup with password
 export async function action({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: Customer } = await import('../../models/Customer');
+    
     const method = request.method;
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/');
