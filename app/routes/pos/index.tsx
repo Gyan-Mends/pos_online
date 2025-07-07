@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Card,
   CardBody,
@@ -33,7 +33,11 @@ import {
   Percent,
   X,
   Check,
-  Smartphone
+  Smartphone,
+  Camera,
+  StopCircle,
+  Flashlight,
+  FlashlightOff
 } from 'lucide-react';
 import { successToast, errorToast } from '../../components/toast';
 import { productsAPI, customersAPI, salesAPI } from '../../utils/api';
@@ -64,6 +68,16 @@ export default function POSPage() {
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
 
+  // Barcode scanner state
+  const [isScanning, setIsScanning] = useState(false);
+  const [scannerReader, setScannerReader] = useState<any>(null);
+  const [scannerControls, setScannerControls] = useState<any>(null);
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [scanningStatus, setScanningStatus] = useState('Ready to scan entire view...');
+  const [isManualCapture, setIsManualCapture] = useState(false);
+  const [scannerProcessing, setScannerProcessing] = useState(false);
+  const [lastDetectionTime, setLastDetectionTime] = useState<number>(0);
+
   // Payment state
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'mobile_money'>('cash');
   const [amountReceived, setAmountReceived] = useState<number>(0);
@@ -77,6 +91,7 @@ export default function POSPage() {
   const { isOpen: isCustomerModalOpen, onOpen: openCustomerModal, onOpenChange: onCustomerModalChange } = useDisclosure();
   const { isOpen: isPaymentModalOpen, onOpen: openPaymentModal, onOpenChange: onPaymentModalChange } = useDisclosure();
   const { isOpen: isReceiptModalOpen, onOpen: openReceiptModal, onOpenChange: onReceiptModalChange } = useDisclosure();
+  const { isOpen: isScannerModalOpen, onOpen: openScannerModal, onOpenChange: onScannerModalChange } = useDisclosure();
 
   // New customer form
   const [newCustomer, setNewCustomer] = useState({
@@ -89,6 +104,11 @@ export default function POSPage() {
   // Current user (seller)
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [completedSale, setCompletedSale] = useState<any>(null);
+
+  // Refs for scanner
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scannerProcessingRef = useRef<boolean>(false);
+  const lastDetectionTimeRef = useRef<number>(0);
 
   useEffect(() => {
     loadData();
@@ -110,6 +130,26 @@ export default function POSPage() {
       setChange(0);
     }
   }, [amountReceived, cart.totalAmount, paymentMethod]);
+
+  // Cleanup scanner on component unmount
+  useEffect(() => {
+    return () => {
+      try {
+        if (scannerControls && typeof scannerControls.stop === 'function') {
+          scannerControls.stop();
+        }
+        if (scannerReader && typeof scannerReader.reset === 'function') {
+          scannerReader.reset();
+        }
+        setScannerProcessing(false);
+        scannerProcessingRef.current = false;
+        setLastDetectionTime(0);
+        lastDetectionTimeRef.current = 0;
+      } catch (error) {
+        console.error('Error cleaning up scanner:', error);
+      }
+    };
+  }, [scannerReader, scannerControls]);
 
   const loadCurrentUser = () => {
     // Get current user from localStorage or session
@@ -172,6 +212,429 @@ export default function POSPage() {
       product.barcode?.toLowerCase().includes(query)
     );
     setFilteredProducts(filtered.slice(0, 20));
+  };
+
+  // Check camera permissions
+  const checkCameraPermissions = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop());
+      return true;
+    } catch (error) {
+      console.error('Camera permission error:', error);
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          errorToast('Camera access denied. Please allow camera permissions and try again.');
+        } else if (error.name === 'NotFoundError') {
+          errorToast('No camera found on this device.');
+        } else if (error.name === 'NotSupportedError') {
+          errorToast('Camera not supported on this device.');
+        } else {
+          errorToast('Failed to access camera. Please check permissions.');
+        }
+      }
+      return false;
+    }
+  };
+
+  // Start barcode scanning
+  const startScanning = async () => {
+    try {
+      // Check camera permissions first
+      const hasPermission = await checkCameraPermissions();
+      if (!hasPermission) {
+        setIsScanning(false);
+        setScanningStatus('Camera access required');
+        return;
+      }
+
+      setScanningStatus('Loading scanner...');
+
+      // Dynamic import for barcode scanner
+      const { BrowserMultiFormatReader } = await import('@zxing/browser');
+      const { NotFoundException, DecodeHintType, BarcodeFormat } = await import('@zxing/library');
+      
+      // Create reader with better configuration
+      const reader = new BrowserMultiFormatReader();
+      
+      // Configure hints for better barcode detection
+      const hints = new Map();
+      hints.set(DecodeHintType.TRY_HARDER, true);
+      hints.set(DecodeHintType.PURE_BARCODE, false);
+      hints.set(DecodeHintType.ASSUME_GS1, false);
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.QR_CODE,
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+        BarcodeFormat.CODE_93,
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+        BarcodeFormat.ITF,
+        BarcodeFormat.CODABAR,
+        BarcodeFormat.PDF_417,
+        BarcodeFormat.DATA_MATRIX,
+        BarcodeFormat.AZTEC,
+        BarcodeFormat.RSS_14,
+        BarcodeFormat.RSS_EXPANDED
+      ]);
+      
+      reader.setHints(hints);
+      setScannerReader(reader);
+      setIsScanning(true);
+      setScannerProcessing(false);
+      scannerProcessingRef.current = false;
+      setLastDetectionTime(0);
+      lastDetectionTimeRef.current = 0;
+      openScannerModal();
+
+      // Get video devices
+      const videoDevices = await BrowserMultiFormatReader.listVideoInputDevices();
+      if (videoDevices.length === 0) {
+        errorToast('No camera found on this device');
+        setIsScanning(false);
+        return;
+      }
+
+      console.log('Available cameras:', videoDevices);
+
+      // Try to use back camera first (better for barcode scanning)
+      let selectedDeviceId = videoDevices[0].deviceId;
+      
+      // Look for back camera on mobile devices
+      const backCamera = videoDevices.find(device => 
+        device.label.toLowerCase().includes('back') || 
+        device.label.toLowerCase().includes('rear') ||
+        device.label.toLowerCase().includes('environment')
+      );
+      
+      if (backCamera) {
+        selectedDeviceId = backCamera.deviceId;
+        console.log('Using back camera:', backCamera.label);
+      } else {
+        console.log('Using default camera:', videoDevices[0].label);
+      }
+
+      // Enhanced video constraints for better barcode scanning
+      const constraints = {
+        video: {
+          deviceId: selectedDeviceId,
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+          frameRate: { ideal: 30, min: 15 },
+          focusMode: { ideal: 'continuous' },
+          exposureMode: { ideal: 'continuous' },
+          whiteBalanceMode: { ideal: 'continuous' },
+          zoom: { ideal: 1 }
+        }
+      };
+
+      // Start scanning
+      if (videoRef.current) {
+        // Wait a bit for video element to be ready
+        setTimeout(async () => {
+          if (videoRef.current) {
+            try {
+              console.log('Starting barcode detection with constraints:', constraints);
+              
+              // First try the constraint-based approach
+              let controls;
+              try {
+                controls = await reader.decodeFromConstraints(constraints, videoRef.current, (result: any, err: any) => {
+                  const currentTime = Date.now();
+                  if (result && !scannerProcessingRef.current && (currentTime - lastDetectionTimeRef.current >= 1000)) {
+                    const barcode = result.getText();
+                    const format = result.getBarcodeFormat();
+                    console.log('✅ Barcode detected:', barcode, 'Format:', format);
+                    setScanningStatus(`✅ Barcode detected: ${barcode}`);
+                    
+                    // Search for product and add to cart
+                    handleBarcodeDetected(barcode, format);
+                  }
+                  if (err && !(err instanceof NotFoundException) && !scannerProcessingRef.current) {
+                    console.log('🔍 Scanner searching...', err.message || 'Processing frame');
+                    setScanningStatus('🔍 Scanning entire view for barcodes...');
+                  }
+                });
+              } catch (constraintError) {
+                console.warn('Constraint-based scanning failed, trying device-based:', constraintError);
+                
+                // Fallback to device-based scanning
+                controls = await reader.decodeFromVideoDevice(selectedDeviceId, videoRef.current, (result: any, err: any) => {
+                  const currentTime = Date.now();
+                  if (result && !scannerProcessingRef.current && (currentTime - lastDetectionTimeRef.current >= 1000)) {
+                    const barcode = result.getText();
+                    const format = result.getBarcodeFormat();
+                    console.log('✅ Barcode detected (fallback):', barcode, 'Format:', format);
+                    setScanningStatus(`✅ Barcode detected: ${barcode}`);
+                    
+                    // Search for product and add to cart
+                    handleBarcodeDetected(barcode, format);
+                  }
+                  if (err && !(err instanceof NotFoundException) && !scannerProcessingRef.current) {
+                    console.log('🔍 Scanner searching (fallback)...', err.message || 'Processing frame');
+                    setScanningStatus('🔍 Scanning entire view for barcodes...');
+                  }
+                });
+              }
+              
+              // Store the controls object for later use
+              setScannerControls(controls);
+              console.log('Scanner started successfully');
+              setScanningStatus('📷 Camera ready - Scanning entire view for barcodes');
+              
+              // Add torch control if available
+              if (controls && typeof controls.switchTorch === 'function') {
+                console.log('Torch control available');
+              }
+              
+            } catch (scanError) {
+              console.error('Error starting video scan:', scanError);
+              errorToast('Failed to start video scanning. Please try again.');
+              setIsScanning(false);
+            }
+          }
+        }, 500); // Increased wait time for video to be ready
+      }
+    } catch (error) {
+      console.error('Error starting scanner:', error);
+      errorToast('Failed to start camera scanner. Please make sure camera permissions are granted.');
+      setIsScanning(false);
+    }
+  };
+
+  // Stop barcode scanning
+  const stopScanning = () => {
+    try {
+      // Use the controls object to stop scanning
+      if (scannerControls && typeof scannerControls.stop === 'function') {
+        scannerControls.stop();
+        setScannerControls(null);
+      }
+      
+      // Also try to reset the reader if available
+      if (scannerReader) {
+        if (typeof scannerReader.reset === 'function') {
+          scannerReader.reset();
+        }
+        setScannerReader(null);
+      }
+    } catch (error) {
+      console.error('Error stopping scanner:', error);
+    }
+    
+    // Reset states
+    setIsScanning(false);
+    setTorchEnabled(false);
+    setScannerProcessing(false);
+    scannerProcessingRef.current = false;
+    setLastDetectionTime(0);
+    lastDetectionTimeRef.current = 0;
+    setScanningStatus('Ready to scan entire view...');
+    onScannerModalChange();
+  };
+
+  // Handle barcode detection
+  const handleBarcodeDetected = (barcode: string, format: any) => {
+    const currentTime = Date.now();
+    
+    // Prevent multiple detections while processing or within 1 second
+    if (scannerProcessingRef.current || (currentTime - lastDetectionTimeRef.current < 1000)) {
+      console.log('Scanner already processing or too soon, ignoring detection:', barcode, {
+        processing: scannerProcessingRef.current,
+        timeDiff: currentTime - lastDetectionTimeRef.current
+      });
+      return;
+    }
+    
+    console.log('Searching for product with barcode:', barcode);
+    
+    // Find product by barcode or SKU
+    const foundProduct = products.find(product => 
+      product.barcode === barcode || product.sku === barcode
+    );
+    
+    if (foundProduct) {
+      console.log('Product found:', foundProduct);
+      
+      // IMMEDIATELY stop all scanner activity
+      scannerProcessingRef.current = true;
+      lastDetectionTimeRef.current = currentTime;
+      setScannerProcessing(true);
+      setLastDetectionTime(currentTime);
+      
+      // Stop the scanner controls and video stream immediately
+      try {
+        if (scannerControls && typeof scannerControls.stop === 'function') {
+          scannerControls.stop();
+        }
+        
+        // Also stop video tracks directly
+        if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          const tracks = stream.getTracks();
+          tracks.forEach(track => {
+            track.stop();
+            console.log('Stopped video track:', track.kind);
+          });
+        }
+      } catch (error) {
+        console.error('Error stopping scanner controls/video:', error);
+      }
+      
+      // Update status before adding to cart
+      setScanningStatus(`✅ Found: ${foundProduct.name} - Adding to cart...`);
+      
+      // Add to cart
+      addToCart(foundProduct);
+      
+      successToast(`${foundProduct.name} added to cart! Scanner closed.`);
+      
+      // Complete the scanner shutdown with a small delay to ensure UI updates
+      setTimeout(() => {
+        stopScanning();
+      }, 100);
+    } else {
+      console.log('No product found with barcode:', barcode);
+      errorToast(`No product found with barcode: ${barcode}`);
+      
+      // Continue scanning for another barcode
+      setScanningStatus('🔍 Product not found. Continue scanning...');
+    }
+  };
+
+  // Toggle torch/flashlight
+  const toggleTorch = async () => {
+    if (scannerControls && typeof scannerControls.switchTorch === 'function') {
+      try {
+        await scannerControls.switchTorch(!torchEnabled);
+        setTorchEnabled(!torchEnabled);
+        successToast(`Flashlight ${!torchEnabled ? 'enabled' : 'disabled'}`);
+      } catch (error) {
+        console.error('Error toggling torch:', error);
+        errorToast('Failed to toggle flashlight');
+      }
+    } else {
+      errorToast('Flashlight not available on this device');
+    }
+  };
+
+  // Enhanced image preprocessing
+  const preprocessImage = (canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) => {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    
+    // Convert to grayscale and increase contrast
+    for (let i = 0; i < data.length; i += 4) {
+      const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      // Increase contrast
+      const contrast = 1.5;
+      const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+      const enhanced = Math.min(255, Math.max(0, factor * (avg - 128) + 128));
+      
+      data[i] = enhanced;     // Red
+      data[i + 1] = enhanced; // Green
+      data[i + 2] = enhanced; // Blue
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+    return canvas;
+  };
+
+  // Enhanced manual frame capture and scan
+  const captureFrame = async () => {
+    if (!videoRef.current || !scannerReader || scannerProcessingRef.current) {
+      errorToast('Scanner not ready for manual capture');
+      return;
+    }
+
+    try {
+      setIsManualCapture(true);
+      setScanningStatus('📸 Capturing frame...');
+      
+      const video = videoRef.current;
+      console.log(`📸 Starting enhanced capture: ${video.videoWidth}x${video.videoHeight}`);
+      
+      // Wait for video to be stable
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      let detectedBarcode = null;
+      let detectedFormat = null;
+      let successMethod = null;
+      
+      // Method 1: Try original frame
+      console.log('🔍 Attempt 1: Scanning original frame');
+      setScanningStatus('🔍 Method 1: Original frame...');
+      try {
+        const canvas1 = document.createElement('canvas');
+        canvas1.width = video.videoWidth;
+        canvas1.height = video.videoHeight;
+        const ctx1 = canvas1.getContext('2d');
+        if (!ctx1) throw new Error('Cannot create canvas context');
+        ctx1.drawImage(video, 0, 0);
+        
+        console.log('Method 1: Canvas created, attempting decode...');
+        const result1 = await scannerReader.decodeFromCanvas(canvas1);
+        if (result1) {
+          detectedBarcode = result1.getText();
+          detectedFormat = String(result1.getBarcodeFormat());
+          successMethod = 'Original';
+          console.log('✅ Success (Original):', detectedBarcode, 'Format:', detectedFormat);
+        }
+      } catch (e: any) {
+        console.log('❌ Method 1 failed:', e.message);
+      }
+      
+      // Method 2: Try with preprocessing
+      if (!detectedBarcode) {
+        console.log('🔍 Attempt 2: Scanning with preprocessing');
+        setScanningStatus('🔍 Method 2: Enhanced contrast...');
+        try {
+          await new Promise(resolve => setTimeout(resolve, 50));
+          
+          const canvas2 = document.createElement('canvas');
+          canvas2.width = video.videoWidth;
+          canvas2.height = video.videoHeight;
+          const ctx2 = canvas2.getContext('2d');
+          if (!ctx2) throw new Error('Cannot create canvas context');
+          ctx2.drawImage(video, 0, 0);
+          
+          // Apply preprocessing
+          console.log('Method 2: Applying image preprocessing...');
+          preprocessImage(canvas2, ctx2);
+          
+          const result2 = await scannerReader.decodeFromCanvas(canvas2);
+          if (result2) {
+            detectedBarcode = result2.getText();
+            detectedFormat = String(result2.getBarcodeFormat());
+            successMethod = 'Preprocessed';
+            console.log('✅ Success (Preprocessed):', detectedBarcode, 'Format:', detectedFormat);
+          }
+        } catch (e: any) {
+          console.log('❌ Method 2 failed:', e.message);
+        }
+      }
+      
+      // Process results
+      if (detectedBarcode) {
+        console.log(`✅ Enhanced capture SUCCESS via ${successMethod}:`, detectedBarcode, 'Format:', detectedFormat);
+        setScanningStatus(`✅ ${successMethod} scan: ${detectedBarcode}`);
+        
+        // Handle detected barcode
+        handleBarcodeDetected(detectedBarcode, detectedFormat);
+      } else {
+        setScanningStatus('❌ No barcode found in frame. Try better lighting or different angle.');
+        errorToast('No barcode detected in frame. Try better lighting, different angle, or move closer.');
+      }
+      
+    } catch (error: any) {
+      console.error('Enhanced capture error:', error);
+      setScanningStatus('❌ Capture failed');
+      errorToast(`Capture failed: ${error.message}`);
+    } finally {
+      setIsManualCapture(false);
+    }
   };
 
   const getProductId = (product: Product) => {
@@ -647,6 +1110,14 @@ export default function POSPage() {
             </Chip>
           )}
           <Button
+            color="secondary"
+            variant="bordered"
+            startContent={isScanning ? <StopCircle className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
+            onClick={isScanning ? stopScanning : startScanning}
+          >
+            {isScanning ? 'Stop Scan' : 'Scan Product'}
+          </Button>
+          <Button
             color="primary"
             variant="ghost"
             startContent={<User className="w-4 h-4" />}
@@ -662,14 +1133,27 @@ export default function POSPage() {
         <div className="lg:col-span-2 space-y-4">
           {/* Search */}
 
-          <Input
-            placeholder="Search products by name, SKU, or barcode..."
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            startContent={<Search className="w-4 h-4 text-gray-400" />}
-            variant="bordered"
-            size="lg"
-          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="Search products by name, SKU, or barcode..."
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+              startContent={<Search className="w-4 h-4 text-gray-400" />}
+              variant="bordered"
+              size="lg"
+              className="flex-1"
+            />
+            <Button
+              color="secondary"
+              variant="bordered"
+              size="lg"
+              onClick={isScanning ? stopScanning : startScanning}
+              startContent={isScanning ? <StopCircle className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
+              className="px-6"
+            >
+              {isScanning ? 'Stop' : 'Scan'}
+            </Button>
+          </div>
 
 
           {/* Products Grid */}
@@ -1186,6 +1670,96 @@ export default function POSPage() {
                   New Sale
                 </Button>
               </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* Barcode Scanner Modal */}
+      <Modal className='customed-dark-card' backdrop="blur" isOpen={isScannerModalOpen} onOpenChange={onScannerModalChange} size="2xl" isDismissable={false}>
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>
+                <div className="flex items-center justify-between w-full">
+                  <span>Barcode Scanner</span>
+                  <Button
+                    variant="ghost"
+                    onClick={stopScanning}
+                    className="min-w-unit-8 w-8 h-8 p-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </ModalHeader>
+              <ModalBody>
+                <div className="space-y-4">
+                                     {/* Video Preview */}
+                   <div className="relative">
+                     <video
+                       ref={videoRef}
+                       className="w-full h-80 bg-black rounded-lg border border-gray-300 dark:border-gray-600"
+                       autoPlay
+                       playsInline
+                       muted
+                     />
+                     {/* Scanner Frame Overlay - Visual Guide Only */}
+                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                       <div className="w-60 h-40 border-2 border-blue-500 rounded-lg opacity-30">
+                         <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-blue-500"></div>
+                         <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-blue-500"></div>
+                         <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-blue-500"></div>
+                         <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-blue-500"></div>
+                       </div>
+                     </div>
+                     {/* Full Screen Scanning Indicator */}
+                     <div className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 rounded-md text-xs font-medium">
+                       📱 Scanning entire view
+                     </div>
+                   </div>
+
+                  {/* Scanner Controls */}
+                  <div className="flex justify-center space-x-3 flex-wrap">
+                    <Button
+                      color="danger"
+                      variant="bordered"
+                      onClick={stopScanning}
+                      startContent={<StopCircle className="w-4 h-4" />}
+                    >
+                      Stop Scanning
+                    </Button>
+                                         <Button
+                       color="secondary"
+                       variant="bordered"
+                       onClick={captureFrame}
+                       startContent={<Camera className="w-4 h-4" />}
+                       disabled={isManualCapture || scannerProcessing}
+                     >
+                       {isManualCapture ? 'Scanning...' : scannerProcessing ? 'Processing...' : 'Capture Frame'}
+                     </Button>
+                    {scannerControls && (
+                      <Button
+                        variant="bordered"
+                        onClick={toggleTorch}
+                        startContent={torchEnabled ? <FlashlightOff className="w-4 h-4" /> : <Flashlight className="w-4 h-4" />}
+                        color={torchEnabled ? "warning" : "default"}
+                      >
+                        {torchEnabled ? 'Flash Off' : 'Flash On'}
+                      </Button>
+                    )}
+                  </div>
+
+                                     {/* Scanner Status */}
+                   <div className="text-center space-y-2">
+                     <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                       {scanningStatus}
+                     </p>
+                     <p className="text-xs text-gray-500 dark:text-gray-400">
+                       📱 Scans anywhere in camera view • 🎯 Frame is just a guide • 💡 Good lighting helps • ⚡ Auto-closes when found
+                     </p>
+                   </div>
+                </div>
+              </ModalBody>
             </>
           )}
         </ModalContent>
