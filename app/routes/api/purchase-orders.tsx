@@ -1,14 +1,14 @@
 import { type ActionFunctionArgs, data } from 'react-router';
-import mongoose from 'mongoose';
-import PurchaseOrder from '../../models/PurchaseOrder';
-import Supplier from '../../models/Supplier';
-import Product from '../../models/Product';
-import StockMovement from '../../models/StockMovement';
 
 // GET /api/purchase-orders - Get all purchase orders with pagination and filters
 export async function loader({ request }: { request: Request }) {
   try {
-    await mongoose.connect(process.env.MONGODB_URI!);
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: PurchaseOrder } = await import('../../models/PurchaseOrder');
+    const { default: Supplier } = await import('../../models/Supplier');
+    const { default: Product } = await import('../../models/Product');
     
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page') || '1');
@@ -75,7 +75,13 @@ export async function loader({ request }: { request: Request }) {
 // POST /api/purchase-orders - Create, Update, or Receive purchase orders
 export async function action({ request }: ActionFunctionArgs) {
   try {
-    await mongoose.connect(process.env.MONGODB_URI!);
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: PurchaseOrder } = await import('../../models/PurchaseOrder');
+    const { default: Supplier } = await import('../../models/Supplier');
+    const { default: Product } = await import('../../models/Product');
+    const { default: StockMovement } = await import('../../models/StockMovement');
     
     const method = request.method;
     const url = new URL(request.url);

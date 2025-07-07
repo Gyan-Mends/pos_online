@@ -1,14 +1,15 @@
 import { data } from 'react-router';
-import mongoose from 'mongoose';
-import Sale from '../../models/Sale';
-import Product from '../../models/Product';
-import Customer from '../../models/Customer';
-import StockMovement from '../../models/StockMovement';
-import '../../mongoose.server';
 
 // GET /api/sales - Get all sales with optional filters
 export async function loader({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: Sale } = await import('../../models/Sale');
+    const { default: Product } = await import('../../models/Product');
+    const { default: Customer } = await import('../../models/Customer');
+    const { default: StockMovement } = await import('../../models/StockMovement');
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = parseInt(url.searchParams.get('limit') || '50');
@@ -142,6 +143,14 @@ export async function loader({ request }: { request: Request }) {
 // POST /api/sales - Create new sale
 export async function action({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: Sale } = await import('../../models/Sale');
+    const { default: Product } = await import('../../models/Product');
+    const { default: Customer } = await import('../../models/Customer');
+    const { default: StockMovement } = await import('../../models/StockMovement');
+    
     const method = request.method;
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/').filter(Boolean); // Remove empty parts
@@ -355,6 +364,13 @@ export async function action({ request }: { request: Request }) {
 // Handle refund functionality
 async function handleRefund(request: Request, saleId: string) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: Sale } = await import('../../models/Sale');
+    const { default: Product } = await import('../../models/Product');
+    const { default: StockMovement } = await import('../../models/StockMovement');
+    
     const refundData = await request.json();
     
     if (!mongoose.Types.ObjectId.isValid(saleId)) {

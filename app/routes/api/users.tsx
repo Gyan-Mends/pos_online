@@ -1,12 +1,13 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from 'react-router';
 import { data } from 'react-router';
-import mongoose from '../../mongoose.server';
-import User from '../../models/User';
 
 // GET /api/users - Get all users
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    // Ensure MongoDB connection (it's already connected in mongoose.server.ts)
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: User } = await import('../../models/User');
     
     const url = new URL(request.url);
     const pathSegments = url.pathname.split('/');
@@ -89,7 +90,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
 // DELETE /api/users/:id - Delete user
 export async function action({ request }: ActionFunctionArgs) {
   try {
-    // Ensure MongoDB connection (it's already connected in mongoose.server.ts)
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: User } = await import('../../models/User');
     
     const method = request.method;
     const url = new URL(request.url);

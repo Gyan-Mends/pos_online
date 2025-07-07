@@ -1,12 +1,4 @@
 import { data } from 'react-router';
-import mongoose from '../../mongoose.server';
-import Cart from '../../models/Cart';
-import Product from '../../models/Product';
-import Sale from '../../models/Sale';
-import Order from '../../models/Order';
-import StockMovement from '../../models/StockMovement';
-import Customer from '../../models/Customer';
-import User from '../../models/User';
 
 // CORS Headers for cross-origin requests
 const getCorsHeaders = () => ({
@@ -51,6 +43,16 @@ async function verifyPaystackTransaction(reference: string) {
 // POST /api/paystack - Handle Paystack operations
 export async function action({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: Cart } = await import('../../models/Cart');
+    const { default: Product } = await import('../../models/Product');
+    const { default: Sale } = await import('../../models/Sale');
+    const { default: Order } = await import('../../models/Order');
+    const { default: StockMovement } = await import('../../models/StockMovement');
+    const { default: Customer } = await import('../../models/Customer');
+    const { default: User } = await import('../../models/User');
     const method = request.method;
     
     // Handle CORS preflight

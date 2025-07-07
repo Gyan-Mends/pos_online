@@ -1,11 +1,11 @@
 import { data } from 'react-router';
-import mongoose from '../../mongoose.server';
-import Order from '../../models/Order';
-import User from '../../models/User';
-import Sale from '../../models/Sale';
 
 // Helper function to get current user (for status updates)
 async function getCurrentUser(request: Request) {
+  // Import server-only modules
+  await import('../../mongoose.server');
+  const { default: User } = await import('../../models/User');
+  
   // In a real implementation, you'd extract user from session/token
   // For now, we'll find any admin user
   const user = await User.findOne({ role: 'admin' });
@@ -15,6 +15,10 @@ async function getCurrentUser(request: Request) {
 // Helper function to convert order to sale
 async function convertOrderToSale(order: any, currentUser: any) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: Sale } = await import('../../models/Sale');
+    
     // Check if sale already exists for this order
     const existingSale = await Sale.findOne({ orderNumber: order.orderNumber });
     if (existingSale) {
@@ -68,6 +72,9 @@ async function convertOrderToSale(order: any, currentUser: any) {
 // GET /api/orders - Get all orders with filtering and pagination
 export async function loader({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: Order } = await import('../../models/Order');
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = parseInt(url.searchParams.get('limit') || '20');
@@ -159,6 +166,9 @@ export async function loader({ request }: { request: Request }) {
 // POST /api/orders - Create new order or update existing order
 export async function action({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: Order } = await import('../../models/Order');
     const method = request.method;
     const formData = await request.formData();
     const action = formData.get('_method') || method;

@@ -1,12 +1,14 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { data } from "react-router";
-import { Wishlist } from "../../models/Wishlist";
-import Product from "../../models/Product";
-import mongoose from "mongoose";
 
 // GET /api/wishlist - Get user's wishlist
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { Wishlist } = await import("../../models/Wishlist");
+    const { default: Product } = await import("../../models/Product");
     const url = new URL(request.url);
     const userId = url.searchParams.get("userId");
     const sessionId = url.searchParams.get("sessionId");
@@ -88,6 +90,12 @@ export async function action({ request }: ActionFunctionArgs) {
 
 // Add item to wishlist
 async function addToWishlist(formData: FormData) {
+  // Import server-only modules
+  await import('../../mongoose.server');
+  const mongoose = await import('mongoose');
+  const { Wishlist } = await import("../../models/Wishlist");
+  const { default: Product } = await import("../../models/Product");
+  
   const userId = formData.get("userId") as string;
   const sessionId = formData.get("sessionId") as string;
   const productId = formData.get("productId") as string;

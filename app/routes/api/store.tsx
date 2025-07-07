@@ -1,11 +1,12 @@
 import { data } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-import Store from '../../models/Store';
-import '../../mongoose.server';
 
 // GET /api/store - Get store information
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: Store } = await import('../../models/Store');
     const url = new URL(request.url);
     const method = request.method;
 
@@ -42,6 +43,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
 // POST/PUT /api/store - Create or update store information
 export async function action({ request }: ActionFunctionArgs) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: Store } = await import('../../models/Store');
+    
     const method = request.method;
     const body = await request.json();
 

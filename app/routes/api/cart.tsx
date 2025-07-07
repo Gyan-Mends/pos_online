@@ -1,10 +1,12 @@
 import { data } from 'react-router';
-import mongoose from '../../mongoose.server';
-import Cart from '../../models/Cart';
-import Product from '../../models/Product';
 
 // Helper function to get or create cart
 async function getOrCreateCart(userId?: string, sessionId?: string) {
+  // Import server-only modules
+  await import('../../mongoose.server');
+  const mongoose = await import('mongoose');
+  const { default: Cart } = await import('../../models/Cart');
+  
   let cart;
   
   if (userId && mongoose.Types.ObjectId.isValid(userId)) {
@@ -66,6 +68,10 @@ export async function loader({ request }: { request: Request }) {
 // POST /api/cart - Cart operations (add, update, remove, clear)
 export async function action({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: Product } = await import('../../models/Product');
+    
     const method = request.method;
     const { action: cartAction, userId, sessionId, productId, quantity, variations } = await request.json();
 

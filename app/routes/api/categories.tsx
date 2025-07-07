@@ -1,10 +1,11 @@
 import { data } from 'react-router';
-import mongoose from '../../mongoose.server';
-import Category from '../../models/Category';
 
 // GET /api/categories - Get all categories
 export async function loader({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: Category } = await import('../../models/Category');
     const categories = await Category.find({}).sort({ name: 1 }).lean();
 
     return data({
@@ -26,6 +27,10 @@ export async function loader({ request }: { request: Request }) {
 // POST /api/categories - Create new category
 export async function action({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: Category } = await import('../../models/Category');
+    
     const method = request.method;
     
     if (method === 'POST') {

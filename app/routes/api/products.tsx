@@ -1,12 +1,14 @@
 import { data } from 'react-router';
-import mongoose from '../../mongoose.server';
-import Product from '../../models/Product';
-import Category from '../../models/Category';
 import type { ProductFormData } from '../../types';
 
 // GET /api/products or /api/products/:id
 export async function loader({ request, params }: { request: Request; params?: any }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: Product } = await import('../../models/Product');
+    const { default: Category } = await import('../../models/Category');
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/');
     const productId = pathParts[pathParts.length - 1];
@@ -87,6 +89,12 @@ export async function loader({ request, params }: { request: Request; params?: a
 // POST, PUT, DELETE /api/products
 export async function action({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: Product } = await import('../../models/Product');
+    const { default: Category } = await import('../../models/Category');
+    
     const method = request.method;
     
     if (method === 'POST') {

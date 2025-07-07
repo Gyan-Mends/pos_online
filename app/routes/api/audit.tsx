@@ -1,12 +1,11 @@
 import { data } from 'react-router';
-import mongoose from 'mongoose';
-import AuditLog from '../../models/AuditLog';
-import User from '../../models/User';
-import '../../mongoose.server';
 
 // GET /api/audit - Get all audit logs with optional filters
 export async function loader({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: AuditLog } = await import('../../models/AuditLog');
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = parseInt(url.searchParams.get('limit') || '50');
@@ -107,6 +106,10 @@ export async function loader({ request }: { request: Request }) {
 // POST /api/audit - Create new audit log entry
 export async function action({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: AuditLog } = await import('../../models/AuditLog');
+    
     const method = request.method;
     
     if (method === 'POST') {
@@ -214,6 +217,10 @@ export async function createAuditLog({
   metadata?: any;
 }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: AuditLog } = await import('../../models/AuditLog');
+    
     const auditLog = new AuditLog({
       userId,
       action,

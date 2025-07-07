@@ -1,14 +1,14 @@
 import { data } from 'react-router';
-import mongoose from 'mongoose';
-import Sale from '../../models/Sale';
-import Product from '../../models/Product';
-import Customer from '../../models/Customer';
-import User from '../../models/User';
-import '../../mongoose.server';
 
 // GET /api/dashboard - Get dashboard statistics
 export async function loader({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const { default: Sale } = await import('../../models/Sale');
+    const { default: Product } = await import('../../models/Product');
+    const { default: Customer } = await import('../../models/Customer');
+    const { default: User } = await import('../../models/User');
     const url = new URL(request.url);
     const currentUserId = request.headers.get('x-user-id');
     const currentUserRole = request.headers.get('x-user-role');

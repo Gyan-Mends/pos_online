@@ -1,11 +1,13 @@
 import { data } from 'react-router';
-import mongoose from '../../mongoose.server';
-import StockMovement from '../../models/StockMovement';
-import Product from '../../models/Product';
 
 // GET /api/stock-movements or /api/stock-movements/:productId
 export async function loader({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: StockMovement } = await import('../../models/StockMovement');
+    const { default: Product } = await import('../../models/Product');
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/');
     const productId = url.searchParams.get('productId');
@@ -57,6 +59,12 @@ export async function loader({ request }: { request: Request }) {
 // POST /api/stock-movements - Create new stock movement
 export async function action({ request }: { request: Request }) {
   try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: StockMovement } = await import('../../models/StockMovement');
+    const { default: Product } = await import('../../models/Product');
+    
     const method = request.method;
     
     if (method === 'POST') {
