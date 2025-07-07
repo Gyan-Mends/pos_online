@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Barcode Scanner Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+        .upload-area:hover {
+            border-color: #007bff;
+        }
+        .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f0f8ff;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #cce7ff;
+            color: #004085;
+            border: 1px solid #b8daff;
+        }
+        .image-preview {
+            max-width: 100%;
+            max-height: 400px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .results {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .result-item {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .result-item h4 {
+            margin: 0 0 10px 0;
+            color: #28a745;
+        }
+        .result-details {
+            font-family: monospace;
+            font-size: 14px;
+            color: #666;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Image Barcode Scanner Test</h1>
+        <p>Upload an image containing a QR code or barcode to test the scanning functionality.</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <p>📸 Drop an image here or click to browse</p>
+            <p style="font-size: 14px; color: #666;">Supports: JPG, PNG, GIF, WebP</p>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+        
+        <div class="controls" style="text-align: center; margin: 20px 0;">
+            <button id="scanBtn" disabled>Scan Image</button>
+            <button id="clearBtn" disabled>Clear Results</button>
+        </div>
+        
+        <div id="status" class="status info">Ready to scan an image</div>
+        
+        <div id="imageContainer" style="text-align: center;"></div>
+        
+        <div id="results" class="results" style="display: none;">
+            <h3>Scan Results</h3>
+            <div id="resultsList"></div>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script type="module">
+        import { BrowserMultiFormatReader } from 'https://unpkg.com/@zxing/browser@0.1.5/esm/index.js';
+        import { NotFoundException, DecodeHintType, BarcodeFormat } from 'https://unpkg.com/@zxing/library@0.21.2/esm/index.js';
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const scanBtn = document.getElementById('scanBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const status = document.getElementById('status');
+        const imageContainer = document.getElementById('imageContainer');
+        const results = document.getElementById('results');
+        const resultsList = document.getElementById('resultsList');
+        const log = document.getElementById('log');
+
+        let currentImage = null;
+        let reader = null;
+
+        function updateStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            addLog(`STATUS: ${message}`);
+        }
+
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            log.innerHTML += `[${timestamp}] ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function initializeReader() {
+            if (!reader) {
+                reader = new BrowserMultiFormatReader();
+                
+                // Configure hints for comprehensive barcode detection
+                const hints = new Map();
+                hints.set(DecodeHintType.TRY_HARDER, true);
+                hints.set(DecodeHintType.PURE_BARCODE, false);
+                hints.set(DecodeHintType.ASSUME_GS1, false);
+                hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+                    BarcodeFormat.QR_CODE,
+                    BarcodeFormat.CODE_128,
+                    BarcodeFormat.CODE_39,
+                    BarcodeFormat.CODE_93,
+                    BarcodeFormat.EAN_13,
+                    BarcodeFormat.EAN_8,
+                    BarcodeFormat.UPC_A,
+                    BarcodeFormat.UPC_E,
+                    BarcodeFormat.ITF,
+                    BarcodeFormat.CODABAR,
+                    BarcodeFormat.PDF_417,
+                    BarcodeFormat.DATA_MATRIX,
+                    BarcodeFormat.AZTEC,
+                    BarcodeFormat.RSS_14,
+                    BarcodeFormat.RSS_EXPANDED
+                ]);
+
+                reader.setHints(hints);
+                addLog('Scanner initialized with comprehensive format support');
+            }
+        }
+
+        function handleFileSelect(file) {
+            if (!file) return;
+            
+            addLog(`Selected file: ${file.name} (${file.size} bytes)`);
+            
+            if (!file.type.startsWith('image/')) {
+                updateStatus('Please select a valid image file', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                displayImage(e.target.result);
+                currentImage = e.target.result;
+                scanBtn.disabled = false;
+                clearBtn.disabled = false;
+                updateStatus('Image loaded - ready to scan', 'info');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function displayImage(src) {
+            imageContainer.innerHTML = `<img src="${src}" class="image-preview" alt="Uploaded image">`;
+        }
+
+        async function scanImage() {
+            if (!currentImage) {
+                updateStatus('No image selected', 'error');
+                return;
+            }
+
+            try {
+                updateStatus('Scanning image...', 'info');
+                addLog('Starting image scan');
+                
+                initializeReader();
+                
+                // Create image element
+                const img = new Image();
+                img.onload = async function() {
+                    try {
+                        addLog(`Image loaded: ${img.width}x${img.height}`);
+                        
+                        // Create canvas to draw the image
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        
+                        addLog(`Canvas created: ${canvas.width}x${canvas.height}`);
+                        
+                        // Try to decode the image
+                        const result = await reader.decodeFromCanvas(canvas);
+                        
+                        if (result) {
+                            const barcode = result.getText();
+                            const format = result.getBarcodeFormat();
+                            
+                            updateStatus(`✅ Barcode detected: ${barcode}`, 'success');
+                            addLog(`SUCCESS: Found barcode - ${barcode} (${format})`);
+                            
+                            displayResults([{
+                                text: barcode,
+                                format: format,
+                                rawResult: result
+                            }]);
+                            
+                        } else {
+                            updateStatus('❌ No barcode found in image', 'error');
+                            addLog('No barcode detected in image');
+                        }
+                        
+                    } catch (scanError) {
+                        addLog(`Scan error: ${scanError.message}`);
+                        updateStatus(`Scan failed: ${scanError.message}`, 'error');
+                    }
+                };
+                
+                img.onerror = function() {
+                    updateStatus('Failed to load image', 'error');
+                    addLog('Image loading failed');
+                };
+                
+                img.src = currentImage;
+                
+            } catch (error) {
+                addLog(`ERROR: ${error.message}`);
+                updateStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function displayResults(detectedCodes) {
+            resultsList.innerHTML = '';
+            
+            detectedCodes.forEach((code, index) => {
+                const resultItem = document.createElement('div');
+                resultItem.className = 'result-item';
+                resultItem.innerHTML = `
+                    <h4>🎯 Barcode #${index + 1}</h4>
+                    <div class="result-details">
+                        <p><strong>Content:</strong> ${code.text}</p>
+                        <p><strong>Format:</strong> ${code.format}</p>
+                        <p><strong>Length:</strong> ${code.text.length} characters</p>
+                    </div>
+                `;
+                resultsList.appendChild(resultItem);
+            });
+            
+            results.style.display = 'block';
+        }
+
+        function clearResults() {
+            currentImage = null;
+            imageContainer.innerHTML = '';
+            results.style.display = 'none';
+            resultsList.innerHTML = '';
+            scanBtn.disabled = true;
+            clearBtn.disabled = true;
+            updateStatus('Ready to scan an image', 'info');
+            addLog('Results cleared');
+        }
+
+        // Event listeners
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+        
+        scanBtn.addEventListener('click', scanImage);
+        clearBtn.addEventListener('click', clearResults);
+
+        // Initial log
+        addLog('Image barcode scanner test ready');
+        addLog('Upload an image to test barcode detection');
+    </script>
+</body>
+</html> 

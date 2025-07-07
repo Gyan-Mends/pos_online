@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcode Scanner Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .video-container {
+            position: relative;
+            margin: 20px 0;
+        }
+        video {
+            width: 100%;
+            max-width: 500px;
+            border: 2px solid #007bff;
+            border-radius: 10px;
+            background: black;
+        }
+        .overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 250px;
+            height: 150px;
+            border: 3px solid red;
+            border-radius: 10px;
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        .overlay::before,
+        .overlay::after {
+            content: '';
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid red;
+        }
+        .overlay::before {
+            top: -3px;
+            left: -3px;
+            border-right: none;
+            border-bottom: none;
+        }
+        .overlay::after {
+            top: -3px;
+            right: -3px;
+            border-left: none;
+            border-bottom: none;
+        }
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-success { background: #28a745; color: white; }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+            background: #e3f2fd;
+        }
+        .results {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .log {
+            background: #212529;
+            color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .format-chip {
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Barcode Scanner Test & Debug</h1>
+        <p>This tool helps test and debug barcode scanning functionality.</p>
+
+        <div class="controls">
+            <button id="startBtn" class="btn-primary">📷 Start Camera</button>
+            <button id="stopBtn" class="btn-danger" disabled>⏹️ Stop Camera</button>
+            <button id="torchBtn" class="btn-warning" disabled>💡 Toggle Flash</button>
+            <button id="clearBtn" class="btn-success">🗑️ Clear Log</button>
+        </div>
+
+        <div class="video-container">
+            <video id="video" autoplay playsinline muted></video>
+            <div class="overlay"></div>
+        </div>
+
+        <div class="status" id="status">
+            Status: Ready to scan
+        </div>
+
+        <div class="results" id="results">
+            <h3>Scan Results:</h3>
+            <p>No barcodes detected yet. Try scanning a barcode!</p>
+        </div>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script type="module">
+        let reader = null;
+        let controls = null;
+        let isScanning = false;
+        let torchEnabled = false;
+
+        const video = document.getElementById('video');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const torchBtn = document.getElementById('torchBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+        const log = document.getElementById('log');
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const colorMap = {
+                info: '#00bcd4',
+                success: '#4caf50',
+                warning: '#ff9800',
+                error: '#f44336'
+            };
+            log.innerHTML += `<div style="color: ${colorMap[type]}">[${timestamp}] ${message}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function updateStatus(message) {
+            status.textContent = `Status: ${message}`;
+            addLog(message);
+        }
+
+        function addResult(barcode, format, points) {
+            const resultDiv = document.createElement('div');
+            resultDiv.innerHTML = `
+                <div style="margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                    <strong>Barcode:</strong> ${barcode}<br>
+                    <strong>Format:</strong> <span class="format-chip">${format}</span><br>
+                    <strong>Time:</strong> ${new Date().toLocaleTimeString()}<br>
+                    ${points ? `<strong>Corners:</strong> ${points.length} points detected` : ''}
+                </div>
+            `;
+            
+            if (results.children.length === 1) {
+                results.innerHTML = '<h3>Scan Results:</h3>';
+            }
+            results.appendChild(resultDiv);
+        }
+
+        async function checkPermissions() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream.getTracks().forEach(track => track.stop());
+                addLog('✅ Camera permissions granted', 'success');
+                return true;
+            } catch (error) {
+                addLog(`❌ Camera permission error: ${error.name} - ${error.message}`, 'error');
+                updateStatus(`Camera error: ${error.name}`);
+                return false;
+            }
+        }
+
+        async function listCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                addLog(`📹 Found ${videoDevices.length} camera(s):`, 'info');
+                videoDevices.forEach((device, index) => {
+                    addLog(`  ${index + 1}. ${device.label || `Camera ${index + 1}`} (${device.deviceId.substr(0, 8)}...)`, 'info');
+                });
+                return videoDevices;
+            } catch (error) {
+                addLog(`❌ Error listing cameras: ${error.message}`, 'error');
+                return [];
+            }
+        }
+
+        async function startScanning() {
+            try {
+                updateStatus('Checking permissions...');
+                
+                if (!await checkPermissions()) {
+                    return;
+                }
+
+                updateStatus('Loading ZXing library...');
+                
+                // Import ZXing
+                const { BrowserMultiFormatReader, DecodeHintType, BarcodeFormat, NotFoundException } = await import('https://unpkg.com/@zxing/browser@latest/esm/index.js');
+                
+                addLog('📚 ZXing library loaded successfully', 'success');
+
+                // Create reader with enhanced settings
+                reader = new BrowserMultiFormatReader();
+                
+                // Configure hints for better detection
+                const hints = new Map();
+                hints.set(DecodeHintType.TRY_HARDER, true);
+                hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+                    BarcodeFormat.QR_CODE,
+                    BarcodeFormat.CODE_128,
+                    BarcodeFormat.CODE_39,
+                    BarcodeFormat.CODE_93,
+                    BarcodeFormat.EAN_13,
+                    BarcodeFormat.EAN_8,
+                    BarcodeFormat.UPC_A,
+                    BarcodeFormat.UPC_E,
+                    BarcodeFormat.ITF,
+                    BarcodeFormat.CODABAR,
+                    BarcodeFormat.PDF_417,
+                    BarcodeFormat.DATA_MATRIX
+                ]);
+
+                reader.setHints(hints);
+                addLog('🔧 Scanner configured with enhanced settings', 'success');
+
+                updateStatus('Listing available cameras...');
+                const cameras = await listCameras();
+                
+                if (cameras.length === 0) {
+                    updateStatus('No cameras found');
+                    return;
+                }
+
+                // Select best camera (prefer back/environment camera)
+                let selectedCamera = cameras[0];
+                const backCamera = cameras.find(camera => 
+                    camera.label.toLowerCase().includes('back') ||
+                    camera.label.toLowerCase().includes('rear') ||
+                    camera.label.toLowerCase().includes('environment')
+                );
+
+                if (backCamera) {
+                    selectedCamera = backCamera;
+                    addLog(`📷 Using back camera: ${selectedCamera.label}`, 'success');
+                } else {
+                    addLog(`📷 Using default camera: ${selectedCamera.label}`, 'warning');
+                }
+
+                updateStatus('Starting camera stream...');
+
+                // Enhanced constraints for better barcode scanning
+                const constraints = {
+                    video: {
+                        deviceId: selectedCamera.deviceId,
+                        width: { ideal: 1280, min: 640 },
+                        height: { ideal: 720, min: 480 },
+                        frameRate: { ideal: 30, min: 15 }
+                    }
+                };
+
+                addLog(`🎥 Camera constraints: ${JSON.stringify(constraints, null, 2)}`, 'info');
+
+                controls = await reader.decodeFromConstraints(constraints, video, (result, error, controls) => {
+                    if (result) {
+                        const barcode = result.getText();
+                        const format = result.getBarcodeFormat();
+                        const points = result.getResultPoints();
+                        
+                        addLog(`🎯 BARCODE DETECTED: ${barcode} (${format})`, 'success');
+                        addResult(barcode, format, points);
+                        updateStatus(`✅ Scanned: ${barcode}`);
+                        
+                        // Don't stop scanning - continue for more codes
+                    }
+                    
+                    if (error && !(error instanceof NotFoundException)) {
+                        addLog(`⚠️ Scanner processing: ${error.message}`, 'warning');
+                    }
+                });
+
+                isScanning = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                
+                // Check if torch is available
+                if (controls && typeof controls.switchTorch === 'function') {
+                    torchBtn.disabled = false;
+                    addLog('💡 Flashlight control available', 'success');
+                } else {
+                    addLog('💡 Flashlight not available on this device', 'warning');
+                }
+
+                updateStatus('🔍 Scanning for barcodes... Position barcode in red frame');
+
+            } catch (error) {
+                addLog(`❌ Error starting scanner: ${error.message}`, 'error');
+                updateStatus(`Error: ${error.message}`);
+                console.error('Scanner error:', error);
+            }
+        }
+
+        function stopScanning() {
+            try {
+                if (controls && typeof controls.stop === 'function') {
+                    controls.stop();
+                    addLog('📹 Camera stream stopped', 'info');
+                }
+                
+                if (reader && typeof reader.reset === 'function') {
+                    reader.reset();
+                    addLog('🔧 Scanner reset', 'info');
+                }
+
+                isScanning = false;
+                torchEnabled = false;
+                controls = null;
+                reader = null;
+
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                torchBtn.disabled = true;
+
+                updateStatus('⏹️ Scanner stopped');
+
+            } catch (error) {
+                addLog(`❌ Error stopping scanner: ${error.message}`, 'error');
+            }
+        }
+
+        async function toggleTorch() {
+            try {
+                if (controls && typeof controls.switchTorch === 'function') {
+                    await controls.switchTorch(!torchEnabled);
+                    torchEnabled = !torchEnabled;
+                    addLog(`💡 Flashlight ${torchEnabled ? 'enabled' : 'disabled'}`, 'success');
+                    updateStatus(`💡 Flash ${torchEnabled ? 'ON' : 'OFF'}`);
+                } else {
+                    addLog('💡 Flashlight not available', 'warning');
+                }
+            } catch (error) {
+                addLog(`❌ Error toggling flashlight: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLog() {
+            log.innerHTML = '';
+            addLog('🗑️ Log cleared', 'info');
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startScanning);
+        stopBtn.addEventListener('click', stopScanning);
+        torchBtn.addEventListener('click', toggleTorch);
+        clearBtn.addEventListener('click', clearLog);
+
+        // Initialize
+        addLog('🚀 Barcode Scanner Test Tool Initialized', 'success');
+        addLog('📋 Supported formats: QR, Code128, Code39, EAN13, UPC, PDF417, DataMatrix, and more', 'info');
+        
+        // Check if ZXing is available
+        try {
+            import('https://unpkg.com/@zxing/browser@latest/esm/index.js').then(() => {
+                addLog('✅ ZXing library is accessible', 'success');
+            }).catch(error => {
+                addLog(`❌ ZXing library error: ${error.message}`, 'error');
+            });
+        } catch (error) {
+            addLog(`❌ Module import error: ${error.message}`, 'error');
+        }
+    </script>
+</body>
+</html> 

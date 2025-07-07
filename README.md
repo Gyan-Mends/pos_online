@@ -1,3 +1,97 @@
+# POS Online System
+
+A comprehensive Point of Sale system built with React Router v7, TypeScript, and MongoDB.
+
+## Features
+
+- **Product Management**: Full CRUD operations for products with categories, pricing, and stock management
+- **Barcode Scanning**: Built-in barcode scanning using device camera for:
+  - Adding products with automatic barcode population
+  - Quick product lookup by scanning existing barcodes
+  - Real-time camera scanning with visual feedback
+- **Inventory Management**: Track stock levels, movements, and adjustments
+- **Sales Management**: Process sales, refunds, and track transactions
+- **Customer Management**: Manage customer information and purchase history
+- **Order Management**: Handle orders, tracking, and fulfillment
+- **Reports**: Financial, inventory, and sales analytics
+- **User Management**: Role-based access control
+- **Settings**: Store configuration, tax settings, and preferences
+
+## New Barcode Scanning Feature
+
+The product management page now includes advanced barcode scanning capabilities:
+
+### 1. **Add Product Mode**
+- Click "Add Product" to open the form
+- Use the camera button next to the barcode field to scan barcodes
+- Automatically populates the barcode field when a code is detected
+
+### 2. **Quick Scan Mode**
+- Click "Quick Scan" button in the main toolbar
+- Scan any barcode to instantly find matching products
+- Shows search results in a modal with options to view or edit products
+- Supports scanning by both barcode and SKU
+
+### 3. **Scanner Features**
+- Real-time camera preview with targeting overlay
+- Automatic barcode detection and processing
+- Error handling for camera access issues
+- Support for multiple barcode formats (Code 128, EAN, UPC, etc.)
+- Mobile-friendly with back camera preference
+
+### 4. **Browser Compatibility**
+- Works on modern browsers with camera access
+- Requires HTTPS for camera permissions in production
+- Fallback to manual entry if camera is unavailable
+
+## Installation
+
+```bash
+npm install
+```
+
+## Development
+
+```bash
+npm run dev
+```
+
+## Type Checking
+
+```bash
+npm run typecheck
+```
+
+## Building
+
+```bash
+npm run build
+```
+
+## Starting Production Server
+
+```bash
+npm run start
+```
+
+## Camera Permissions
+
+For the barcode scanning feature to work:
+1. Allow camera access when prompted by the browser
+2. Ensure your site is served over HTTPS in production
+3. The scanner will automatically select the best available camera
+
+## Supported Barcode Formats
+
+- Code 128
+- EAN-8 and EAN-13
+- UPC-A and UPC-E
+- Code 39
+- ITF
+- Codabar
+- QR Code
+- Data Matrix
+
 # Welcome to React Router!
 
 A modern, production-ready template for building full-stack React applications using React Router.

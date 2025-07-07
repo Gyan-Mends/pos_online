@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Barcode Scanner Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        video {
+            width: 100%;
+            max-width: 400px;
+            height: 300px;
+            border: 2px solid #333;
+            border-radius: 8px;
+            background: #000;
+        }
+        .controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #cce7ff;
+            color: #004085;
+            border: 1px solid #b8daff;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        .camera-frame {
+            position: relative;
+            display: inline-block;
+        }
+        .targeting-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 100px;
+            border: 2px solid #ff0000;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+        .targeting-box::before,
+        .targeting-box::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ff0000;
+        }
+        .targeting-box::before {
+            top: -2px;
+            left: -2px;
+            border-right: none;
+            border-bottom: none;
+        }
+        .targeting-box::after {
+            bottom: -2px;
+            right: -2px;
+            border-left: none;
+            border-top: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Simple Barcode Scanner Test</h1>
+        
+        <div class="controls">
+            <button id="startBtn">Start Scanner</button>
+            <button id="stopBtn" disabled>Stop Scanner</button>
+            <button id="captureBtn" disabled>Capture Frame</button>
+        </div>
+        
+        <div id="status" class="status info">Ready to scan</div>
+        
+        <div class="camera-frame">
+            <video id="video" autoplay playsinline muted></video>
+            <div class="targeting-box"></div>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script type="module">
+        import { BrowserMultiFormatReader } from 'https://unpkg.com/@zxing/browser@0.1.5/esm/index.js';
+        import { NotFoundException, DecodeHintType, BarcodeFormat } from 'https://unpkg.com/@zxing/library@0.21.2/esm/index.js';
+
+        const video = document.getElementById('video');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const captureBtn = document.getElementById('captureBtn');
+        const status = document.getElementById('status');
+        const log = document.getElementById('log');
+
+        let reader = null;
+        let scannerControls = null;
+        let isScanning = false;
+
+        function updateStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+            addLog(`STATUS: ${message}`);
+        }
+
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            log.innerHTML += `[${timestamp}] ${message}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        async function startScanning() {
+            try {
+                updateStatus('Initializing scanner...', 'info');
+                addLog('Starting barcode scanner');
+
+                // Create reader
+                reader = new BrowserMultiFormatReader();
+
+                // Configure hints
+                const hints = new Map();
+                hints.set(DecodeHintType.TRY_HARDER, true);
+                hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+                    BarcodeFormat.QR_CODE,
+                    BarcodeFormat.CODE_128,
+                    BarcodeFormat.CODE_39,
+                    BarcodeFormat.CODE_93,
+                    BarcodeFormat.EAN_13,
+                    BarcodeFormat.EAN_8,
+                    BarcodeFormat.UPC_A,
+                    BarcodeFormat.UPC_E,
+                    BarcodeFormat.ITF,
+                    BarcodeFormat.CODABAR
+                ]);
+
+                reader.setHints(hints);
+                addLog('Scanner configured with hints');
+
+                // Get video devices
+                const videoDevices = await BrowserMultiFormatReader.listVideoInputDevices();
+                addLog(`Found ${videoDevices.length} video devices`);
+
+                if (videoDevices.length === 0) {
+                    throw new Error('No camera found');
+                }
+
+                // Select best camera
+                let selectedDevice = videoDevices[0];
+                const backCamera = videoDevices.find(device => 
+                    device.label.toLowerCase().includes('back') || 
+                    device.label.toLowerCase().includes('rear') ||
+                    device.label.toLowerCase().includes('environment')
+                );
+
+                if (backCamera) {
+                    selectedDevice = backCamera;
+                    addLog(`Using back camera: ${backCamera.label}`);
+                } else {
+                    addLog(`Using default camera: ${selectedDevice.label}`);
+                }
+
+                // Start scanning
+                updateStatus('Starting camera...', 'info');
+                
+                scannerControls = await reader.decodeFromVideoDevice(selectedDevice.deviceId, video, (result, error) => {
+                    if (result) {
+                        const barcode = result.getText();
+                        const format = result.getBarcodeFormat();
+                        updateStatus(`✅ Barcode detected: ${barcode} (${format})`, 'success');
+                        addLog(`BARCODE DETECTED: ${barcode} - Format: ${format}`);
+                        
+                        // Stop scanning after successful detection
+                        stopScanning();
+                    } else if (error && !(error instanceof NotFoundException)) {
+                        addLog(`Scanner error: ${error.message}`);
+                    }
+                });
+
+                isScanning = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                captureBtn.disabled = false;
+                updateStatus('🔍 Scanning for barcodes...', 'info');
+                addLog('Scanner started successfully');
+
+            } catch (error) {
+                addLog(`ERROR: ${error.message}`);
+                updateStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function stopScanning() {
+            try {
+                if (scannerControls) {
+                    scannerControls.stop();
+                    scannerControls = null;
+                }
+                if (reader) {
+                    reader.reset();
+                    reader = null;
+                }
+                
+                isScanning = false;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                captureBtn.disabled = true;
+                updateStatus('Scanner stopped', 'info');
+                addLog('Scanner stopped');
+
+            } catch (error) {
+                addLog(`ERROR stopping scanner: ${error.message}`);
+            }
+        }
+
+        async function captureFrame() {
+            if (!reader || !video) {
+                addLog('ERROR: Scanner not ready for capture');
+                return;
+            }
+
+            try {
+                updateStatus('📸 Capturing frame...', 'info');
+                addLog('Capturing frame manually');
+
+                // Create canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+
+                addLog(`Frame captured: ${canvas.width}x${canvas.height}`);
+
+                // Try to decode
+                const result = await reader.decodeFromCanvas(canvas);
+                
+                if (result) {
+                    const barcode = result.getText();
+                    const format = result.getBarcodeFormat();
+                    updateStatus(`✅ Manual capture success: ${barcode} (${format})`, 'success');
+                    addLog(`MANUAL CAPTURE SUCCESS: ${barcode} - Format: ${format}`);
+                } else {
+                    updateStatus('❌ No barcode found in captured frame', 'error');
+                    addLog('No barcode found in captured frame');
+                }
+
+            } catch (error) {
+                addLog(`ERROR capturing frame: ${error.message}`);
+                updateStatus(`Capture error: ${error.message}`, 'error');
+            }
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startScanning);
+        stopBtn.addEventListener('click', stopScanning);
+        captureBtn.addEventListener('click', captureFrame);
+
+        // Initial log
+        addLog('Simple barcode scanner test ready');
+    </script>
+</body>
+</html> 

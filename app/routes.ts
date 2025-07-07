@@ -60,7 +60,10 @@ export default [
         
         // Audit & Logs (Admin)
         route("/audit", "routes/audit/index.tsx"),
-        route("/logs", "routes/logs/index.tsx")
+        route("/logs", "routes/logs/index.tsx"),
+        
+        // Development & Testing
+        route("/barcode-test", "routes/barcode-test.tsx")
     ]),
     // API Routes
     route("/api/dashboard", "routes/api/dashboard.tsx"),
