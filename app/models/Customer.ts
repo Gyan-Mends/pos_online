@@ -56,8 +56,7 @@ const customerSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes
-customerSchema.index({ email: 1 });
+// Indexes (email index is automatically created by unique: true)
 customerSchema.index({ phone: 1 });
 customerSchema.index({ firstName: 1, lastName: 1 });
 

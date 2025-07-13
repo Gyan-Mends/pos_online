@@ -85,8 +85,7 @@ const UserSchema = new Schema<IUser>({
   }
 });
 
-// Index for faster email lookups
-UserSchema.index({ email: 1 });
+// Index for faster lookups (email index is automatically created by unique: true)
 UserSchema.index({ isActive: 1 });
 UserSchema.index({ role: 1 });
 
