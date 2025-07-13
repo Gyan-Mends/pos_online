@@ -64,10 +64,10 @@ NODE_ENV=development
 ## File Structure
 
 The deployment includes:
-- `vercel.json`: Vercel configuration
-- `.npmrc`: NPM configuration to handle MongoDB dependencies
-- Updated `mongoose.server.ts`: Improved connection handling
-- This deployment guide
+- ✅ **No `vercel.json` needed** - Auto-detection via `@vercel/react-router`
+- ✅ **`.npmrc`** - NPM configuration to handle MongoDB dependencies
+- ✅ **Updated `mongoose.server.ts`** - Improved connection handling
+- ✅ **This deployment guide**
 
 ## Support
 

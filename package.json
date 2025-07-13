@@ -16,7 +16,6 @@
     "@react-router/serve": "^7.5.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
-    "@vercel/react-router": "^1.1.2",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
     "axios": "^1.10.0",
