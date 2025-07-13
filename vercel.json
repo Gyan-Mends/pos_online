@@ -1,6 +1,5 @@
 {
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "outputDirectory": "build/client",
-  "serverOutputDirectory": "build/server"
+  "outputDirectory": "build/client"
 } 
