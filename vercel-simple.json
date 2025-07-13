@@ -1,8 +1,5 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "build/client",
-  "framework": "react-router",
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "framework": "react-router"
 } 
