@@ -4,8 +4,9 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 // GET /api/store - Get store information
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    // Import server-only modules
-    await import('../../mongoose.server');
+    // Import server-only modules and ensure connection
+    const { ensureConnection } = await import('../../mongoose.server');
+    await ensureConnection();
     const { default: Store } = await import('../../models/Store');
     const url = new URL(request.url);
     const method = request.method;
@@ -43,8 +44,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
 // POST/PUT /api/store - Create or update store information
 export async function action({ request }: ActionFunctionArgs) {
   try {
-    // Import server-only modules
-    await import('../../mongoose.server');
+    // Import server-only modules and ensure connection
+    const { ensureConnection } = await import('../../mongoose.server');
+    await ensureConnection();
     const { default: Store } = await import('../../models/Store');
     
     const method = request.method;

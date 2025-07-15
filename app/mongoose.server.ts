@@ -10,12 +10,16 @@ console.log('Connecting to MongoDB...');
 
 // Connection options for better reliability
 const connectionOptions = {
-  serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+  serverSelectionTimeoutMS: 15000, // Timeout after 15s
   socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
-  bufferCommands: false, // Disable mongoose buffering
-  bufferMaxEntries: 0, // Disable mongoose buffering
+  bufferCommands: true, // Enable mongoose buffering for better performance
   maxPoolSize: 10, // Maintain up to 10 socket connections
-  family: 4 // Use IPv4, skip trying IPv6
+  family: 4, // Use IPv4, skip trying IPv6
+  connectTimeoutMS: 15000, // Connection timeout
+  heartbeatFrequencyMS: 10000, // Heartbeat frequency
+  retryWrites: true, // Enable retry writes
+  maxIdleTimeMS: 30000, // Close connections after 30s of inactivity
+  minPoolSize: 1 // Minimum pool size
 };
 
 // Connect to MongoDB with error handling
@@ -53,5 +57,38 @@ process.on('SIGINT', async () => {
     console.log('Database connection closed through app termination');
     process.exit(0);
 });
+
+// Function to ensure database connection is ready
+export async function ensureConnection() {
+  if (mongoose.connection.readyState === 1) {
+    return; // Already connected
+  }
+  
+  if (mongoose.connection.readyState === 0) {
+    // Not connected, try to connect
+    await mongoose.connect(MONGODB_URI, connectionOptions);
+  }
+  
+  // Wait for connection to be ready
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Database connection timeout'));
+    }, 15000);
+    
+    const checkConnection = () => {
+      if (mongoose.connection.readyState === 1) {
+        clearTimeout(timeout);
+        resolve(true);
+      } else if (mongoose.connection.readyState === 0) {
+        setTimeout(checkConnection, 100);
+      } else {
+        clearTimeout(timeout);
+        reject(new Error('Database connection failed'));
+      }
+    };
+    
+    checkConnection();
+  });
+}
 
 export default mongoose;

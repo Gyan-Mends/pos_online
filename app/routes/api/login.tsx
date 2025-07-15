@@ -28,6 +28,10 @@ const validateLoginData = (email: string, password: string) => {
 // Find user by email from database
 const findUserByEmail = async (email: string) => {
   try {
+    // Ensure database connection is established
+    const { ensureConnection } = await import('../../mongoose.server');
+    await ensureConnection();
+    
     const user = await (User as any).findByEmailWithPassword(email.toLowerCase());
     return user;
   } catch (error) {
@@ -39,6 +43,9 @@ const findUserByEmail = async (email: string) => {
 // Update user last login in database
 const updateUserLastLogin = async (userId: string) => {
   try {
+    const { ensureConnection } = await import('../../mongoose.server');
+    await ensureConnection();
+    
     await User.findByIdAndUpdate(userId, { 
       lastLogin: new Date() 
     });
