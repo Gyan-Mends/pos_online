@@ -140,104 +140,21 @@ type NavigationItem = {
   submenu?: SubMenuItem[];
 };
 
-const navigation: NavigationItem[] = [
-  { name: "Dashboard", icon: DashboardIcon, href: "/dashboard" },
-  { 
-    name: "Sales & POS", 
-    icon: POSIcon, 
-    href: "/pos",
-    submenu: [
-      { name: "Point of Sale", href: "/pos" },
-      { name: "Sales History", href: "/sales" },
-      { name: "Process Refund", href: "/sales/refund" }
-    ]
-  },
-  { 
-    name: "Products", 
-    icon: ProductsIcon, 
-    href: "/products",
-    submenu: [
-      { name: "All Products", href: "/products" },
-      { name: "Categories", href: "/categories" }
-    ]
-  },
-  { 
-    name: "Inventory", 
-    icon: InventoryIcon, 
-    href: "/inventory/movements",
-    submenu: [
-      { name: "Movements", href: "/inventory/movements" },
-      { name: "Adjustments", href: "/inventory/adjustments" }
-    ]
-  },
-  // { 
-  //   name: "Procurement", 
-  //   icon: TruckIcon, 
-  //   href: "/purchase-orders",
-  //   submenu: [
-  //     { name: "Purchase Orders", href: "/purchase-orders" },
-  //     { name: "Suppliers", href: "/suppliers" },
-  //     { name: "Receiving", href: "/purchase-orders/receiving" }
-  //   ]
-  // },
-  { 
-    name: "Customers", 
-    icon: CustomersIcon, 
-    href: "/customers",
-    submenu: [
-      { name: "All Customers", href: "/customers" },
-    ]
-  },
-  { 
-    name: "Orders", 
-    icon: OrdersIcon, 
-    href: "/orders",
-    submenu: [
-      { name: "Order Management", href: "/orders" },
-      { name: "Tracking Dashboard", href: "/orders/dashboard" },
-      { name: "Order Tracking", href: "/orders/tracking" }
-    ]
-  },
-  { 
-    name: "Reports", 
-    icon: ReportsIcon, 
-    href: "/reports",
-    submenu: [
-      { name: "Overview", href: "/reports" },
-      { name: "Sales Reports", href: "/reports/sales" },
-      { name: "Product Reports", href: "/reports/products" },
-      { name: "Inventory Reports", href: "/reports/inventory" },
-      { name: "Employee Reports", href: "/reports/employees" },
-      { name: "Financial Reports", href: "/reports/financial" }
-    ]
-  },
-  { 
-    name: "Users", 
-    icon: UsersIcon, 
-    href: "/users",
-    submenu: [
-      { name: "All Users", href: "/users" },
-      { name: "Roles & Permissions", href: "/users/roles" }
-    ]
-  },
-  { 
-    name: "Settings", 
-    icon: SettingsIcon, 
-    href: "/settings",
-    submenu: [
-      { name: "Store Information", href: "/settings/store" },
-    ]
-  }
-];
+type NavigationSection = {
+  title: string;
+  items: NavigationItem[];
+};
 
-// Function to filter navigation based on user role
-const getNavigationForRole = (userRole: string): NavigationItem[] => {
-  if (userRole === 'admin') {
-    return navigation; // Admins see everything
-  } else if (userRole === 'cashier') {
-    // Cashiers only see POS-related items and profile
-    return [
-      { name: "Dashboard", icon: DashboardIcon, href: "/dashboard" },
+const navigationSections: NavigationSection[] = [
+  {
+    title: "Overview",
+    items: [
+      { name: "Dashboard", icon: DashboardIcon, href: "/dashboard" }
+    ]
+  },
+  {
+    title: "Sales & Operations",
+    items: [
       { 
         name: "Sales & POS", 
         icon: POSIcon, 
@@ -249,12 +166,140 @@ const getNavigationForRole = (userRole: string): NavigationItem[] => {
         ]
       },
       { 
-        name: "Profile", 
-        icon: UsersIcon, 
-        href: "/profile",
+        name: "Orders", 
+        icon: OrdersIcon, 
+        href: "/orders",
         submenu: [
-          { name: "My Profile", href: "/profile" },
-          { name: "Change Password", href: "/profile/security" }
+          { name: "Order Management", href: "/orders" },
+          { name: "Tracking Dashboard", href: "/orders/dashboard" },
+          { name: "Order Tracking", href: "/orders/tracking" }
+        ]
+      }
+    ]
+  },
+  {
+    title: "Inventory Management",
+    items: [
+      { 
+        name: "Products", 
+        icon: ProductsIcon, 
+        href: "/products",
+        submenu: [
+          { name: "All Products", href: "/products" },
+          { name: "Categories", href: "/categories" }
+        ]
+      },
+      { 
+        name: "Inventory", 
+        icon: InventoryIcon, 
+        href: "/inventory/movements",
+        submenu: [
+          { name: "Movements", href: "/inventory/movements" },
+          { name: "Adjustments", href: "/inventory/adjustments" }
+        ]
+      }
+    ]
+  },
+  {
+    title: "Customer Relations",
+    items: [
+      { 
+        name: "Customers", 
+        icon: CustomersIcon, 
+        href: "/customers",
+        submenu: [
+          { name: "All Customers", href: "/customers" },
+        ]
+      }
+    ]
+  },
+  {
+    title: "Analytics & Reports",
+    items: [
+      { 
+        name: "Reports", 
+        icon: ReportsIcon, 
+        href: "/reports",
+        submenu: [
+          { name: "Overview", href: "/reports" },
+          { name: "Sales Reports", href: "/reports/sales" },
+          { name: "Product Reports", href: "/reports/products" },
+          { name: "Inventory Reports", href: "/reports/inventory" },
+          { name: "Employee Reports", href: "/reports/employees" },
+          { name: "Financial Reports", href: "/reports/financial" }
+        ]
+      }
+    ]
+  },
+  {
+    title: "Administration",
+    items: [
+      { 
+        name: "Users", 
+        icon: UsersIcon, 
+        href: "/users",
+        submenu: [
+          { name: "All Users", href: "/users" },
+          { name: "Roles & Permissions", href: "/users/roles" }
+        ]
+      },
+      { 
+        name: "Settings", 
+        icon: SettingsIcon, 
+        href: "/settings",
+        submenu: [
+          { name: "Store Information", href: "/settings/store" },
+        ]
+      },
+      { 
+        name: "Audit Trail", 
+        icon: AuditIcon, 
+        href: "/audit"
+      }
+    ]
+  }
+];
+
+// Function to filter navigation based on user role
+const getNavigationForRole = (userRole: string): NavigationSection[] => {
+  if (userRole === 'admin') {
+    return navigationSections; // Admins see everything
+  } else if (userRole === 'cashier') {
+    // Cashiers only see POS-related items and profile
+    return [
+      {
+        title: "Overview",
+        items: [
+          { name: "Dashboard", icon: DashboardIcon, href: "/dashboard" }
+        ]
+      },
+      {
+        title: "Sales & Operations",
+        items: [
+          { 
+            name: "Sales & POS", 
+            icon: POSIcon, 
+            href: "/pos",
+            submenu: [
+              { name: "Point of Sale", href: "/pos" },
+              { name: "Sales History", href: "/sales" },
+              { name: "Process Refund", href: "/sales/refund" }
+            ]
+          }
+        ]
+      },
+      {
+        title: "Profile",
+        items: [
+          { 
+            name: "Profile", 
+            icon: UsersIcon, 
+            href: "/profile",
+            submenu: [
+              { name: "My Profile", href: "/profile" },
+              { name: "Change Password", href: "/profile/security" }
+            ]
+          }
         ]
       }
     ];
@@ -324,18 +369,20 @@ export default function Layout() {
 
   // Initialize expanded items based on current path
   useEffect(() => {
-    userNavigation.forEach(item => {
-      if (item.submenu) {
-        const isSubmenuActive = item.submenu.some(subItem => 
-          location.pathname === subItem.href || 
-          location.pathname.startsWith(subItem.href + '/')
-        );
-        if (isSubmenuActive) {
-          setExpandedItems(prev => 
-            prev.includes(item.name) ? prev : [...prev, item.name]
+    userNavigation.forEach(section => {
+      section.items.forEach(item => {
+        if (item.submenu) {
+          const isSubmenuActive = item.submenu.some(subItem => 
+            location.pathname === subItem.href || 
+            location.pathname.startsWith(subItem.href + '/')
           );
+          if (isSubmenuActive) {
+            setExpandedItems(prev => 
+              prev.includes(item.name) ? prev : [...prev, item.name]
+            );
+          }
         }
-      }
+      });
     });
   }, [location.pathname, userNavigation]);
 
@@ -356,26 +403,32 @@ export default function Layout() {
   // Get current page title
   const getCurrentPageTitle = () => {
     // Check for submenu items first
-    for (const item of userNavigation) {
-      if (item.submenu) {
-        const activeSubmenu = item.submenu.find(subItem => 
-          location.pathname === subItem.href || 
-          location.pathname.startsWith(subItem.href + '/')
-        );
-        if (activeSubmenu) {
-          return activeSubmenu.name;
+    for (const section of userNavigation) {
+      for (const item of section.items) {
+        if (item.submenu) {
+          const activeSubmenu = item.submenu.find(subItem => 
+            location.pathname === subItem.href || 
+            location.pathname.startsWith(subItem.href + '/')
+          );
+          if (activeSubmenu) {
+            return activeSubmenu.name;
+          }
         }
       }
     }
     
     // Check main navigation items
-    const currentPage = userNavigation.find(item => 
-      location.pathname === item.href || 
-      (item.href === '/dashboard' && location.pathname === '/') ||
-      location.pathname.startsWith(item.href + '/')
-    );
+    for (const section of userNavigation) {
+      for (const item of section.items) {
+        if (location.pathname === item.href || 
+            (item.href === '/dashboard' && location.pathname === '/') ||
+            location.pathname.startsWith(item.href + '/')) {
+          return item.name;
+        }
+      }
+    }
     
-    return currentPage?.name || 'Dashboard';
+    return 'Dashboard';
   };
 
   const toggleExpanded = (itemName: string) => {
@@ -485,101 +538,94 @@ export default function Layout() {
           {/* Main Navigation */}
           <nav className="flex-1 overflow-y-auto">
             <div className="py-1">
-              {userNavigation.map((item) => {
-                const IconComponent = item.icon;
-                const isActive = isItemActive(item);
-                const isExpanded = expandedItems.includes(item.name);
-
-                if (item.submenu && !sidebarCollapsed) {
-                  return (
-                    <div className="flex flex-col items-center justify-center gap-2 mt-2"  key={item.name}>
-                      {/* Main Item */}
-                      <Button
-                        variant="light"
-                        className={`w-full  h-9 px-3 ${
-                          isActive 
-                            ? "isActive" 
-                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                        }`}
-                        startContent={<IconComponent className="w-5 h-5" />}
-                        endContent={
-                          <ChevronRightIcon 
-                            className={`w-4 h-4 transition-transform ml-auto ${isExpanded ? 'rotate-90' : ''}`} 
-                          />
-                        }
-                        onClick={() => toggleExpanded(item.name)}
-                      >
-                        {item.name}
-                      </Button>
-
-                      {/* Submenu */}
-                      {isExpanded && (
-                        <div className="ml-3">
-                          {item.submenu.map((subItem) => (
-                            <Button
-                              key={subItem.href}
-                              variant="light"
-                              className={`w-full justify-start h-8 px-3 text-sm ${
-                                isSubmenuItemActive(subItem.href)
-                                  ? "isActive"
-                                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                              }`}
-                              onClick={() => navigate(subItem.href)}
-                            >
-                              {subItem.name}
-                            </Button>
-                          ))}
-                        </div>
-                      )}
+              {userNavigation.map((section) => (
+                <div key={section.title} className="mb-6">
+                  {!sidebarCollapsed && (
+                    <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-3">
+                      {section.title}
                     </div>
-                  );
-                }
+                  )}
+                  <div className="space-y-1">
+                    {section.items.map((item) => {
+                      const IconComponent = item.icon;
+                      const isActive = isItemActive(item);
+                      const isExpanded = expandedItems.includes(item.name);
 
-                // Regular navigation item or collapsed mode
-                return (
-                  <Tooltip
-                    key={item.name}
-                    content={item.name}
-                    placement="right"
-                    isDisabled={!sidebarCollapsed}
-                  >
-                    <Button
-                      variant="light"
-                      className={`w-full ${sidebarCollapsed ? "justify-center h-9 px-2" : "justify-start h-9 px-3"} ${
-                        isActive 
-                          ? "isActive" 
-                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      }`}
-                      startContent={!sidebarCollapsed ? <IconComponent className="w-5 h-5" /> : undefined}
-                      onClick={() => navigate(item.href)}
-                    >
-                      {sidebarCollapsed ? <IconComponent className="w-5 h-5" /> : item.name}
-                    </Button>
-                  </Tooltip>
-                );
-              })}
+                      if (item.submenu && !sidebarCollapsed) {
+                        return (
+                          <div key={item.name}>
+                            {/* Main Item */}
+                            <Button
+                              variant="light"
+                              className={`w-full h-9 px-3 ${
+                                isActive 
+                                  ? "isActive" 
+                                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                              }`}
+                              startContent={<IconComponent className="w-5 h-5" />}
+                              endContent={
+                                <ChevronRightIcon 
+                                  className={`w-4 h-4 transition-transform ml-auto ${isExpanded ? 'rotate-90' : ''}`} 
+                                />
+                              }
+                              onClick={() => toggleExpanded(item.name)}
+                            >
+                              {item.name}
+                            </Button>
+
+                            {/* Submenu */}
+                            {isExpanded && (
+                              <div className="ml-3 mt-1">
+                                {item.submenu.map((subItem) => (
+                                  <Button
+                                    key={subItem.href}
+                                    variant="light"
+                                    className={`w-full justify-start h-8 px-3 text-sm ${
+                                      isSubmenuItemActive(subItem.href)
+                                        ? "isActive"
+                                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                    }`}
+                                    onClick={() => navigate(subItem.href)}
+                                  >
+                                    {subItem.name}
+                                  </Button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      // Regular navigation item or collapsed mode
+                      return (
+                        <Tooltip
+                          key={item.name}
+                          content={item.name}
+                          placement="right"
+                          isDisabled={!sidebarCollapsed}
+                        >
+                          <Button
+                            variant="light"
+                            className={`w-full ${sidebarCollapsed ? "justify-center h-9 px-2" : "justify-start h-9 px-3"} ${
+                              isActive 
+                                ? "isActive" 
+                                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                            }`}
+                            startContent={!sidebarCollapsed ? <IconComponent className="w-5 h-5" /> : undefined}
+                            onClick={() => navigate(item.href)}
+                          >
+                            {sidebarCollapsed ? <IconComponent className="w-5 h-5" /> : item.name}
+                          </Button>
+                        </Tooltip>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </nav>
 
-          {/* System Links - Only for Admin */}
-          {!sidebarCollapsed && user?.role === 'admin' && (
-            <div className="border-t border-gray-200 dark:border-gray-700">
-              <div className="py-1 px-3">
-                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
-                  System
-                </div>
-                <Button
-                  variant="light"
-                  className="w-full justify-start h-8 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  onClick={() => navigate('/audit')}
-                  startContent={<AuditIcon className="w-4 h-4" />}
-                >
-                  Audit Trail
-                </Button>
-               
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
 
