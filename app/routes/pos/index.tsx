@@ -201,7 +201,7 @@ export default function POSPage() {
 
   const filterProducts = () => {
     if (!searchQuery.trim()) {
-      setFilteredProducts(products.slice(0, 20)); // Show first 20 products
+      setFilteredProducts(products); // Show all products
       return;
     }
 
@@ -211,7 +211,7 @@ export default function POSPage() {
       product.sku.toLowerCase().includes(query) ||
       product.barcode?.toLowerCase().includes(query)
     );
-    setFilteredProducts(filtered.slice(0, 20));
+    setFilteredProducts(filtered); // Show all filtered results
   };
 
   // Check camera permissions
