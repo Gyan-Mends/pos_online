@@ -93,7 +93,7 @@ export default function UsersPage() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const response = await usersAPI.getAll();
+      const response = await usersAPI.getAll({ limit: 1000 });
       // The API returns { success: true, data: users }
       // But apiRequest.get returns response.data, so we get the whole response object
       const usersData = (response as any)?.data || response || [];

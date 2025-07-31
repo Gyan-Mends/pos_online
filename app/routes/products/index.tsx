@@ -872,6 +872,41 @@ export default function ProductsPage() {
     return category?.name || 'N/A';
   };
 
+  // Custom search function for products - only search name, category, and price
+  const customProductSearchFilter = (product: Product, searchTerm: string): boolean => {
+    const search = searchTerm.toLowerCase();
+    
+    // Search in product name
+    if (product.name.toLowerCase().includes(search)) {
+      return true;
+    }
+    
+    // Search in category name
+    let categoryName = 'N/A';
+    if (typeof (product as any).categoryId === 'object' && (product as any).categoryId?.name) {
+      categoryName = (product as any).categoryId.name;
+    } else if (typeof product.categoryId === 'string') {
+      const category = categories.find(c => 
+        c.id === product.categoryId || 
+        c._id === product.categoryId ||
+        (c as any)._id?.toString() === product.categoryId ||
+        (c as any).id?.toString() === product.categoryId
+      );
+      categoryName = category?.name || 'N/A';
+    }
+    
+    if (categoryName.toLowerCase().includes(search)) {
+      return true;
+    }
+    
+    // Search in price (convert to string to allow partial matches like "5" matching "$5.99")
+    if (product.price.toString().includes(search) || `$${product.price.toFixed(2)}`.includes(search)) {
+      return true;
+    }
+    
+    return false;
+  };
+
   // Table columns
   const columns: Column<Product>[] = [
     {
@@ -1092,8 +1127,9 @@ export default function ProductsPage() {
         data={products}
         columns={columns}
         loading={loading}
-        searchPlaceholder="Search products..."
+        searchPlaceholder="Search by product name, category, or price..."
         emptyText="No products found. Get started by adding your first product."
+        customSearchFilter={customProductSearchFilter}
       />
 
       {/* Product Form Drawer */}

@@ -48,7 +48,6 @@ import type { Customer, CustomerFormData, Sale } from '../../types';
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [purchaseHistory, setPurchaseHistory] = useState<Sale[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -255,24 +254,6 @@ export default function CustomersPage() {
     return `${firstInitial}${lastInitial}`.toUpperCase() || 'N/A';
   };
 
-  const filteredCustomers = customers.filter(customer => {
-    if (!customer) return false;
-    
-    const searchTerm = searchQuery.toLowerCase();
-    
-    // Safely handle string fields with proper null/undefined checks
-    const firstName = customer.firstName || '';
-    const lastName = customer.lastName || '';
-    const email = customer.email || '';
-    const phone = customer.phone || '';
-    
-    return (
-      firstName.toLowerCase().includes(searchTerm) ||
-      lastName.toLowerCase().includes(searchTerm) ||
-      email.toLowerCase().includes(searchTerm) ||
-      phone.includes(searchTerm)
-    );
-  });
 
   const columns: Column<Customer>[] = [
     {
@@ -495,8 +476,8 @@ export default function CustomersPage() {
 
   // Calculate summary stats with null checks
   const stats = {
-    total: filteredCustomers.length,
-    newThisMonth: filteredCustomers.filter(c => {
+    total: customers.length,
+    newThisMonth: customers.filter(c => {
       if (!c || !c.createdAt) return false;
       try {
         const createdDate = new Date(c.createdAt);
@@ -507,8 +488,8 @@ export default function CustomersPage() {
         return false;
       }
     }).length,
-    loyaltyMembers: filteredCustomers.filter(c => c && (c.loyaltyPoints || 0) > 0).length,
-    vipCustomers: filteredCustomers.filter(c => c && (c.totalSpent || 0) > 1000).length
+    loyaltyMembers: customers.filter(c => c && (c.loyaltyPoints || 0) > 0).length,
+    vipCustomers: customers.filter(c => c && (c.totalSpent || 0) > 1000).length
   };
 
   return (
@@ -578,9 +559,10 @@ export default function CustomersPage() {
 
       {/* Customers Table */}
       <DataTable
-        data={filteredCustomers}
+        data={customers}
         columns={columns}
         loading={loading}
+        searchPlaceholder="Search customers by name, email, or phone..."
         emptyText="No customers found"
       />
 

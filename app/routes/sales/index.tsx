@@ -32,7 +32,6 @@ import type { Sale } from '../../types';
 export default function SalesHistoryPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   
   // Date filters
   const [startDate, setStartDate] = useState('');
@@ -280,21 +279,10 @@ export default function SalesHistoryPage() {
     }
   ];
 
-  const filteredSales = sales.filter(sale => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      sale.receiptNumber.toLowerCase().includes(query) ||
-      sale.customer?.firstName?.toLowerCase().includes(query) ||
-      sale.customer?.lastName?.toLowerCase().includes(query) ||
-      sale.notes?.toLowerCase().includes(query)
-    );
-  });
-
   // Calculate summary statistics
-  const totalSales = filteredSales.filter(sale => sale.totalAmount > 0).length;
-  const totalRefunds = filteredSales.filter(sale => sale.totalAmount < 0).length;
-  const totalRevenue = filteredSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+  const totalSales = sales.filter(sale => sale.totalAmount > 0).length;
+  const totalRefunds = sales.filter(sale => sale.totalAmount < 0).length;
+  const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
 
   return (
     <div className="space-y-6">
@@ -430,9 +418,10 @@ export default function SalesHistoryPage() {
       {/* Sales Table */}
      
           <DataTable
-            data={filteredSales}
+            data={sales}
             columns={columns}
             loading={loading}
+            searchPlaceholder="Search sales by ID, customer, or amount..."
             emptyText="No sales found"
           />
 

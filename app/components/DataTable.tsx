@@ -25,6 +25,7 @@ export interface DataTableProps<T> {
   onRowClick?: (record: T, index: number) => void;
   rowClassName?: (record: T, index: number) => string;
   tableClassName?: string;
+  customSearchFilter?: (item: T, searchTerm: string) => boolean;
 }
 
 function DataTable<T extends Record<string, any>>({
@@ -39,6 +40,7 @@ function DataTable<T extends Record<string, any>>({
   onRowClick,
   rowClassName,
   tableClassName = "",
+  customSearchFilter,
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{
@@ -57,6 +59,12 @@ function DataTable<T extends Record<string, any>>({
   const filteredData = useMemo(() => {
     if (!searchTerm) return data;
     
+    // Use custom search filter if provided
+    if (customSearchFilter) {
+      return data.filter(item => customSearchFilter(item, searchTerm));
+    }
+    
+    // Default search behavior
     return data.filter(item => 
       searchableColumns.some(column => {
         const value = item[column.key as keyof T];
@@ -64,7 +72,7 @@ function DataTable<T extends Record<string, any>>({
         return String(value).toLowerCase().includes(searchTerm.toLowerCase());
       })
     );
-  }, [data, searchTerm, searchableColumns]);
+  }, [data, searchTerm, searchableColumns, customSearchFilter]);
 
   // Sort data
   const sortedData = useMemo(() => {
@@ -172,7 +180,7 @@ function DataTable<T extends Record<string, any>>({
               type="text"
               placeholder={searchPlaceholder}
               value={searchTerm}
-              onChange={(e: any) => setSearchTerm(e.target.value)}
+              onChange={(value: string) => setSearchTerm(value)}
               endContent={<Search className="text-gray-400 w-5 h-5" />}
             />
           </div>
