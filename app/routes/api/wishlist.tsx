@@ -1,5 +1,11 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { data } from "react-router";
+import { handlePreflight, corsResponse } from '../../utils/cors';
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS({ request }: { request: Request }) {
+  return handlePreflight(request);
+}
 
 // GET /api/wishlist - Get user's wishlist
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -14,7 +20,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const sessionId = url.searchParams.get("sessionId");
 
     if (!userId && !sessionId) {
-      return data({ 
+      return corsResponse({ 
         success: false, 
         message: "Either userId or sessionId is required" 
       }, { status: 400 });
@@ -32,7 +38,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       })
       .lean();
 
-    return data({
+    return corsResponse({
       success: true,
       data: wishlist ? {
         _id: wishlist._id,
@@ -53,7 +59,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     });
   } catch (error) {
     console.error("Error fetching wishlist:", error);
-    return data({ 
+    return corsResponse({ 
       success: false, 
       message: "Failed to fetch wishlist" 
     }, { status: 500 });
@@ -74,14 +80,14 @@ export async function action({ request }: ActionFunctionArgs) {
       case "PUT":
         return await toggleWishlistItem(formData);
       default:
-        return data({ 
+        return corsResponse({ 
           success: false, 
           message: "Method not allowed" 
         }, { status: 405 });
     }
   } catch (error) {
     console.error("Error in wishlist action:", error);
-    return data({ 
+    return corsResponse({ 
       success: false, 
       message: "Internal server error" 
     }, { status: 500 });
@@ -101,14 +107,14 @@ async function addToWishlist(formData: FormData) {
   const productId = formData.get("productId") as string;
 
   if (!productId) {
-    return data({ 
+    return corsResponse({ 
       success: false, 
       message: "Product ID is required" 
     }, { status: 400 });
   }
 
   if (!userId && !sessionId) {
-    return data({ 
+    return corsResponse({ 
       success: false, 
       message: "Either userId or sessionId is required" 
     }, { status: 400 });
@@ -117,7 +123,7 @@ async function addToWishlist(formData: FormData) {
   // Verify product exists
   const product = await Product.findById(productId);
   if (!product) {
-    return data({ 
+    return corsResponse({ 
       success: false, 
       message: "Product not found" 
     }, { status: 404 });
@@ -143,7 +149,7 @@ async function addToWishlist(formData: FormData) {
   );
 
   if (existingItemIndex > -1) {
-    return data({
+    return corsResponse({
       success: false,
       message: "Product already in wishlist"
     }, { status: 400 });
@@ -166,7 +172,7 @@ async function addToWishlist(formData: FormData) {
     })
     .lean();
 
-  return data({
+  return corsResponse({
     success: true,
     message: "Product added to wishlist",
     data: {
@@ -192,14 +198,14 @@ async function removeFromWishlist(formData: FormData) {
   const productId = formData.get("productId") as string;
 
   if (!productId) {
-    return data({ 
+    return corsResponse({ 
       success: false, 
       message: "Product ID is required" 
     }, { status: 400 });
   }
 
   if (!userId && !sessionId) {
-    return data({ 
+    return corsResponse({ 
       success: false, 
       message: "Either userId or sessionId is required" 
     }, { status: 400 });
@@ -212,7 +218,7 @@ async function removeFromWishlist(formData: FormData) {
   const wishlist = await Wishlist.findOne(query);
   
   if (!wishlist) {
-    return data({
+    return corsResponse({
       success: false,
       message: "Wishlist not found"
     }, { status: 404 });
@@ -225,7 +231,7 @@ async function removeFromWishlist(formData: FormData) {
   );
 
   if (wishlist.items.length === initialLength) {
-    return data({
+    return corsResponse({
       success: false,
       message: "Product not found in wishlist"
     }, { status: 404 });
@@ -233,7 +239,7 @@ async function removeFromWishlist(formData: FormData) {
 
   await wishlist.save();
 
-  return data({
+  return corsResponse({
     success: true,
     message: "Product removed from wishlist",
     data: {
@@ -249,14 +255,14 @@ async function toggleWishlistItem(formData: FormData) {
   const productId = formData.get("productId") as string;
 
   if (!productId) {
-    return data({ 
+    return corsResponse({ 
       success: false, 
       message: "Product ID is required" 
     }, { status: 400 });
   }
 
   if (!userId && !sessionId) {
-    return data({ 
+    return corsResponse({ 
       success: false, 
       message: "Either userId or sessionId is required" 
     }, { status: 400 });
@@ -265,7 +271,7 @@ async function toggleWishlistItem(formData: FormData) {
   // Verify product exists
   const product = await Product.findById(productId);
   if (!product) {
-    return data({ 
+    return corsResponse({ 
       success: false, 
       message: "Product not found" 
     }, { status: 404 });
@@ -310,7 +316,7 @@ async function toggleWishlistItem(formData: FormData) {
 
   await wishlist.save();
 
-  return data({
+  return corsResponse({
     success: true,
     message,
     data: {

@@ -1,4 +1,10 @@
 import { data } from 'react-router';
+import { handlePreflight, corsResponse } from '../../utils/cors';
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS({ request }: { request: Request }) {
+  return handlePreflight(request);
+}
 
 // GET /api/categories - Get all categories
 export async function loader({ request }: { request: Request }) {
@@ -8,13 +14,13 @@ export async function loader({ request }: { request: Request }) {
     const { default: Category } = await import('../../models/Category');
     const categories = await Category.find({}).sort({ name: 1 }).lean();
 
-    return data({
+    return corsResponse({
       success: true,
       data: categories
     });
   } catch (error: any) {
     console.error('Error fetching categories:', error);
-    return data(
+    return corsResponse(
       {
         success: false,
         message: error.message || 'Failed to fetch categories'
@@ -38,7 +44,7 @@ export async function action({ request }: { request: Request }) {
       
       // Validate required fields
       if (!formData.name) {
-        return data(
+        return corsResponse(
           {
             success: false,
             message: 'Category name is required'
@@ -50,7 +56,7 @@ export async function action({ request }: { request: Request }) {
       // Check if category already exists
       const existingCategory = await Category.findOne({ name: formData.name });
       if (existingCategory) {
-        return data(
+        return corsResponse(
           {
             success: false,
             message: 'Category already exists'
@@ -67,7 +73,7 @@ export async function action({ request }: { request: Request }) {
 
       await category.save();
 
-      return data({
+      return corsResponse({
         success: true,
         data: category,
         message: 'Category created successfully'
@@ -90,7 +96,7 @@ export async function action({ request }: { request: Request }) {
       );
 
       if (!category) {
-        return data(
+        return corsResponse(
           {
             success: false,
             message: 'Category not found'
@@ -99,7 +105,7 @@ export async function action({ request }: { request: Request }) {
         );
       }
 
-      return data({
+      return corsResponse({
         success: true,
         data: category,
         message: 'Category updated successfully'
@@ -111,7 +117,7 @@ export async function action({ request }: { request: Request }) {
       const category = await Category.findByIdAndDelete(categoryId);
 
       if (!category) {
-        return data(
+        return corsResponse(
           {
             success: false,
             message: 'Category not found'
@@ -120,13 +126,13 @@ export async function action({ request }: { request: Request }) {
         );
       }
 
-      return data({
+      return corsResponse({
         success: true,
         message: 'Category deleted successfully'
       });
     }
 
-    return data(
+    return corsResponse(
       {
         success: false,
         message: 'Method not allowed'
@@ -135,7 +141,7 @@ export async function action({ request }: { request: Request }) {
     );
   } catch (error: any) {
     console.error('Error in categories API:', error);
-    return data(
+    return corsResponse(
       {
         success: false,
         message: error.message || 'Internal server error'

@@ -1,5 +1,11 @@
 import { data } from 'react-router';
 import type { ProductFormData } from '../../types';
+import { handlePreflight, corsResponse } from '../../utils/cors';
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS({ request }: { request: Request }) {
+  return handlePreflight(request);
+}
 
 // GET /api/products or /api/products/:id
 export async function loader({ request, params }: { request: Request; params?: any }) {
@@ -18,19 +24,16 @@ export async function loader({ request, params }: { request: Request; params?: a
       const product = await Product.findById(productId).populate('categoryId').lean();
 
       if (!product) {
-        return data(
-          {
-            success: false,
-            message: 'Product not found'
-          },
-          { status: 404 }
-        );
+        return corsResponse({
+          success: false,
+          message: 'Product not found'
+        }, { status: 404 }, request);
       }
 
-      return data({
+      return corsResponse({
         success: true,
         data: product
-      });
+      }, {}, request);
     }
 
     // Otherwise, get all products with pagination and search
@@ -64,7 +67,7 @@ export async function loader({ request, params }: { request: Request; params?: a
       Product.countDocuments(query)
     ]);
 
-    return data({
+    return corsResponse({
       success: true,
       data: products,
       meta: {
@@ -73,16 +76,13 @@ export async function loader({ request, params }: { request: Request; params?: a
         total,
         totalPages: Math.ceil(total / limit)
       }
-    });
+    }, {}, request);
   } catch (error: any) {
     console.error('Error fetching products:', error);
-    return data(
-      {
-        success: false,
-        message: error.message || 'Failed to fetch products'
-      },
-      { status: 500 }
-    );
+    return corsResponse({
+      success: false,
+      message: error.message || 'Failed to fetch products'
+    }, { status: 500 }, request);
   }
 }
 
@@ -102,7 +102,7 @@ export async function action({ request }: { request: Request }) {
       
       // Validate required fields
       if (!formData.name || !formData.sku || !formData.categoryId) {
-        return data(
+        return corsResponse(
           {
             success: false,
             message: 'Name, SKU, and Category are required'
@@ -113,7 +113,7 @@ export async function action({ request }: { request: Request }) {
 
       // Validate category exists
       if (!mongoose.Types.ObjectId.isValid(formData.categoryId)) {
-        return data(
+        return corsResponse(
           {
             success: false,
             message: 'Invalid category ID'
@@ -125,7 +125,7 @@ export async function action({ request }: { request: Request }) {
       // Check if SKU already exists
       const existingSku = await Product.findOne({ sku: formData.sku });
       if (existingSku) {
-        return data(
+        return corsResponse(
           {
             success: false,
             message: 'SKU already exists'
@@ -139,7 +139,7 @@ export async function action({ request }: { request: Request }) {
       await product.save();
       await product.populate('categoryId');
 
-      return data({
+      return corsResponse({
         success: true,
         data: product,
         message: 'Product created successfully'
@@ -152,7 +152,7 @@ export async function action({ request }: { request: Request }) {
     const productId = pathParts[pathParts.length - 1];
 
     if (!mongoose.Types.ObjectId.isValid(productId)) {
-      return data(
+      return corsResponse(
         {
           success: false,
           message: 'Invalid product ID'
@@ -167,7 +167,7 @@ export async function action({ request }: { request: Request }) {
       
       // Validate category if provided
       if (updateData.categoryId && !mongoose.Types.ObjectId.isValid(updateData.categoryId)) {
-        return data(
+        return corsResponse(
           {
             success: false,
             message: 'Invalid category ID'
@@ -183,7 +183,7 @@ export async function action({ request }: { request: Request }) {
           _id: { $ne: productId } 
         });
         if (existingSku) {
-          return data(
+          return corsResponse(
             {
               success: false,
               message: 'SKU already exists'
@@ -200,16 +200,13 @@ export async function action({ request }: { request: Request }) {
       ).populate('categoryId');
 
       if (!product) {
-        return data(
-          {
-            success: false,
-            message: 'Product not found'
-          },
-          { status: 404 }
-        );
+        return corsResponse({
+          success: false,
+          message: 'Product not found'
+        }, { status: 404 }, request);
       }
 
-      return data({
+      return corsResponse({
         success: true,
         data: product,
         message: 'Product updated successfully'
@@ -221,22 +218,19 @@ export async function action({ request }: { request: Request }) {
       const product = await Product.findByIdAndDelete(productId);
 
       if (!product) {
-        return data(
-          {
-            success: false,
-            message: 'Product not found'
-          },
-          { status: 404 }
-        );
+        return corsResponse({
+          success: false,
+          message: 'Product not found'
+        }, { status: 404 }, request);
       }
 
-      return data({
+      return corsResponse({
         success: true,
         message: 'Product deleted successfully'
       });
     }
 
-    return data(
+    return corsResponse(
       {
         success: false,
         message: 'Method not allowed'
@@ -245,7 +239,7 @@ export async function action({ request }: { request: Request }) {
     );
   } catch (error: any) {
     console.error('Error in products API:', error);
-    return data(
+    return corsResponse(
       {
         success: false,
         message: error.message || 'Internal server error'
