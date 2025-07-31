@@ -43,6 +43,7 @@ import { successToast, errorToast } from '../../components/toast';
 import { productsAPI, customersAPI, salesAPI } from '../../utils/api';
 import CustomInput from '../../components/CustomInput';
 import { useStoreData } from '../../hooks/useStore';
+import { useStockMonitoring } from '../../hooks/useStockMonitoring';
 import type { Product, Customer, CartItem, Cart } from '../../types';
 
 const DEFAULT_TAX_RATE = 0; // Tax disabled by default
@@ -51,7 +52,10 @@ const CURRENCY = '₵'; // Ghana Cedis
 export default function POSPage() {
   // Store data
   const { store, formatCurrency: storeFormatCurrency, formatDate, isStoreOpen } = useStoreData();
-  
+
+  // Stock monitoring
+  const { checkStockAfterSale } = useStockMonitoring();
+
   // State management
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -253,10 +257,10 @@ export default function POSPage() {
       // Dynamic import for barcode scanner
       const { BrowserMultiFormatReader } = await import('@zxing/browser');
       const { NotFoundException, DecodeHintType, BarcodeFormat } = await import('@zxing/library');
-      
+
       // Create reader with better configuration
       const reader = new BrowserMultiFormatReader();
-      
+
       // Configure hints for better barcode detection
       const hints = new Map();
       hints.set(DecodeHintType.TRY_HARDER, true);
@@ -279,7 +283,7 @@ export default function POSPage() {
         BarcodeFormat.RSS_14,
         BarcodeFormat.RSS_EXPANDED
       ]);
-      
+
       reader.setHints(hints);
       setScannerReader(reader);
       setIsScanning(true);
@@ -301,14 +305,14 @@ export default function POSPage() {
 
       // Try to use back camera first (better for barcode scanning)
       let selectedDeviceId = videoDevices[0].deviceId;
-      
+
       // Look for back camera on mobile devices
-      const backCamera = videoDevices.find(device => 
-        device.label.toLowerCase().includes('back') || 
+      const backCamera = videoDevices.find(device =>
+        device.label.toLowerCase().includes('back') ||
         device.label.toLowerCase().includes('rear') ||
         device.label.toLowerCase().includes('environment')
       );
-      
+
       if (backCamera) {
         selectedDeviceId = backCamera.deviceId;
         console.log('Using back camera:', backCamera.label);
@@ -337,7 +341,7 @@ export default function POSPage() {
           if (videoRef.current) {
             try {
               console.log('Starting barcode detection with constraints:', constraints);
-              
+
               // First try the constraint-based approach
               let controls;
               try {
@@ -348,7 +352,7 @@ export default function POSPage() {
                     const format = result.getBarcodeFormat();
                     console.log('✅ Barcode detected:', barcode, 'Format:', format);
                     setScanningStatus(`✅ Barcode detected: ${barcode}`);
-                    
+
                     // Search for product and add to cart
                     handleBarcodeDetected(barcode, format);
                   }
@@ -359,7 +363,7 @@ export default function POSPage() {
                 });
               } catch (constraintError) {
                 console.warn('Constraint-based scanning failed, trying device-based:', constraintError);
-                
+
                 // Fallback to device-based scanning
                 controls = await reader.decodeFromVideoDevice(selectedDeviceId, videoRef.current, (result: any, err: any) => {
                   const currentTime = Date.now();
@@ -368,7 +372,7 @@ export default function POSPage() {
                     const format = result.getBarcodeFormat();
                     console.log('✅ Barcode detected (fallback):', barcode, 'Format:', format);
                     setScanningStatus(`✅ Barcode detected: ${barcode}`);
-                    
+
                     // Search for product and add to cart
                     handleBarcodeDetected(barcode, format);
                   }
@@ -378,17 +382,17 @@ export default function POSPage() {
                   }
                 });
               }
-              
+
               // Store the controls object for later use
               setScannerControls(controls);
               console.log('Scanner started successfully');
               setScanningStatus('📷 Camera ready - Scanning entire view for barcodes');
-              
+
               // Add torch control if available
               if (controls && typeof controls.switchTorch === 'function') {
                 console.log('Torch control available');
               }
-              
+
             } catch (scanError) {
               console.error('Error starting video scan:', scanError);
               errorToast('Failed to start video scanning. Please try again.');
@@ -412,7 +416,7 @@ export default function POSPage() {
         scannerControls.stop();
         setScannerControls(null);
       }
-      
+
       // Also try to reset the reader if available
       if (scannerReader) {
         if (typeof scannerReader.reset === 'function') {
@@ -423,7 +427,7 @@ export default function POSPage() {
     } catch (error) {
       console.error('Error stopping scanner:', error);
     }
-    
+
     // Reset states
     setIsScanning(false);
     setTorchEnabled(false);
@@ -438,7 +442,7 @@ export default function POSPage() {
   // Handle barcode detection
   const handleBarcodeDetected = (barcode: string, format: any) => {
     const currentTime = Date.now();
-    
+
     // Prevent multiple detections while processing or within 1 second
     if (scannerProcessingRef.current || (currentTime - lastDetectionTimeRef.current < 1000)) {
       console.log('Scanner already processing or too soon, ignoring detection:', barcode, {
@@ -447,29 +451,29 @@ export default function POSPage() {
       });
       return;
     }
-    
+
     console.log('Searching for product with barcode:', barcode);
-    
+
     // Find product by barcode or SKU
-    const foundProduct = products.find(product => 
+    const foundProduct = products.find(product =>
       product.barcode === barcode || product.sku === barcode
     );
-    
+
     if (foundProduct) {
       console.log('Product found:', foundProduct);
-      
+
       // IMMEDIATELY stop all scanner activity
       scannerProcessingRef.current = true;
       lastDetectionTimeRef.current = currentTime;
       setScannerProcessing(true);
       setLastDetectionTime(currentTime);
-      
+
       // Stop the scanner controls and video stream immediately
       try {
         if (scannerControls && typeof scannerControls.stop === 'function') {
           scannerControls.stop();
         }
-        
+
         // Also stop video tracks directly
         if (videoRef.current && videoRef.current.srcObject) {
           const stream = videoRef.current.srcObject as MediaStream;
@@ -482,15 +486,15 @@ export default function POSPage() {
       } catch (error) {
         console.error('Error stopping scanner controls/video:', error);
       }
-      
+
       // Update status before adding to cart
       setScanningStatus(`✅ Found: ${foundProduct.name} - Adding to cart...`);
-      
+
       // Add to cart
       addToCart(foundProduct);
-      
+
       successToast(`${foundProduct.name} added to cart! Scanner closed.`);
-      
+
       // Complete the scanner shutdown with a small delay to ensure UI updates
       setTimeout(() => {
         stopScanning();
@@ -498,7 +502,7 @@ export default function POSPage() {
     } else {
       console.log('No product found with barcode:', barcode);
       errorToast(`No product found with barcode: ${barcode}`);
-      
+
       // Continue scanning for another barcode
       setScanningStatus('🔍 Product not found. Continue scanning...');
     }
@@ -524,7 +528,7 @@ export default function POSPage() {
   const preprocessImage = (canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) => {
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
-    
+
     // Convert to grayscale and increase contrast
     for (let i = 0; i < data.length; i += 4) {
       const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
@@ -532,12 +536,12 @@ export default function POSPage() {
       const contrast = 1.5;
       const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
       const enhanced = Math.min(255, Math.max(0, factor * (avg - 128) + 128));
-      
+
       data[i] = enhanced;     // Red
       data[i + 1] = enhanced; // Green
       data[i + 2] = enhanced; // Blue
     }
-    
+
     ctx.putImageData(imageData, 0, 0);
     return canvas;
   };
@@ -552,17 +556,17 @@ export default function POSPage() {
     try {
       setIsManualCapture(true);
       setScanningStatus('📸 Capturing frame...');
-      
+
       const video = videoRef.current;
       console.log(`📸 Starting enhanced capture: ${video.videoWidth}x${video.videoHeight}`);
-      
+
       // Wait for video to be stable
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
       let detectedBarcode = null;
       let detectedFormat = null;
       let successMethod = null;
-      
+
       // Method 1: Try original frame
       console.log('🔍 Attempt 1: Scanning original frame');
       setScanningStatus('🔍 Method 1: Original frame...');
@@ -573,7 +577,7 @@ export default function POSPage() {
         const ctx1 = canvas1.getContext('2d');
         if (!ctx1) throw new Error('Cannot create canvas context');
         ctx1.drawImage(video, 0, 0);
-        
+
         console.log('Method 1: Canvas created, attempting decode...');
         const result1 = await scannerReader.decodeFromCanvas(canvas1);
         if (result1) {
@@ -585,25 +589,25 @@ export default function POSPage() {
       } catch (e: any) {
         console.log('❌ Method 1 failed:', e.message);
       }
-      
+
       // Method 2: Try with preprocessing
       if (!detectedBarcode) {
         console.log('🔍 Attempt 2: Scanning with preprocessing');
         setScanningStatus('🔍 Method 2: Enhanced contrast...');
         try {
           await new Promise(resolve => setTimeout(resolve, 50));
-          
+
           const canvas2 = document.createElement('canvas');
           canvas2.width = video.videoWidth;
           canvas2.height = video.videoHeight;
           const ctx2 = canvas2.getContext('2d');
           if (!ctx2) throw new Error('Cannot create canvas context');
           ctx2.drawImage(video, 0, 0);
-          
+
           // Apply preprocessing
           console.log('Method 2: Applying image preprocessing...');
           preprocessImage(canvas2, ctx2);
-          
+
           const result2 = await scannerReader.decodeFromCanvas(canvas2);
           if (result2) {
             detectedBarcode = result2.getText();
@@ -615,19 +619,19 @@ export default function POSPage() {
           console.log('❌ Method 2 failed:', e.message);
         }
       }
-      
+
       // Process results
       if (detectedBarcode) {
         console.log(`✅ Enhanced capture SUCCESS via ${successMethod}:`, detectedBarcode, 'Format:', detectedFormat);
         setScanningStatus(`✅ ${successMethod} scan: ${detectedBarcode}`);
-        
+
         // Handle detected barcode
         handleBarcodeDetected(detectedBarcode, detectedFormat);
       } else {
         setScanningStatus('❌ No barcode found in frame. Try better lighting or different angle.');
         errorToast('No barcode detected in frame. Try better lighting, different angle, or move closer.');
       }
-      
+
     } catch (error: any) {
       console.error('Enhanced capture error:', error);
       setScanningStatus('❌ Capture failed');
@@ -835,7 +839,7 @@ export default function POSPage() {
       // Create the sale in the database
       const response = await salesAPI.create(saleData);
       console.log('Raw sale response:', response);
-      
+
       const sale = (response as any)?.data || response;
       console.log('Extracted sale data:', sale);
 
@@ -870,6 +874,9 @@ export default function POSPage() {
 
       // Reload products to get updated stock quantities
       await loadData();
+
+      // Check for low stock after sale completion (real-time)
+      await checkStockAfterSale(cart.items);
 
     } catch (error: any) {
       errorToast(error.message || 'Payment processing failed');
@@ -981,16 +988,16 @@ export default function POSPage() {
         
         <div class="bold">ITEMS:</div>
         ${completedSale.items?.map((item: any) => {
-          // Try multiple ways to get the product name - be more thorough
-          const productName = item.product?.name || 
-                            item.productId?.name || 
-                            cart.items.find(cartItem => cartItem.productId === item.productId || cartItem.productId === item.productId?._id)?.product?.name || 
-                            'Unknown Item';
-          const unitPrice = item.unitPrice || item.product?.price || 0;
-          const quantity = item.quantity || 0;
-          const itemTotal = quantity * unitPrice;
-          
-          return `
+      // Try multiple ways to get the product name - be more thorough
+      const productName = item.product?.name ||
+        item.productId?.name ||
+        cart.items.find(cartItem => cartItem.productId === item.productId || cartItem.productId === item.productId?._id)?.product?.name ||
+        'Unknown Item';
+      const unitPrice = item.unitPrice || item.product?.price || 0;
+      const quantity = item.quantity || 0;
+      const itemTotal = quantity * unitPrice;
+
+      return `
           <div class="item-row">
             <div class="item-name">${productName}</div>
           </div>
@@ -999,7 +1006,7 @@ export default function POSPage() {
             <div class="item-price">${formatCurrency(itemTotal)}</div>
           </div>
         `;
-        }).join('') || 'No items found'}
+    }).join('') || 'No items found'}
         
         <div class="line"></div>
         
@@ -1081,138 +1088,134 @@ export default function POSPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center space-x-3">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
-            {store && (
-              <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${isStoreOpen() ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className={`text-sm font-medium ${isStoreOpen() ? 'text-green-600' : 'text-red-600'}`}>
-                  {isStoreOpen() ? 'Open' : 'Closed'}
-                </span>
-              </div>
-            )}
-          </div>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Process sales transactions and manage the cash register
-          </p>
-        </div>
-        <div className="flex items-center space-x-3">
-          {selectedCustomer && (
-            <Chip
-              color="primary"
-              variant="flat"
-              startContent={<User className="w-4 h-4" />}
-              onClose={() => setSelectedCustomer(null)}
-            >
-              {selectedCustomer.firstName} {selectedCustomer.lastName}
-            </Chip>
-          )}
-          <Button
-            color="secondary"
-            variant="bordered"
-            startContent={isScanning ? <StopCircle className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
-            onClick={isScanning ? stopScanning : startScanning}
-          >
-            {isScanning ? 'Stop Scan' : 'Scan Product'}
-          </Button>
-          <Button
-            color="primary"
-            variant="ghost"
-            startContent={<User className="w-4 h-4" />}
-            onClick={openCustomerModal}
-          >
-            {selectedCustomer ? 'Change Customer' : 'Select Customer'}
-          </Button>
-        </div>
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Product Selection Area */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Search */}
-
-          <div className="flex gap-2">
-            <Input
-              placeholder="Search products by name, SKU, or barcode..."
-              value={searchQuery}
-              onValueChange={setSearchQuery}
-              startContent={<Search className="w-4 h-4 text-gray-400" />}
-              variant="bordered"
-              size="lg"
-              className="flex-1"
-            />
-            <Button
-              color="secondary"
-              variant="bordered"
-              size="lg"
-              onClick={isScanning ? stopScanning : startScanning}
-              startContent={isScanning ? <StopCircle className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
-              className="px-6"
-            >
-              {isScanning ? 'Stop' : 'Scan'}
-            </Button>
-          </div>
-
-
-          {/* Products Grid */}
-          <div style={{
-            scrollBehavior: 'smooth',
-            scrollbarWidth: 'thin',
-            scrollbarColor: ' transparent',
-            scrollbarGutter: 'stable',
-          }} className="grid grid-cols-2 mt-4 md:grid-cols-2 lg:grid-cols-5 gap-2">
-
-
-            {filteredProducts.map((product) => (
-              <div
-                key={getProductId(product)}
-                className=""
-                onClick={() => addToCart(product)}
-              >
-                <div className="relative md:h-40 md:w-40  overflow-hidden rounded-xl bg-gray-100 dark:bg-[#18181c] aspect-square group-hover:shadow-lg transition-shadow duration-200">
-                  {product.images && product.images.length > 0 ? (
-
-                    <img
-                      src={product.images[0]}
-                      alt={product.name}
-                     
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Tag className="w-6 h-6 text-gray-400" />
-                  )}
-                </div>
-                <div className="p-2 ">
-
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white/70 line-clamp-2">
-                    {product.name}
-                  </h3>
-                  <p className="text-xs text-gray-500 mb-1">{product.sku}</p>
-                  <p className="text-md font-medium font-bold text-blue-600 dark:text-blue-400">
-                    {formatCurrency(product.price)}
+        <div className="col-span-2 h-[calc(100vh-200px)]">
+          <Card className="sticky top-0 z-10 ">
+            <CardBody>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center space-x-3">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
+                    {store && (
+                      <div className="flex items-center space-x-2">
+                        <div className={`w-2 h-2 rounded-full ${isStoreOpen() ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className={`text-sm font-medium ${isStoreOpen() ? 'text-green-600' : 'text-red-600'}`}>
+                          {isStoreOpen() ? 'Open' : 'Closed'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400 mt-1">
+                    Process sales transactions and manage the cash register
                   </p>
-                  <p className="text-xs text-gray-500">Stock: {product.stockQuantity}</p>
                 </div>
+                <div className="flex items-center space-x-3">
+                  {selectedCustomer && (
+                    <Chip
+                      color="primary"
+                      variant="flat"
+                      startContent={<User className="w-4 h-4" />}
+                      onClose={() => setSelectedCustomer(null)}
+                    >
+                      {selectedCustomer.firstName} {selectedCustomer.lastName}
+                    </Chip>
+                  )}
+                  <Button
+                    color="secondary"
+                    variant="bordered"
+                    startContent={isScanning ? <StopCircle className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
+                    onClick={isScanning ? stopScanning : startScanning}
+                  >
+                    {isScanning ? 'Stop Scan' : 'Scan Product'}
+                  </Button>
+                  <Button
+                    color="primary"
+                    variant="ghost"
+                    startContent={<User className="w-4 h-4" />}
+                    onClick={openCustomerModal}
+                  >
+                    {selectedCustomer ? 'Change Customer' : 'Select Customer'}
+                  </Button>
+                </div>
+
+
               </div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Search products by name, SKU, or barcode..."
+                  value={searchQuery}
+                  onValueChange={setSearchQuery}
+                  startContent={<Search className="w-4 h-4 text-gray-400" />}
+                  variant="bordered"
+                  size="lg"
+                  className="flex-1 w-80 mb-4 "
+                  classNames={{
+                    inputWrapper: 'w-[40vw]',
+                  }}
 
-            ))}
-          </div>
+                />
 
-          {filteredProducts.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <Search className="w-12 h-12 mx-auto mb-2" />
-              <p>No products found</p>
+              </div>
+            </CardBody>
+          </Card>
+          {/* Product Selection Area - Scrollable */}
+          <div className="lg:col-span-2 overflow-y-auto">
+
+            <div style={{
+              scrollBehavior: 'smooth',
+              scrollbarWidth: 'thin',
+              scrollbarColor: ' transparent',
+              scrollbarGutter: 'stable',
+            }}
+              className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-2">
+
+              {filteredProducts.map((product) => (
+                <div
+                  key={getProductId(product)}
+                  className=""
+                  onClick={() => addToCart(product)}
+                >
+                  <div className="relative md:h-40 md:w-40  overflow-hidden rounded-xl bg-gray-100 dark:bg-[#18181c] aspect-square group-hover:shadow-lg transition-shadow duration-200">
+                    {product.images && product.images.length > 0 ? (
+                      <img
+                        src={product.images[0]}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Tag className="w-6 h-6 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="p-2 ">
+
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white/70 line-clamp-2">
+                      {product.name}
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-1">{product.sku}</p>
+                    <p className="text-md font-medium font-bold text-blue-600 dark:text-blue-400">
+                      {formatCurrency(product.price)}
+                    </p>
+                    <p className="text-xs text-gray-500">Stock: {product.stockQuantity}</p>
+                  </div>
+                </div>
+
+              ))}
             </div>
-          )}
 
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <Search className="w-12 h-12 mx-auto mb-2" />
+                <p>No products found</p>
+              </div>
+            )}
+
+          </div>
         </div>
-
-        {/* Cart and Payment Area */}
-        <div className="space-y-4">
-          {/* Cart */}
-          <Card className="customed-dark-card !shadow-sm">
+        {/* Cart and Payment Area - Fixed Height with Sticky Header */}
+        <div className="flex flex-col justify-between">
+          {/* Cart - Fixed at top */}
+          <Card className="customed-dark-card !shadow-sm mb-4">
             <CardBody className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center">
@@ -1237,7 +1240,7 @@ export default function POSPage() {
                 scrollbarWidth: 'thin',
                 scrollbarColor: 'gray transparent',
                 scrollbarGutter: 'stable',
-              }} className="space-y-3 max-h-64 overflow-y-auto">
+              }} className="space-y-3 max-h-48 overflow-y-auto">
                 {cart.items.map((item) => (
                   <div key={item.productId} className="flex items-center justify-between p-2  rounded-lg border border-black/20 dark:border-white/20">
                     <div className="flex-1 min-w-0">
@@ -1293,12 +1296,16 @@ export default function POSPage() {
             </CardBody>
           </Card>
 
-          {/* Cart Summary */}
+          {/* Cart Summary - Sticky Header with Scrollable Content */}
           {cart.items.length > 0 && (
-            <Card className="customed-dark-card">
-              <CardBody className="p-2">
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Order Summary</h3>
+            <Card className="customed-dark-card flex-1 flex flex-col">
+              {/* Sticky Header */}
+              <div className="sticky top-0 z-10 bg-inherit border-b border-gray-200 dark:border-gray-700 p-4">
+                <h3 className="font-semibold text-gray-900 dark:text-white">Order Summary</h3>
+              </div>
 
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto p-4">
                 {/* Discount Input */}
                 <div className="space-y-2 mb-4">
                   <div className="flex space-x-2">
@@ -1366,11 +1373,13 @@ export default function POSPage() {
                 >
                   Process Payment
                 </Button>
-              </CardBody>
+              </div>
             </Card>
           )}
         </div>
       </div>
+
+
 
       {/* Customer Selection Modal */}
       <Modal className='customed-dark-card' backdrop="blur" isOpen={isCustomerModalOpen} onOpenChange={onCustomerModalChange} size="2xl">
@@ -1694,29 +1703,29 @@ export default function POSPage() {
               </ModalHeader>
               <ModalBody>
                 <div className="space-y-4">
-                                     {/* Video Preview */}
-                   <div className="relative">
-                     <video
-                       ref={videoRef}
-                       className="w-full h-80 bg-black rounded-lg border border-gray-300 dark:border-gray-600"
-                       autoPlay
-                       playsInline
-                       muted
-                     />
-                     {/* Scanner Frame Overlay - Visual Guide Only */}
-                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                       <div className="w-60 h-40 border-2 border-blue-500 rounded-lg opacity-30">
-                         <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-blue-500"></div>
-                         <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-blue-500"></div>
-                         <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-blue-500"></div>
-                         <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-blue-500"></div>
-                       </div>
-                     </div>
-                     {/* Full Screen Scanning Indicator */}
-                     <div className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 rounded-md text-xs font-medium">
-                       📱 Scanning entire view
-                     </div>
-                   </div>
+                  {/* Video Preview */}
+                  <div className="relative">
+                    <video
+                      ref={videoRef}
+                      className="w-full h-80 bg-black rounded-lg border border-gray-300 dark:border-gray-600"
+                      autoPlay
+                      playsInline
+                      muted
+                    />
+                    {/* Scanner Frame Overlay - Visual Guide Only */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-60 h-40 border-2 border-blue-500 rounded-lg opacity-30">
+                        <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-blue-500"></div>
+                        <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-blue-500"></div>
+                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-blue-500"></div>
+                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-blue-500"></div>
+                      </div>
+                    </div>
+                    {/* Full Screen Scanning Indicator */}
+                    <div className="absolute top-2 left-2 bg-blue-500 text-white px-2 py-1 rounded-md text-xs font-medium">
+                      📱 Scanning entire view
+                    </div>
+                  </div>
 
                   {/* Scanner Controls */}
                   <div className="flex justify-center space-x-3 flex-wrap">
@@ -1728,15 +1737,15 @@ export default function POSPage() {
                     >
                       Stop Scanning
                     </Button>
-                                         <Button
-                       color="secondary"
-                       variant="bordered"
-                       onClick={captureFrame}
-                       startContent={<Camera className="w-4 h-4" />}
-                       disabled={isManualCapture || scannerProcessing}
-                     >
-                       {isManualCapture ? 'Scanning...' : scannerProcessing ? 'Processing...' : 'Capture Frame'}
-                     </Button>
+                    <Button
+                      color="secondary"
+                      variant="bordered"
+                      onClick={captureFrame}
+                      startContent={<Camera className="w-4 h-4" />}
+                      disabled={isManualCapture || scannerProcessing}
+                    >
+                      {isManualCapture ? 'Scanning...' : scannerProcessing ? 'Processing...' : 'Capture Frame'}
+                    </Button>
                     {scannerControls && (
                       <Button
                         variant="bordered"
@@ -1749,15 +1758,15 @@ export default function POSPage() {
                     )}
                   </div>
 
-                                     {/* Scanner Status */}
-                   <div className="text-center space-y-2">
-                     <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                       {scanningStatus}
-                     </p>
-                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                       📱 Scans anywhere in camera view • 🎯 Frame is just a guide • 💡 Good lighting helps • ⚡ Auto-closes when found
-                     </p>
-                   </div>
+                  {/* Scanner Status */}
+                  <div className="text-center space-y-2">
+                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                      {scanningStatus}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      📱 Scans anywhere in camera view • 🎯 Frame is just a guide • 💡 Good lighting helps • ⚡ Auto-closes when found
+                    </p>
+                  </div>
                 </div>
               </ModalBody>
             </>

@@ -22,6 +22,8 @@ import { successToast, errorToast } from "../components/toast";
 import type { User } from "../types";
 import { Toaster } from "react-hot-toast";
 import { useStoreData } from "../hooks/useStore";
+import { useNotifications } from "../hooks/useNotifications";
+import { stockNotificationService } from "../utils/stockNotificationService";
 
 // Icons (using simple SVG icons)
 const DashboardIcon = ({ className = "w-5 h-5" }) => (
@@ -314,6 +316,7 @@ export default function Layout() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const { store } = useStoreData();
+  const { unreadCount } = useNotifications();
   
   // Authentication state
   const [user, setUser] = useState<User | null>(null);
@@ -351,6 +354,21 @@ export default function Layout() {
 
     checkAuth();
   }, [navigate]);
+
+  // Initialize stock monitoring when user is authenticated
+  useEffect(() => {
+    if (user) {
+      // Run initial stock check immediately
+      stockNotificationService.checkLowStockProducts();
+      
+      // Start periodic monitoring (every 5 minutes as backup)
+      stockNotificationService.startPeriodicCheck(5);
+      
+      return () => {
+        stockNotificationService.stopPeriodicCheck();
+      };
+    }
+  }, [user]);
 
   // Initialize theme from localStorage on component mount
   useEffect(() => {
@@ -649,9 +667,20 @@ export default function Layout() {
             </div>
             
             <div className="flex items-center space-x-4">
-              {/* Quick Actions */}
-             
-
+              {/* Notifications */}
+              <Button
+                variant="light"
+                size="sm"
+                className="relative"
+                onClick={() => navigate('/notifications')}
+              >
+                <BellIcon className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </div>
+                )}
+              </Button>
 
               {/* Theme Toggle */}
               <div className="flex items-center space-x-2">

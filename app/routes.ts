@@ -58,6 +58,9 @@ export default [
         route("/profile", "routes/profile/index.tsx"),
         route("/profile/security", "routes/profile/security.tsx"),
         
+        // Notifications
+        route("/notifications", "routes/notifications/index.tsx"),
+        
         // Audit & Logs (Admin)
         route("/audit", "routes/audit/index.tsx"),
         route("/logs", "routes/logs/index.tsx"),

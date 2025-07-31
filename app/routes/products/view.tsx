@@ -560,9 +560,46 @@ export default function ProductViewPage() {
                             <p className="text-gray-900 dark:text-white">
                               {new Date(product.expiryDate).toLocaleDateString()}
                             </p>
-                            {new Date(product.expiryDate) < new Date() && (
-                              <p className="text-sm text-red-500 mt-1">⚠️ Expired</p>
-                            )}
+                            {(() => {
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              const expiryDate = new Date(product.expiryDate);
+                              expiryDate.setHours(0, 0, 0, 0);
+                              const diffTime = expiryDate.getTime() - today.getTime();
+                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                              if (diffDays < 0) {
+                                return (
+                                  <Badge color="danger" variant="flat" className="mt-1">
+                                    Expired {Math.abs(diffDays)} day{Math.abs(diffDays) === 1 ? '' : 's'} ago
+                                  </Badge>
+                                );
+                              } else if (diffDays === 0) {
+                                return (
+                                  <Badge color="danger" variant="flat" className="mt-1">
+                                    Expires today
+                                  </Badge>
+                                );
+                              } else if (diffDays <= 7) {
+                                return (
+                                  <Badge color="warning" variant="flat" className="mt-1">
+                                    Expires in {diffDays} day{diffDays === 1 ? '' : 's'} (Critical)
+                                  </Badge>
+                                );
+                              } else if (diffDays <= 30) {
+                                return (
+                                  <Badge color="secondary" variant="flat" className="mt-1">
+                                    Expires in {diffDays} days
+                                  </Badge>
+                                );
+                              } else {
+                                return (
+                                  <Badge color="success" variant="flat" className="mt-1">
+                                    {diffDays} days remaining
+                                  </Badge>
+                                );
+                              }
+                            })()}
                           </div>
                         )}
                         

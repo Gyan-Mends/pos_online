@@ -27,7 +27,9 @@ import { format, parseISO } from 'date-fns';
 import { dashboardAPI } from '../../utils/api';
 import { errorToast } from '../../components/toast';
 import { useStoreData } from '../../hooks/useStore';
+import { useStockMonitoring } from '../../hooks/useStockMonitoring';
 import DataTable, { type Column } from '../../components/DataTable';
+import ExpiryAlerts from '../../components/ExpiryAlerts';
 
 // Register Chart.js components
 ChartJS.register(
@@ -128,6 +130,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const { store, formatCurrency: storeFormatCurrency, isStoreOpen, getBusinessHours } = useStoreData();
+  const { checkStockNow } = useStockMonitoring();
 
   useEffect(() => {
     // Get user info from localStorage
@@ -397,6 +400,9 @@ export default function Dashboard() {
           </CardBody>
         </Card>
       )}
+
+      {/* Product Expiry Alerts - Now handled by notification system */}
+      <ExpiryAlerts showInline={false} />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

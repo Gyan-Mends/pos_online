@@ -27,7 +27,16 @@ export default function CategoriesPage() {
     try {
       setLoading(true);
       const response = await categoriesAPI.getAll();
-      setCategories((response as any)?.data || []);
+      const categoriesData = (response as any)?.data || [];
+      
+      // Process categories to ensure both _id and id fields exist
+      const processedCategories = categoriesData.map((category: any) => ({
+        ...category,
+        id: category._id || category.id,
+        _id: category._id || category.id
+      }));
+      
+      setCategories(processedCategories);
     } catch (error: any) {
       errorToast(error.message || 'Failed to fetch categories');
     } finally {
@@ -78,7 +87,8 @@ export default function CategoriesPage() {
       }
 
       if (isEditing && selectedCategory) {
-        await categoriesAPI.update(selectedCategory.id, formData);
+        const categoryId = selectedCategory._id || selectedCategory.id;
+        await categoriesAPI.update(categoryId, formData);
         successToast('Category updated successfully');
       } else {
         await categoriesAPI.create(formData);
@@ -97,9 +107,10 @@ export default function CategoriesPage() {
     if (!selectedCategory) return;
     
     try {
-      await categoriesAPI.delete(selectedCategory.id);
+      const categoryId = selectedCategory._id || selectedCategory.id;
+      await categoriesAPI.delete(categoryId);
       successToast('Category deleted successfully');
-      setCategories(prev => prev.filter(c => c.id !== selectedCategory.id));
+      setCategories(prev => prev.filter(c => (c._id || c.id) !== categoryId));
       onDeleteModalChange();
     } catch (error: any) {
       errorToast(error.message || 'Failed to delete category');

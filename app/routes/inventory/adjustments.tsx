@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { successToast, errorToast } from '../../components/toast';
 import { productsAPI, stockMovementsAPI } from '../../utils/api';
+import { useStockMonitoring } from '../../hooks/useStockMonitoring';
 import type { Product, StockMovementFormData } from '../../types';
 
 interface AdjustmentItem {
@@ -81,6 +82,8 @@ const commonReasons = {
 };
 
 export default function InventoryAdjustmentsPage() {
+  const { checkStockAfterInventoryChange } = useStockMonitoring();
+  
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [adjustmentType, setAdjustmentType] = useState<string>('adjustment');
@@ -181,6 +184,10 @@ export default function InventoryAdjustmentsPage() {
           };
 
           await stockMovementsAPI.create(movementData);
+          
+          // Check stock immediately after adjustment
+          await checkStockAfterInventoryChange(item.product._id || item.product.id);
+          
           successCount++;
         } catch (error) {
           console.error('Error processing adjustment:', error);
