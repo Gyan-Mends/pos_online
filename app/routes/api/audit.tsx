@@ -21,20 +21,29 @@ export async function loader({ request }: { request: Request }) {
     
     // Get current user from headers for role-based access control
     const currentUserRole = request.headers.get('x-user-role');
+    const currentUserId = request.headers.get('x-user-id');
     
-    // Only admin users can access audit logs
-    if (currentUserRole !== 'admin') {
+    // For now, allow access to authenticated users (can be restricted later)
+    // Only admin users can access all audit logs, others see limited data
+    console.log('Audit API access - User Role:', currentUserRole, 'User ID:', currentUserId);
+    
+    if (!currentUserId) {
       return data(
         {
           success: false,
-          message: 'Access denied: Admin privileges required'
+          message: 'Authentication required'
         },
-        { status: 403 }
+        { status: 401 }
       );
     }
     
     // Build query filters
     const query: any = {};
+    
+    // Non-admin users can only see their own audit logs
+    if (currentUserRole !== 'admin') {
+      query.userId = currentUserId;
+    }
     
     if (startDate || endDate) {
       query.createdAt = {};
@@ -42,7 +51,7 @@ export async function loader({ request }: { request: Request }) {
       if (endDate) query.createdAt.$lte = new Date(endDate + 'T23:59:59.999Z');
     }
     
-    if (userId) query.userId = userId;
+    if (userId && currentUserRole === 'admin') query.userId = userId; // Only admins can filter by specific user
     if (action) query.action = action;
     if (resource) query.resource = resource;
     if (severity) query.severity = severity;
@@ -134,6 +143,16 @@ export async function action({ request }: { request: Request }) {
       // Get user agent
       const userAgent = request.headers.get('user-agent') || 'unknown';
       
+      console.log('🔍 Creating audit log with data:', {
+        userId: auditData.userId,
+        action: auditData.action,
+        resource: auditData.resource,
+        resourceId: auditData.resourceId,
+        severity: auditData.severity || 'medium',
+        status: auditData.status || 'success',
+        source: auditData.source || 'pos'
+      });
+
       // Create the audit log
       const auditLog = new AuditLog({
         userId: auditData.userId,
@@ -150,7 +169,9 @@ export async function action({ request }: { request: Request }) {
         metadata: auditData.metadata || {}
       });
       
+      console.log('💾 Saving audit log to database...');
       await auditLog.save();
+      console.log('✅ Audit log saved successfully');
       
       // Populate user data for response
       await auditLog.populate('userId', 'firstName lastName email avatar');

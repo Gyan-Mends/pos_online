@@ -13,9 +13,9 @@ const AuditLogSchema = new mongoose.Schema({
       // User actions
       'login', 'logout', 'password_change', 'user_created', 'user_updated', 'user_deleted',
       // Product actions
-      'product_created', 'product_updated', 'product_deleted', 'stock_adjusted',
+      'product_created', 'product_updated', 'product_deleted', 'stock_adjusted', 'product_added_to_cart',
       // Sale actions
-      'sale_created', 'sale_updated', 'sale_refunded', 'sale_cancelled',
+      'sale_created', 'sale_updated', 'sale_refunded', 'sale_cancelled', 'sale_completed',
       // Customer actions
       'customer_created', 'customer_updated', 'customer_deleted',
       // Purchase order actions
@@ -27,7 +27,11 @@ const AuditLogSchema = new mongoose.Schema({
       // Settings actions
       'settings_updated', 'backup_created', 'backup_restored',
       // System actions
-      'system_startup', 'system_shutdown', 'database_maintenance',
+      'system_startup', 'system_shutdown', 'database_maintenance', 'page_hidden', 'page_visible', 'page_unload',
+      // Navigation actions
+      'page_visited', 'navigation',
+      // User interaction actions
+      'cart_cleared',
       // Security actions
       'failed_login', 'unauthorized_access', 'permission_denied',
       // Other actions
@@ -39,7 +43,8 @@ const AuditLogSchema = new mongoose.Schema({
     required: true,
     enum: [
       'user', 'product', 'sale', 'customer', 'purchase_order', 'category', 
-      'supplier', 'settings', 'system', 'security', 'stock', 'other'
+      'supplier', 'settings', 'system', 'security', 'stock', 'navigation', 
+      'authentication', 'other'
     ]
   },
   resourceId: {
@@ -108,5 +113,10 @@ AuditLogSchema.virtual('userDisplay').get(function() {
   return 'Unknown User';
 });
 
-const AuditLog = mongoose.models.AuditLog || mongoose.model('AuditLog', AuditLogSchema);
+// Force mongoose to use the updated schema by deleting the old model
+if (mongoose.models.AuditLog) {
+  delete mongoose.models.AuditLog;
+}
+
+const AuditLog = mongoose.model('AuditLog', AuditLogSchema);
 export default AuditLog; 

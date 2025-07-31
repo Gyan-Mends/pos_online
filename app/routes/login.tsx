@@ -12,7 +12,7 @@ import {
   Switch
 } from '@heroui/react';
 import { Eye, EyeOff, Lock, Mail, LogIn } from 'lucide-react';
-import { authAPI } from '../utils/api';
+import { authAPI, auditAPI } from '../utils/api';
 import { successToast, errorToast } from '../components/toast';
 import type { AuthResponse, APIError } from '../types';
 import type { Route } from "./+types/login";
@@ -147,6 +147,43 @@ export default function Login() {
       
       if (response.refreshToken) {
         localStorage.setItem('refreshToken', response.refreshToken);
+      }
+
+      // Create session ID and store session start time
+      const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      sessionStorage.setItem('sessionId', sessionId);
+      sessionStorage.setItem('sessionStartTime', Date.now().toString());
+
+      // Log successful login
+      try {
+        await auditAPI.create({
+          userId: response.user._id || response.user.id,
+          action: 'login',
+          resource: 'authentication',
+          details: {
+            email: formData.email.trim(),
+            rememberMe: formData.rememberMe,
+            loginMethod: 'email_password',
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            sessionId
+          },
+          severity: 'medium',
+          status: 'success',
+          source: 'web',
+          sessionId,
+          metadata: {
+            browser: navigator.userAgent,
+            screen: {
+              width: window.screen.width,
+              height: window.screen.height
+            },
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          }
+        });
+      } catch (auditError) {
+        console.warn('Failed to log login audit event:', auditError);
+        // Don't fail login if audit logging fails
       }
 
       successToast('Login successful! Welcome back.');

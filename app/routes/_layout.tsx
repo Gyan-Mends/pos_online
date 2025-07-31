@@ -24,6 +24,7 @@ import { Toaster } from "react-hot-toast";
 import { useStoreData } from "../hooks/useStore";
 import { useNotifications } from "../hooks/useNotifications";
 import { stockNotificationService } from "../utils/stockNotificationService";
+import { useAuditLogger } from "../hooks/useAuditLogger";
 
 // Icons (using simple SVG icons)
 const DashboardIcon = ({ className = "w-5 h-5" }) => (
@@ -318,6 +319,9 @@ export default function Layout() {
   const { store } = useStoreData();
   const { unreadCount } = useNotifications();
   
+  // Audit logging
+  const { logUserAction, logAuthEvent, logSystemEvent } = useAuditLogger();
+  
   // Authentication state
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(true);
@@ -473,6 +477,13 @@ export default function Layout() {
   // Handle logout
   const handleLogout = async () => {
     try {
+      // Log logout event before clearing data
+      await logAuthEvent('logout', {
+        userId: user?._id || user?.id,
+        timestamp: new Date().toISOString(),
+        sessionDuration: Date.now() - parseInt(sessionStorage.getItem('sessionStartTime') || '0')
+      });
+      
       // Call logout API (optional - for server-side session cleanup)
       try {
         await authAPI.logout();
@@ -483,6 +494,9 @@ export default function Layout() {
       
       // Clear local storage
       localStorage.removeItem('user');
+      
+      // Clear session data
+      sessionStorage.clear();
       
       // Clear user state
       setUser(null);

@@ -62,6 +62,7 @@ interface AuditLog {
 export default function AuditPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterLoading, setFilterLoading] = useState(false);
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [filterAction, setFilterAction] = useState('');
   const [filterResource, setFilterResource] = useState('');
@@ -77,6 +78,19 @@ export default function AuditPage() {
   const loadAuditLogs = async () => {
     setLoading(true);
     try {
+      // Check current user role for debugging
+      const userData = localStorage.getItem('user');
+      let currentUser = null;
+      if (userData) {
+        try {
+          currentUser = JSON.parse(userData);
+          console.log('Current user:', currentUser);
+          console.log('Current user role:', currentUser.role);
+        } catch (e) {
+          console.error('Failed to parse user data:', e);
+        }
+      }
+      
       const params: any = {};
       
       if (filterAction) params.action = filterAction;
@@ -86,11 +100,91 @@ export default function AuditPage() {
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
       
+      console.log('Loading audit logs with params:', params);
+      
       const response = await auditAPI.getAll(params) as any;
-      setAuditLogs(response.data || []);
+      console.log('Raw audit API response:', response);
+      
+      const logs = response?.data || response || [];
+      console.log('Processed logs:', logs);
+      
+      // Check if access was denied
+      if (response?.success === false && response?.message?.includes('Access denied')) {
+        console.warn('Access denied to audit logs - user role:', currentUser?.role);
+        errorToast(`Access denied: ${response.message}`);
+        setAuditLogs([]);
+        return;
+      }
+      
+      // Ensure logs is an array
+      if (Array.isArray(logs)) {
+        setAuditLogs(logs);
+        console.log('Set audit logs:', logs.length, 'items');
+      } else {
+        console.warn('Expected array of audit logs, got:', logs);
+        setAuditLogs([]);
+        errorToast('Invalid data format received from server');
+      }
     } catch (error: any) {
       console.error('Error loading audit logs:', error);
-      errorToast(error.message || 'Failed to load audit logs');
+      console.error('Error details:', error.response?.data || error.message);
+      
+      // Check if it's an access denied error
+      if (error.response?.status === 403) {
+        errorToast('Access denied: Admin privileges required to view audit logs');
+        setAuditLogs([]);
+        return;
+      }
+      
+      // For testing purposes, add some mock data if API fails
+      const mockData: AuditLog[] = [
+        {
+          _id: '1',
+          id: '1',
+          userId: 'user1',
+          user: {
+            firstName: 'John',
+            lastName: 'Doe',
+            email: 'john@example.com'
+          },
+          action: 'login',
+          resource: 'user',
+          resourceId: 'user1',
+          details: { loginMethod: 'email' },
+          ipAddress: '192.168.1.1',
+          userAgent: 'Mozilla/5.0...',
+          severity: 'low',
+          status: 'success',
+          source: 'web',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          _id: '2',
+          id: '2',
+          userId: 'user1',
+          user: {
+            firstName: 'John',
+            lastName: 'Doe',
+            email: 'john@example.com'
+          },
+          action: 'product_created',
+          resource: 'product',
+          resourceId: 'prod1',
+          details: { productName: 'Test Product' },
+          ipAddress: '192.168.1.1',
+          userAgent: 'Mozilla/5.0...',
+          severity: 'medium',
+          status: 'success',
+          source: 'pos',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+      
+      setAuditLogs(mockData);
+      console.log('Using mock data for testing');
+      errorToast(error.message || 'Failed to load audit logs - using test data');
     } finally {
       setLoading(false);
     }
@@ -101,20 +195,33 @@ export default function AuditPage() {
   }, []);
 
   // Handle filter
-  const handleFilter = () => {
-    loadAuditLogs();
-    onFilterClose();
+  const handleFilter = async () => {
+    setFilterLoading(true);
+    try {
+      await loadAuditLogs();
+      onFilterClose();
+      successToast('Filters applied successfully');
+    } catch (error) {
+      // Error already handled in loadAuditLogs
+    } finally {
+      setFilterLoading(false);
+    }
   };
 
   // Clear filters
-  const clearFilters = () => {
-    setFilterAction('');
-    setFilterResource('');
-    setFilterSeverity('');
-    setFilterStatus('');
-    setStartDate('');
-    setEndDate('');
-    loadAuditLogs();
+  const clearFilters = async () => {
+    try {
+      setFilterAction('');
+      setFilterResource('');
+      setFilterSeverity('');
+      setFilterStatus('');
+      setStartDate('');
+      setEndDate('');
+      await loadAuditLogs();
+      successToast('Filters cleared');
+    } catch (error) {
+      // Error already handled in loadAuditLogs
+    }
   };
 
   // Format date
@@ -335,6 +442,48 @@ export default function AuditPage() {
             Refresh
           </Button>
           <Button
+            color="warning"
+            variant="bordered"
+            size="sm"
+            onClick={async () => {
+              try {
+                const userData = localStorage.getItem('user');
+                const user = userData ? JSON.parse(userData) : null;
+                if (!user) {
+                  errorToast('No user found');
+                  return;
+                }
+                
+                const testLog = {
+                  userId: user._id || user.id,
+                  action: 'page_visited',
+                  resource: 'navigation',
+                  resourceId: '/audit',
+                  details: {
+                    pageName: 'Audit Trail',
+                    pathname: '/audit',
+                    testLog: true,
+                    timestamp: new Date().toISOString()
+                  },
+                  severity: 'low',
+                  status: 'success',
+                  source: 'web'
+                };
+                
+                console.log('🧪 Creating test audit log:', testLog);
+                const response = await auditAPI.create(testLog);
+                console.log('✅ Test audit log response:', response);
+                successToast('Test audit log created!');
+                await loadAuditLogs();
+              } catch (error: any) {
+                console.error('❌ Test audit log failed:', error);
+                errorToast('Test failed: ' + (error.message || 'Unknown error'));
+              }
+            }}
+          >
+            🧪 Test
+          </Button>
+          <Button
             color="secondary"
             variant="flat"
             startContent={<FilterIcon className="w-4 h-4" />}
@@ -374,7 +523,7 @@ export default function AuditPage() {
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Security Events</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  0
+                  {auditLogs.filter(log => log.resource === 'security' || log.severity === 'critical').length}
                 </p>
               </div>
               <ShieldIcon className="w-8 h-8 text-orange-500" />
@@ -388,7 +537,7 @@ export default function AuditPage() {
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Critical Events</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  0
+                  {auditLogs.filter(log => log.severity === 'critical' || log.status === 'error').length}
                 </p>
               </div>
               <AlertTriangleIcon className="w-8 h-8 text-red-500" />
@@ -402,7 +551,9 @@ export default function AuditPage() {
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Success Rate</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  100%
+                  {auditLogs.length > 0 
+                    ? Math.round((auditLogs.filter(log => log.status === 'success').length / auditLogs.length) * 100)
+                    : 0}%
                 </p>
               </div>
               <CheckCircleIcon className="w-8 h-8 text-green-500" />
@@ -412,19 +563,44 @@ export default function AuditPage() {
       </div>
       
       {/* Audit Logs DataTable */}
-      <DataTable
-        data={auditLogs}
-        columns={columns}
-        loading={loading}
-        pageSize={20}
-        searchPlaceholder="Search audit logs..."
-        emptyText="No audit logs found"
-        showSearch={true}
-        showPagination={true}
-      />
+      <div className="space-y-4">
+        {loading ? (
+          <div className="flex items-center justify-center h-32">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+              <p className="text-gray-600 dark:text-gray-400">Loading audit logs...</p>
+            </div>
+          </div>
+        ) : auditLogs.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500 dark:text-gray-400">No audit logs found</p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+              Check your API connection or try refreshing the page
+            </p>
+          </div>
+        ) : (
+          <>
+            <DataTable
+              data={auditLogs}
+              columns={columns}
+              loading={loading}
+              pageSize={20}
+              searchPlaceholder="Search audit logs..."
+              emptyText="No audit logs found"
+              showSearch={true}
+              showPagination={true}
+            />
+            
+            {/* Debug info */}
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              Showing {auditLogs.length} audit log{auditLogs.length !== 1 ? 's' : ''}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Filter Modal */}
-      <Modal isOpen={isFilterOpen} onClose={onFilterClose} size="2xl">
+      <Modal className="customed-dark-card" backdrop="blur" isOpen={isFilterOpen} onClose={onFilterClose} size="2xl">
         <ModalContent>
           <ModalHeader>Filter Audit Logs</ModalHeader>
           <ModalBody>
@@ -434,6 +610,10 @@ export default function AuditPage() {
                 placeholder="Select action"
                 selectedKeys={filterAction ? [filterAction] : []}
                 onSelectionChange={(keys) => setFilterAction(Array.from(keys)[0] as string)}
+                classNames={{
+                  trigger: 'border border-black/20 dark:border-white/20',
+                  popoverContent: 'bg-gray-50 dark:bg-gray-800 border border-black/20 dark:border-white/20',
+                }}
               >
                 <SelectItem key="login">Login</SelectItem>
                 <SelectItem key="logout">Logout</SelectItem>
@@ -448,6 +628,10 @@ export default function AuditPage() {
                 placeholder="Select resource"
                 selectedKeys={filterResource ? [filterResource] : []}
                 onSelectionChange={(keys) => setFilterResource(Array.from(keys)[0] as string)}
+                classNames={{
+                  trigger: 'border border-black/20 dark:border-white/20',
+                  popoverContent: 'bg-gray-50 dark:bg-gray-800 border border-black/20 dark:border-white/20',
+                }}
               >
                 <SelectItem key="user">User</SelectItem>
                 <SelectItem key="product">Product</SelectItem>
@@ -460,6 +644,10 @@ export default function AuditPage() {
                 placeholder="Select severity"
                 selectedKeys={filterSeverity ? [filterSeverity] : []}
                 onSelectionChange={(keys) => setFilterSeverity(Array.from(keys)[0] as string)}
+                classNames={{
+                  trigger: 'border border-black/20 dark:border-white/20',
+                  popoverContent: 'bg-gray-50 dark:bg-gray-800 border border-black/20 dark:border-white/20',
+                }}
               >
                 <SelectItem key="low">Low</SelectItem>
                 <SelectItem key="medium">Medium</SelectItem>
@@ -472,6 +660,10 @@ export default function AuditPage() {
                 placeholder="Select status"
                 selectedKeys={filterStatus ? [filterStatus] : []}
                 onSelectionChange={(keys) => setFilterStatus(Array.from(keys)[0] as string)}
+                classNames={{
+                  trigger: 'border border-black/20 dark:border-white/20',
+                  popoverContent: 'bg-gray-50 dark:bg-gray-800 border border-black/20 dark:border-white/20',
+                }}
               >
                 <SelectItem key="success">Success</SelectItem>
                 <SelectItem key="warning">Warning</SelectItem>
@@ -486,12 +678,18 @@ export default function AuditPage() {
                 label="Start Date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                classNames={{
+                  inputWrapper: 'border border-black/20 dark:border-white/20',
+                }}
               />
               <Input
                 type="date"
                 label="End Date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                classNames={{
+                  inputWrapper: 'border border-black/20 dark:border-white/20',
+                }}
               />
             </div>
           </ModalBody>
@@ -499,7 +697,7 @@ export default function AuditPage() {
             <Button color="danger" variant="light" onClick={onFilterClose}>
               Cancel
             </Button>
-            <Button color="primary" onClick={handleFilter}>
+            <Button color="primary" onClick={handleFilter} isLoading={filterLoading}>
               Apply Filter
             </Button>
           </ModalFooter>
@@ -507,7 +705,7 @@ export default function AuditPage() {
       </Modal>
       
       {/* Detail Modal */}
-      <Modal isOpen={isDetailOpen} onClose={onDetailClose} size="3xl">
+      <Modal className="customed-dark-card" backdrop="blur" isOpen={isDetailOpen} onClose={onDetailClose} size="3xl">
         <ModalContent>
           <ModalHeader>Audit Log Details</ModalHeader>
           <ModalBody>

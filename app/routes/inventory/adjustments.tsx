@@ -276,12 +276,8 @@ export default function InventoryAdjustmentsPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-gray-500">SKU: {product.sku}</div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-sm font-medium">Stock: {product.stockQuantity}</div>
-                          <div className="text-xs text-gray-500">{product.unitOfMeasure}</div>
-                        </div>
+                       
                       </div>
                     </AutocompleteItem>
                   ))}

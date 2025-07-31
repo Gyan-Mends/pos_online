@@ -44,6 +44,7 @@ import { productsAPI, customersAPI, salesAPI } from '../../utils/api';
 import CustomInput from '../../components/CustomInput';
 import { useStoreData } from '../../hooks/useStore';
 import { useStockMonitoring } from '../../hooks/useStockMonitoring';
+import { useAuditLogger } from '../../hooks/useAuditLogger';
 import type { Product, Customer, CartItem, Cart } from '../../types';
 
 const DEFAULT_TAX_RATE = 0; // Tax disabled by default
@@ -55,6 +56,9 @@ export default function POSPage() {
 
   // Stock monitoring
   const { checkStockAfterSale } = useStockMonitoring();
+
+  // Audit logging
+  const { logProductAction, logSaleAction, logUserAction } = useAuditLogger();
 
   // State management
   const [products, setProducts] = useState<Product[]>([]);
@@ -665,6 +669,14 @@ export default function POSPage() {
         ...prev,
         items: [...prev.items, newItem]
       }));
+
+      // Log product added to cart
+      logProductAction('product_added_to_cart', productId, {
+        productName: product.name,
+        price: product.price,
+        sku: product.sku,
+        quantity: 1
+      });
     }
   };
 
@@ -767,6 +779,13 @@ export default function POSPage() {
   };
 
   const clearCart = () => {
+    // Log cart cleared action
+    logUserAction('cart_cleared', {
+      itemCount: cart.items.length,
+      cartTotal: cart.totalAmount,
+      timestamp: new Date().toISOString()
+    });
+
     setCart({
       items: [],
       subtotal: 0,
@@ -848,6 +867,17 @@ export default function POSPage() {
         errorToast('Failed to generate receipt number');
         return;
       }
+
+      // Log successful sale
+      logSaleAction('sale_completed', sale._id || sale.id, {
+        receiptNumber: sale.receiptNumber,
+        totalAmount: sale.totalAmount,
+        itemCount: sale.items.length,
+        paymentMethod,
+        customerId: selectedCustomer?._id || selectedCustomer?.id,
+        customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : 'Walk-in',
+        timestamp: new Date().toISOString()
+      });
 
       // Ensure the sale has all the necessary data for the receipt
       const completeSale = {
@@ -1092,10 +1122,10 @@ export default function POSPage() {
       <div className="min-h-screen">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Panel - Products (3/4 width) */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 flex flex-col h-screen">
             {/* Header - Sticky */}
-            <Card className="sticky top-0 z-20  mb-4">
-              <CardBody>
+            <Card className="sticky top-0 z-20 flex-shrink-0 bg-white bg-transparent shadow-sm">
+              <CardBody className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center space-x-3">
@@ -1157,12 +1187,12 @@ export default function POSPage() {
             </Card>
 
             {/* Product Grid - Scrollable */}
-            <div className="pb-6">
+            <div className="flex-1 overflow-y-auto p-4">
               <div 
                 style={{
                   scrollBehavior: 'smooth',
                   scrollbarWidth: 'thin',
-                  scrollbarColor: 'transparent transparent',
+                  scrollbarColor: 'rgba(156, 163, 175, 0.5) transparent',
                   scrollbarGutter: 'stable',
                 }}
                 className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
@@ -1213,8 +1243,8 @@ export default function POSPage() {
           <div className="lg:col-span-1">
             <div className="sticky top-0 h-[86vh] overflow-hidden flex flex-col">
               {/* Cart Section */}
-              <Card className="customed-dark-card mb-4 flex-shrink-0">
-                <CardBody className="p-4">
+              <Card className="customed-dark-card mb-4 h-[50vh] flex-shrink-0">
+                <CardBody className="px-4">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-gray-900 dark:text-white flex items-center">
                       <ShoppingCart className="w-4 h-4 mr-2" />
@@ -1240,7 +1270,7 @@ export default function POSPage() {
                       scrollbarColor: 'gray transparent',
                       scrollbarGutter: 'stable',
                     }} 
-                    className="space-y-3 max-h-64 overflow-y-auto"
+                    className="space-y-3  overflow-y-auto"
                   >
                     {cart.items.map((item) => (
                       <div key={item.productId} className="flex items-center justify-between p-3 rounded-lg border border-black/20 dark:border-white/20">
@@ -1300,19 +1330,17 @@ export default function POSPage() {
               {/* Order Summary - Sticky at bottom when cart has items */}
               {cart.items.length > 0 && (
                 <Card className="customed-dark-card flex-1 flex flex-col min-h-0">
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 flex justify-between">
                     <h3 className="font-semibold text-gray-900 dark:text-white">Order Summary</h3>
-                  </div>
 
-                  <div className="flex-1 overflow-y-auto p-4">
                     {/* Discount Input */}
-                    <div className="space-y-2 mb-4">
+                    <div className="space-y-2 ">
                       <div className="flex space-x-2">
                         <Select
                           size="sm"
                           selectedKeys={[discountType]}
                           onSelectionChange={(keys) => setDiscountType(Array.from(keys)[0] as 'percentage' | 'fixed')}
-                          className="w-20"
+                          className="w-24"
                           classNames={{
                             trigger: 'border border-black/20 dark:border-white/20',
                             popoverContent: 'bg-gray-50 dark:bg-gray-800 border border-black/20 dark:border-white/20',
@@ -1329,11 +1357,15 @@ export default function POSPage() {
                           onValueChange={(value) => setDiscountValue(parseFloat(value) || 0)}
                           startContent={<Percent className="w-4 h-4" />}
                           classNames={{
-                            inputWrapper: 'border border-black/20 dark:border-white/20',
+                            inputWrapper: 'border w-20 border-black/20 dark:border-white/20',
                           }}
                         />
                       </div>
                     </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4">
+                    
 
                     <div className="space-y-3">
                       <div className="flex justify-between text-sm">
@@ -1355,9 +1387,8 @@ export default function POSPage() {
                         </div>
                       )}
 
-                      <Divider />
 
-                      <div className="flex justify-between text-lg font-bold">
+                      <div className="flex justify-between text-md font-semibold">
                         <span>Total:</span>
                         <span>{formatCurrency(cart.totalAmount)}</span>
                       </div>
@@ -1365,7 +1396,7 @@ export default function POSPage() {
                   </div>
 
                   {/* Payment Button - Always visible at bottom */}
-                  <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+                  <div className="px-4 pb-2 border-gray-200 dark:border-gray-700 flex-shrink-0">
                     <Button
                       color="primary"
                       size="md"
