@@ -39,11 +39,13 @@ import {
 import ConfirmModal from '../../components/confirmModal';
 import { successToast, errorToast } from '../../components/toast';
 import { productsAPI, categoriesAPI, stockMovementsAPI } from '../../utils/api';
+import { useStoreData } from '../../hooks/useStore';
 import type { Product, Category, StockMovement } from '../../types';
 
 export default function ProductViewPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { formatCurrency } = useStoreData();
   const [product, setProduct] = useState<Product | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
@@ -72,20 +74,29 @@ export default function ProductViewPage() {
       
       setProduct(processedProduct);
       
-      // Load category details
+      // Check if categoryId is populated (contains category object) or just an ID
       if (processedProduct?.categoryId) {
-        const categoriesResponse = await categoriesAPI.getAll();
-        const categoriesData = (categoriesResponse as any)?.data || categoriesResponse || [];
-        
-        const foundCategory = categoriesData.find((c: Category) => 
-          c._id === processedProduct.categoryId || c.id === processedProduct.categoryId
-        );
-        
-        if (foundCategory) {
+        if (typeof processedProduct.categoryId === 'object' && processedProduct.categoryId.name) {
+          // Category is already populated
           setCategory({
-            ...foundCategory,
-            id: foundCategory._id || foundCategory.id
+            ...processedProduct.categoryId,
+            id: processedProduct.categoryId._id || processedProduct.categoryId.id
           });
+        } else {
+          // Category is just an ID, need to fetch category details
+          const categoriesResponse = await categoriesAPI.getAll();
+          const categoriesData = (categoriesResponse as any)?.data || categoriesResponse || [];
+          
+          const foundCategory = categoriesData.find((c: Category) => 
+            c._id === processedProduct.categoryId || c.id === processedProduct.categoryId
+          );
+          
+          if (foundCategory) {
+            setCategory({
+              ...foundCategory,
+              id: foundCategory._id || foundCategory.id
+            });
+          }
         }
       }
       
@@ -169,13 +180,6 @@ export default function ProductViewPage() {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
   };
 
   const getMovementIcon = (type: string) => {
@@ -330,7 +334,13 @@ export default function ProductViewPage() {
             <CardBody className="p-6">
               <div className="text-center">
                 <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <Package className="w-10 h-10 text-white" />
+                  {
+                    product.images && product.images.length > 0 ? (
+                      <img src={product.images[0]} alt={product.name} className="w-20 h-20 rounded-xl" />
+                    ) : (
+                      <Package className="w-10 h-10 text-white" />
+                    )
+                  }
                 </div>
                 
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
