@@ -1089,293 +1089,297 @@ export default function POSPage() {
     <div className="space-y-6">
       {/* Header */}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="col-span-2 h-[calc(100vh-200px)]">
-          <Card className="sticky top-0 z-10 ">
-            <CardBody>
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center space-x-3">
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
-                    {store && (
-                      <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${isStoreOpen() ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span className={`text-sm font-medium ${isStoreOpen() ? 'text-green-600' : 'text-red-600'}`}>
-                          {isStoreOpen() ? 'Open' : 'Closed'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-400 mt-1">
-                    Process sales transactions and manage the cash register
-                  </p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  {selectedCustomer && (
-                    <Chip
-                      color="primary"
-                      variant="flat"
-                      startContent={<User className="w-4 h-4" />}
-                      onClose={() => setSelectedCustomer(null)}
-                    >
-                      {selectedCustomer.firstName} {selectedCustomer.lastName}
-                    </Chip>
-                  )}
-                  <Button
-                    color="secondary"
-                    variant="bordered"
-                    startContent={isScanning ? <StopCircle className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
-                    onClick={isScanning ? stopScanning : startScanning}
-                  >
-                    {isScanning ? 'Stop Scan' : 'Scan Product'}
-                  </Button>
-                  <Button
-                    color="primary"
-                    variant="ghost"
-                    startContent={<User className="w-4 h-4" />}
-                    onClick={openCustomerModal}
-                  >
-                    {selectedCustomer ? 'Change Customer' : 'Select Customer'}
-                  </Button>
-                </div>
-
-
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Search products by name, SKU, or barcode..."
-                  value={searchQuery}
-                  onValueChange={setSearchQuery}
-                  startContent={<Search className="w-4 h-4 text-gray-400" />}
-                  variant="bordered"
-                  size="lg"
-                  className="flex-1 w-80 mb-4 "
-                  classNames={{
-                    inputWrapper: 'w-[40vw]',
-                  }}
-
-                />
-
-              </div>
-            </CardBody>
-          </Card>
-          {/* Product Selection Area - Scrollable */}
-          <div className="lg:col-span-2 overflow-y-auto">
-
-            <div style={{
-              scrollBehavior: 'smooth',
-              scrollbarWidth: 'thin',
-              scrollbarColor: ' transparent',
-              scrollbarGutter: 'stable',
-            }}
-              className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-2">
-
-              {filteredProducts.map((product) => (
-                <div
-                  key={getProductId(product)}
-                  className=""
-                  onClick={() => addToCart(product)}
-                >
-                  <div className="relative md:h-40 md:w-40  overflow-hidden rounded-xl bg-gray-100 dark:bg-[#18181c] aspect-square group-hover:shadow-lg transition-shadow duration-200">
-                    {product.images && product.images.length > 0 ? (
-                      <img
-                        src={product.images[0]}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Tag className="w-6 h-6 text-gray-400" />
-                    )}
-                  </div>
-                  <div className="p-2 ">
-
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white/70 line-clamp-2">
-                      {product.name}
-                    </h3>
-                    <p className="text-xs text-gray-500 mb-1">{product.sku}</p>
-                    <p className="text-md font-medium font-bold text-blue-600 dark:text-blue-400">
-                      {formatCurrency(product.price)}
-                    </p>
-                    <p className="text-xs text-gray-500">Stock: {product.stockQuantity}</p>
-                  </div>
-                </div>
-
-              ))}
-            </div>
-
-            {filteredProducts.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <Search className="w-12 h-12 mx-auto mb-2" />
-                <p>No products found</p>
-              </div>
-            )}
-
-          </div>
-        </div>
-        {/* Cart and Payment Area - Fixed Height with Sticky Header */}
-        <div className="flex flex-col justify-between">
-          {/* Cart - Fixed at top */}
-          <Card className="customed-dark-card !shadow-sm mb-4">
-            <CardBody className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white flex items-center">
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  Cart ({cart.items.length})
-                </h3>
-                {cart.items.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    color="danger"
-                    onClick={clearCart}
-                    startContent={<Trash2 className="w-4 h-4" />}
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
-
-              <div style={{
-                scrollBehavior: 'smooth',
-                scrollbarWidth: 'thin',
-                scrollbarColor: 'gray transparent',
-                scrollbarGutter: 'stable',
-              }} className="space-y-3 max-h-48 overflow-y-auto">
-                {cart.items.map((item) => (
-                  <div key={item.productId} className="flex items-center justify-between p-2  rounded-lg border border-black/20 dark:border-white/20">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
-                        {item.product.name}
-                      </p>
-                      <p className="text-xs text-gray-500">{formatCurrency(item.unitPrice)} each</p>
+      <div className="min-h-screen">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Panel - Products (3/4 width) */}
+          <div className="lg:col-span-2">
+            {/* Header - Sticky */}
+            <Card className="sticky top-0 z-20  mb-4">
+              <CardBody>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center space-x-3">
+                      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Point of Sale</h1>
+                      {store && (
+                        <div className="flex items-center space-x-2">
+                          <div className={`w-2 h-2 rounded-full ${isStoreOpen() ? 'bg-green-500' : 'bg-red-500'}`} />
+                          <span className={`text-sm font-medium ${isStoreOpen() ? 'text-green-600' : 'text-red-600'}`}>
+                            {isStoreOpen() ? 'Open' : 'Closed'}
+                          </span>
+                        </div>
+                      )}
                     </div>
-
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        size="sm"
-                        isIconOnly
-                        variant="ghost"
-                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                    <p className="text-gray-600 dark:text-gray-400 mt-1">
+                      Process sales transactions and manage the cash register
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    {selectedCustomer && (
+                      <Chip
+                        color="primary"
+                        variant="flat"
+                        startContent={<User className="w-4 h-4" />}
+                        onClose={() => setSelectedCustomer(null)}
                       >
-                        <Minus className="w-3 h-3" />
-                      </Button>
+                        {selectedCustomer.firstName} {selectedCustomer.lastName}
+                      </Chip>
+                    )}
+                    <Button
+                      color="secondary"
+                      variant="bordered"
+                      startContent={isScanning ? <StopCircle className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
+                      onClick={isScanning ? stopScanning : startScanning}
+                    >
+                      {isScanning ? 'Stop Scan' : 'Scan Product'}
+                    </Button>
+                    <Button
+                      color="primary"
+                      variant="ghost"
+                      startContent={<User className="w-4 h-4" />}
+                      onClick={openCustomerModal}
+                    >
+                      {selectedCustomer ? 'Change Customer' : 'Select Customer'}
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Input
+                    placeholder="Search products by name, SKU, or barcode..."
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    startContent={<Search className="w-4 h-4 text-gray-400" />}
+                    variant="bordered"
+                    size="lg"
+                    className="flex-1"
+                  />
+                </div>
+              </CardBody>
+            </Card>
 
-                      <span className="w-8 text-center text-sm font-medium">
-                        {item.quantity}
-                      </span>
-
-                      <Button
-                        size="sm"
-                        isIconOnly
-                        variant="ghost"
-                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        isIconOnly
-                        variant="ghost"
-                        color="danger"
-                        onClick={() => removeFromCart(item.productId)}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
+            {/* Product Grid - Scrollable */}
+            <div className="pb-6">
+              <div 
+                style={{
+                  scrollBehavior: 'smooth',
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: 'transparent transparent',
+                  scrollbarGutter: 'stable',
+                }}
+                className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+              >
+                {filteredProducts.map((product) => (
+                  <div
+                    key={getProductId(product)}
+                    className="cursor-pointer hover:shadow-lg transition-shadow duration-200"
+                    onClick={() => addToCart(product)}
+                  >
+                    <div className="relative h-40 w-full overflow-hidden rounded-xl bg-gray-100 dark:bg-[#18181c] aspect-square">
+                      {product.images && product.images.length > 0 ? (
+                        <img
+                          src={product.images[0]}
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <Tag className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-white/70 line-clamp-2 mb-1">
+                        {product.name}
+                      </h3>
+                      <p className="text-xs text-gray-500 mb-2">{product.sku}</p>
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-1">
+                        {formatCurrency(product.price)}
+                      </p>
+                      <p className="text-xs text-gray-500">Stock: {product.stockQuantity}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {cart.items.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <ShoppingCart className="w-12 h-12 mx-auto mb-2" />
-                  <p>Cart is empty</p>
+              {filteredProducts.length === 0 && (
+                <div className="text-center py-12 text-gray-500">
+                  <Search className="w-16 h-16 mx-auto mb-4" />
+                  <p className="text-lg">No products found</p>
                 </div>
               )}
-            </CardBody>
-          </Card>
+            </div>
+          </div>
 
-          {/* Cart Summary - Sticky Header with Scrollable Content */}
-          {cart.items.length > 0 && (
-            <Card className="customed-dark-card flex-1 flex flex-col">
-              {/* Sticky Header */}
-              <div className="sticky top-0 z-10 bg-inherit border-b border-gray-200 dark:border-gray-700 p-4">
-                <h3 className="font-semibold text-gray-900 dark:text-white">Order Summary</h3>
-              </div>
+          {/* Right Panel - Cart & Payment (1/4 width, Sticky) */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-0 h-[86vh] overflow-hidden flex flex-col">
+              {/* Cart Section */}
+              <Card className="customed-dark-card mb-4 flex-shrink-0">
+                <CardBody className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-900 dark:text-white flex items-center">
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      Cart ({cart.items.length})
+                    </h3>
+                    {cart.items.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        color="danger"
+                        onClick={clearCart}
+                        startContent={<Trash2 className="w-4 h-4" />}
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
 
-              {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto p-4">
-                {/* Discount Input */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex space-x-2">
-                    <Select
-                      size="sm"
-                      selectedKeys={[discountType]}
-                      onSelectionChange={(keys) => setDiscountType(Array.from(keys)[0] as 'percentage' | 'fixed')}
-                      className="w-24"
-                      classNames={{
-                        trigger: ' border border-black/20 dark:border-white/20',
-                        popoverContent: 'bg-gray-50 dark:bg-gray-800 border border-black/20 dark:border-white/20',
-                      }}
+                  <div 
+                    style={{
+                      scrollBehavior: 'smooth',
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'gray transparent',
+                      scrollbarGutter: 'stable',
+                    }} 
+                    className="space-y-3 max-h-64 overflow-y-auto"
+                  >
+                    {cart.items.map((item) => (
+                      <div key={item.productId} className="flex items-center justify-between p-3 rounded-lg border border-black/20 dark:border-white/20">
+                        <div className="flex-1 min-w-0 mr-3">
+                          <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                            {item.product.name}
+                          </p>
+                          <p className="text-xs text-gray-500">{formatCurrency(item.unitPrice)} each</p>
+                        </div>
+
+                        <div className="flex items-center space-x-1">
+                          <Button
+                            size="sm"
+                            isIconOnly
+                            variant="ghost"
+                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+
+                          <span className="w-8 text-center text-sm font-medium">
+                            {item.quantity}
+                          </span>
+
+                          <Button
+                            size="sm"
+                            isIconOnly
+                            variant="ghost"
+                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            isIconOnly
+                            variant="ghost"
+                            color="danger"
+                            onClick={() => removeFromCart(item.productId)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {cart.items.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      <ShoppingCart className="w-12 h-12 mx-auto mb-2" />
+                      <p>Cart is empty</p>
+                    </div>
+                  )}
+                </CardBody>
+              </Card>
+
+              {/* Order Summary - Sticky at bottom when cart has items */}
+              {cart.items.length > 0 && (
+                <Card className="customed-dark-card flex-1 flex flex-col min-h-0">
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Order Summary</h3>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4">
+                    {/* Discount Input */}
+                    <div className="space-y-2 mb-4">
+                      <div className="flex space-x-2">
+                        <Select
+                          size="sm"
+                          selectedKeys={[discountType]}
+                          onSelectionChange={(keys) => setDiscountType(Array.from(keys)[0] as 'percentage' | 'fixed')}
+                          className="w-20"
+                          classNames={{
+                            trigger: 'border border-black/20 dark:border-white/20',
+                            popoverContent: 'bg-gray-50 dark:bg-gray-800 border border-black/20 dark:border-white/20',
+                          }}
+                        >
+                          <SelectItem key="percentage">%</SelectItem>
+                          <SelectItem key="fixed">{CURRENCY}</SelectItem>
+                        </Select>
+                        <Input
+                          size="sm"
+                          type="number"
+                          placeholder="Discount"
+                          value={discountValue.toString()}
+                          onValueChange={(value) => setDiscountValue(parseFloat(value) || 0)}
+                          startContent={<Percent className="w-4 h-4" />}
+                          classNames={{
+                            inputWrapper: 'border border-black/20 dark:border-white/20',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <span>Subtotal:</span>
+                        <span>{formatCurrency(cart.subtotal)}</span>
+                      </div>
+
+                      {cart.discountAmount > 0 && (
+                        <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                          <span>Discount:</span>
+                          <span>-{formatCurrency(cart.discountAmount)}</span>
+                        </div>
+                      )}
+
+                      {getTaxRate() > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>{store?.taxSettings?.name || 'Tax'} ({(getTaxRate() * 100).toFixed(0)}%):</span>
+                          <span>{formatCurrency(cart.taxAmount)}</span>
+                        </div>
+                      )}
+
+                      <Divider />
+
+                      <div className="flex justify-between text-lg font-bold">
+                        <span>Total:</span>
+                        <span>{formatCurrency(cart.totalAmount)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment Button - Always visible at bottom */}
+                  <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+                    <Button
+                      color="primary"
+                      size="md"
+                      className="w-full"
+                      onClick={openPaymentModal}
+                      startContent={<CreditCard className="w-4 h-4" />}
                     >
-                      <SelectItem key="percentage">%</SelectItem>
-                      <SelectItem key="fixed">{CURRENCY}</SelectItem>
-                    </Select>
-                    <Input
-                      size="sm"
-                      type="number"
-                      placeholder="Discount"
-                      value={discountValue.toString()}
-                      onValueChange={(value) => setDiscountValue(parseFloat(value) || 0)}
-                      startContent={<Percent className="w-4 h-4" />}
-                      classNames={{
-                        inputWrapper: ' border border-black/20 dark:border-white/20',
-                      }}
-                    />
+                      Process Payment
+                    </Button>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(cart.subtotal)}</span>
-                  </div>
-
-                  {cart.discountAmount > 0 && (
-                    <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
-                      <span>Discount:</span>
-                      <span>-{formatCurrency(cart.discountAmount)}</span>
-                    </div>
-                  )}
-
-                  {getTaxRate() > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span>{store?.taxSettings?.name || 'Tax'} ({(getTaxRate() * 100).toFixed(0)}%):</span>
-                      <span>{formatCurrency(cart.taxAmount)}</span>
-                    </div>
-                  )}
-
-                  <Divider />
-
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>Total:</span>
-                    <span>{formatCurrency(cart.totalAmount)}</span>
-                  </div>
-                </div>
-
-                <Button
-                  color="primary"
-                  size="md"
-                  className="w-full mt-4"
-                  onClick={openPaymentModal}
-                  startContent={<CreditCard className="w-4 h-4" />}
-                >
-                  Process Payment
-                </Button>
-              </div>
-            </Card>
-          )}
+                </Card>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
