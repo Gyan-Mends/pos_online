@@ -69,7 +69,7 @@ export default function ProductsPage() {
     try {
       setLoading(true);
       const [productsResponse, categoriesResponse] = await Promise.all([
-        productsAPI.getAll(),
+        productsAPI.getAll({ limit: 1000 }),
         categoriesAPI.getAll()
       ]);
       

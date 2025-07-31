@@ -183,7 +183,7 @@ export default function POSPage() {
 
       // Normalize products to have both _id and id fields
       const normalizedProducts = productsData
-        .filter((p: Product) => p.isActive && p.stockQuantity > 0)
+        .filter((p: Product) => p.isActive)
         .map((p: any) => ({
           ...p,
           id: p._id || p.id

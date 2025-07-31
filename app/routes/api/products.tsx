@@ -41,6 +41,7 @@ export async function loader({ request, params }: { request: Request; params?: a
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const search = url.searchParams.get('search') || '';
     const category = url.searchParams.get('category') || '';
+    const includeOutOfStock = url.searchParams.get('includeOutOfStock') === 'true';
 
     const skip = (page - 1) * limit;
     
@@ -55,6 +56,10 @@ export async function loader({ request, params }: { request: Request; params?: a
     }
     if (category) {
       query.categoryId = category;
+    }
+    // Filter out products with zero stock unless explicitly requested
+    if (!includeOutOfStock) {
+      query.stockQuantity = { $gt: 0 };
     }
 
     const [products, total] = await Promise.all([
