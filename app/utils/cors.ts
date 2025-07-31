@@ -1,6 +1,7 @@
 // CORS utility for API routes
 export const ALLOWED_ORIGINS = [
   'https://e-qf49728fj-gyanmends-projects.vercel.app', // Your frontend domain
+  'https://e-com-omega-sage.vercel.app', // Your new frontend domain
   'http://localhost:5173', // Local development
   'http://localhost:3000', // Alternative local development
   process.env.FRONTEND_URL, // Environment variable for dynamic domains
