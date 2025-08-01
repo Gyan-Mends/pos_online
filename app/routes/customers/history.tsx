@@ -110,8 +110,9 @@ export default function CustomersManagementPage() {
       const salesResponse = await salesAPI.getAll({ limit: 10000 });
       const salesData = (salesResponse as any)?.data || salesResponse || [];
       
-      const totalPurchases = salesData.length;
-      const totalRevenue = salesData.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0);
+      const positiveSales = salesData.filter((sale: any) => (sale.totalAmount || 0) > 0);
+      const totalPurchases = positiveSales.length;
+      const totalRevenue = positiveSales.reduce((sum: number, sale: any) => sum + (sale.totalAmount || 0), 0);
       const totalItems = salesData.reduce((sum: number, sale: any) => sum + (sale.items?.length || 0), 0);
       
       setCustomerStats(prev => ({

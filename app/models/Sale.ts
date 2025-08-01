@@ -26,6 +26,10 @@ const saleItemSchema = new mongoose.Schema({
   totalPrice: {
     type: Number,
     required: true
+  },
+  unitCost: {
+    type: Number,
+    default: 0
   }
 });
 

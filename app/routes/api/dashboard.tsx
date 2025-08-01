@@ -38,8 +38,9 @@ export async function loader({ request }: { request: Request }) {
     };
     
     const todaySales = await Sale.find(todaySalesQuery);
-    const todayRevenue = todaySales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-    const todayCount = todaySales.length;
+    const todayPositiveSales = todaySales.filter(sale => (sale.totalAmount || 0) > 0);
+    const todayRevenue = todayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const todayCount = todayPositiveSales.length;
     
     // Yesterday's sales for comparison
     const yesterdayStart = new Date(startOfDay);
@@ -52,8 +53,9 @@ export async function loader({ request }: { request: Request }) {
       saleDate: { $gte: yesterdayStart, $lt: yesterdayEnd },
       status: 'completed'
     });
-    const yesterdayRevenue = yesterdaySales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-    const yesterdayCount = yesterdaySales.length;
+    const yesterdayPositiveSales = yesterdaySales.filter(sale => (sale.totalAmount || 0) > 0);
+    const yesterdayRevenue = yesterdayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const yesterdayCount = yesterdayPositiveSales.length;
     
     // Monthly sales
     const monthlySalesQuery = { 
@@ -63,7 +65,8 @@ export async function loader({ request }: { request: Request }) {
     };
     
     const monthlySales = await Sale.find(monthlySalesQuery);
-    const monthlyRevenue = monthlySales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const monthlyPositiveSales = monthlySales.filter(sale => (sale.totalAmount || 0) > 0);
+    const monthlyRevenue = monthlyPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
     
     // Last month for comparison
     const lastMonthStart = new Date(startOfMonth);
@@ -75,7 +78,8 @@ export async function loader({ request }: { request: Request }) {
       saleDate: { $gte: lastMonthStart, $lt: lastMonthEnd },
       status: 'completed'
     });
-    const lastMonthRevenue = lastMonthSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const lastMonthPositiveSales = lastMonthSales.filter(sale => (sale.totalAmount || 0) > 0);
+    const lastMonthRevenue = lastMonthPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
     
     // Weekly sales trend (last 7 days)
     const weeklyTrend = [];
@@ -93,12 +97,13 @@ export async function loader({ request }: { request: Request }) {
         status: 'completed'
       });
       
-      const dayRevenue = daySales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+      const dayPositiveSales = daySales.filter(sale => (sale.totalAmount || 0) > 0);
+      const dayRevenue = dayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
       
       weeklyTrend.push({
         date: dayStart.toISOString().split('T')[0],
         revenue: dayRevenue,
-        count: daySales.length
+        count: dayPositiveSales.length
       });
     }
     
@@ -114,12 +119,13 @@ export async function loader({ request }: { request: Request }) {
         status: 'completed'
       });
       
-      const monthRevenue = monthSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+      const monthPositiveSales = monthSales.filter(sale => (sale.totalAmount || 0) > 0);
+      const monthRevenue = monthPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
       
       monthlyTrend.push({
         month: monthStart.toISOString().substring(0, 7),
         revenue: monthRevenue,
-        count: monthSales.length
+        count: monthPositiveSales.length
       });
     }
     

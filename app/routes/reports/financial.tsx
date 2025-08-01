@@ -30,7 +30,7 @@ import {
 } from 'chart.js';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import { format, subDays, startOfDay, endOfDay, parseISO, eachDayOfInterval, eachMonthOfInterval, startOfMonth, endOfMonth } from 'date-fns';
-import { salesAPI, dashboardAPI, purchaseOrdersAPI } from '../../utils/api';
+import { salesAPI, dashboardAPI, purchaseOrdersAPI, stockMovementsAPI } from '../../utils/api';
 import { errorToast } from '../../components/toast';
 
 // Register Chart.js components
@@ -50,6 +50,7 @@ const FinancialReport = () => {
   const [financialData, setFinancialData] = useState<any>(null);
   const [salesData, setSalesData] = useState<any[]>([]);
   const [expenseData, setExpenseData] = useState<any[]>([]);
+  const [stockMovementCosts, setStockMovementCosts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [period, setPeriod] = useState('30');
@@ -85,6 +86,54 @@ const FinancialReport = () => {
     loadFinancialData();
   }, [dateRange]);
 
+  // Helper function to load cost data from stock movements for sales missing unit costs
+  const loadCostDataForSales = async (sales: any[]) => {
+    try {
+      // Get all unique receipt numbers for sales missing unit costs
+      const receiptNumbers = sales
+        .filter(sale => (sale.totalAmount || 0) > 0)
+        .filter(sale => {
+          const hasItems = sale.items && sale.items.length > 0;
+          if (!hasItems) return false;
+          
+          // Check if any items are missing unit cost
+          return sale.items.some((item: any) => !item.unitCost);
+        })
+        .map(sale => sale.receiptNumber)
+        .filter(Boolean);
+
+      if (receiptNumbers.length === 0) {
+        console.log('No sales missing unit costs found');
+        return;
+      }
+
+      console.log(`Loading cost data for ${receiptNumbers.length} sales missing unit costs`);
+      
+      // Load stock movements for these sales
+      const response = await stockMovementsAPI.getAll({
+        type: 'sale',
+        limit: 1000
+      }) as any;
+      
+      const movements = response.data || response || [];
+      
+      // Create a lookup map: receiptNumber_productId -> unitCost
+      const costLookup: Record<string, number> = {};
+      movements.forEach((movement: any) => {
+        if (movement.reference && movement.productId && movement.unitCost) {
+          const key = `${movement.reference}_${movement.productId._id || movement.productId}`;
+          costLookup[key] = movement.unitCost;
+        }
+      });
+      
+      setStockMovementCosts(costLookup);
+      console.log(`Loaded cost data for ${Object.keys(costLookup).length} product movements`);
+      
+    } catch (error) {
+      console.warn('Could not load cost data from stock movements:', error);
+    }
+  };
+
   const loadFinancialData = async () => {
     try {
       setLoading(true);
@@ -92,9 +141,8 @@ const FinancialReport = () => {
       // Load sales data for revenue - temporarily remove date filtering for testing
       const salesParams = {
         limit: 1000,
-        // Comment out date filtering to test
-        // startDate: format(dateRange.start, 'yyyy-MM-dd'),
-        // endDate: format(dateRange.end, 'yyyy-MM-dd'),
+        startDate: format(dateRange.start, 'yyyy-MM-dd'),
+        endDate: format(dateRange.end, 'yyyy-MM-dd'),
       };
       
       console.log('Loading sales with params:', salesParams);
@@ -122,11 +170,14 @@ const FinancialReport = () => {
       
       setSalesData(salesArray);
       
+      // Load cost data from stock movements for sales missing unit costs
+      await loadCostDataForSales(salesArray);
+      
       // Load purchase orders for expenses
       const expenseParams = {
         limit: 1000,
-        // startDate: format(dateRange.start, 'yyyy-MM-dd'),
-        // endDate: format(dateRange.end, 'yyyy-MM-dd'),
+        startDate: format(dateRange.start, 'yyyy-MM-dd'),
+        endDate: format(dateRange.end, 'yyyy-MM-dd'),
       };
       
       try {
@@ -191,9 +242,11 @@ const FinancialReport = () => {
       };
     }
     
-    // Revenue calculations
-    const totalRevenue = salesData.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-    const totalSales = salesData.length;
+    // Revenue calculations - only include positive sales (exclude refunds)
+    // Total revenue represents the value of sales made, regardless of subsequent refunds
+    const positiveSales = salesData.filter(sale => (sale.totalAmount || 0) > 0);
+    const totalRevenue = positiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const totalSales = positiveSales.length;
     const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
     
     console.log('Financial summary calculations:', {
@@ -203,11 +256,35 @@ const FinancialReport = () => {
       sampleSale: salesData[0]
     });
     
-    // Cost calculations from actual product cost prices
-    const totalCosts = salesData.reduce((sum, sale) => {
+    // Cost calculations from actual cost prices - only for positive sales
+    const totalCosts = positiveSales.reduce((sum, sale) => {
       const saleItems = sale.items || [];
       return sum + saleItems.reduce((itemSum: number, item: any) => {
-        const costPrice = item.product?.costPrice || (item.product?.price || 0) * 0.7; // Default to 70% of price as cost
+        // Use stored unit cost if available, otherwise try stock movement lookup, then fall back to product cost price
+        const stockMovementKey = `${sale.receiptNumber}_${item.productId?._id || item.productId}`;
+        const stockMovementCost = stockMovementCosts[stockMovementKey];
+        
+        const costPrice = item.unitCost || 
+                         stockMovementCost ||
+                         item.product?.costPrice || 
+                         item.productId?.costPrice || 
+                         (item.product?.price || item.productId?.price || item.product?.sellingPrice || item.productId?.sellingPrice || 0) * 0.7;
+        
+        // Debug logging for cost calculation
+        if (saleItems.indexOf(item) === 0 && positiveSales.indexOf(sale) === 0) {
+          console.log('Cost calculation debug:', {
+            receiptNumber: sale.receiptNumber,
+            stockMovementKey,
+            itemUnitCost: item.unitCost,
+            stockMovementCost,
+            itemProduct: item.product,
+            itemProductId: item.productId,
+            calculatedCostPrice: costPrice,
+            quantity: item.quantity,
+            itemCost: costPrice * (item.quantity || 0)
+          });
+        }
+        
         return itemSum + (costPrice * (item.quantity || 0));
       }, 0);
     }, 0);
@@ -219,6 +296,14 @@ const FinancialReport = () => {
     const grossProfit = totalRevenue - totalCosts;
     const netProfit = grossProfit - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+    
+    console.log('Cost calculation summary:', {
+      totalCosts,
+      totalExpenses,
+      grossProfit,
+      netProfit,
+      profitMargin
+    });
     
     // Growth calculations (comparing to previous period)
     const revenueGrowth = financialData?.todayStats?.revenueChange || 0;
@@ -259,13 +344,14 @@ const FinancialReport = () => {
       const daySales = salesData.filter(sale => {
         const saleDate = new Date(sale.saleDate || sale.createdAt);
         const isInRange = saleDate >= dayStart && saleDate <= dayEnd;
+        const isPositiveSale = (sale.totalAmount || 0) > 0; // Exclude refunds
         
         // Debug first few iterations
         if (days.indexOf(day) < 3) {
-          console.log(`Day ${format(day, 'yyyy-MM-dd')} - Sale date: ${format(saleDate, 'yyyy-MM-dd')} - In range: ${isInRange}`);
+          console.log(`Day ${format(day, 'yyyy-MM-dd')} - Sale date: ${format(saleDate, 'yyyy-MM-dd')} - In range: ${isInRange} - Positive: ${isPositiveSale}`);
         }
         
-        return isInRange;
+        return isInRange && isPositiveSale;
       });
       
       const revenue = daySales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
@@ -297,7 +383,9 @@ const FinancialReport = () => {
       
       const monthSales = salesData.filter(sale => {
         const saleDate = new Date(sale.saleDate || sale.createdAt);
-        return saleDate >= monthStart && saleDate <= monthEnd;
+        const isInRange = saleDate >= monthStart && saleDate <= monthEnd;
+        const isPositiveSale = (sale.totalAmount || 0) > 0; // Exclude refunds
+        return isInRange && isPositiveSale;
       });
       
       const revenue = monthSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);

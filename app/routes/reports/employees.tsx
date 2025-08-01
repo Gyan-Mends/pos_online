@@ -128,8 +128,9 @@ const EmployeesReport = () => {
     
     return employeesData.map(employee => {
       const employeeSales = salesData.filter(sale => sale.sellerId?._id === employee._id);
-      const totalSales = employeeSales.length;
-      const totalRevenue = employeeSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+      const employeePositiveSales = employeeSales.filter(sale => (sale.totalAmount || 0) > 0);
+      const totalSales = employeePositiveSales.length;
+      const totalRevenue = employeePositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
       const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
       const totalItems = employeeSales.reduce((sum, sale) => sum + (sale.items?.length || 0), 0);
       

@@ -144,9 +144,10 @@ const SalesReport = () => {
   const calculateSummary = () => {
     if (!salesData.length) return null;
     
-    const totalSales = salesData.length;
-    const totalRevenue = salesData.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-    const averageOrderValue = totalRevenue / totalSales;
+    const positiveSales = salesData.filter(sale => (sale.totalAmount || 0) > 0);
+    const totalSales = positiveSales.length;
+    const totalRevenue = positiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
     const totalItems = salesData.reduce((sum, sale) => sum + (sale.items?.length || 0), 0);
     
     return {

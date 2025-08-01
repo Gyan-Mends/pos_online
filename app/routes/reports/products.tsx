@@ -50,6 +50,7 @@ ChartJS.register(
 
 const ProductsReport = () => {
   const [productsData, setProductsData] = useState<any[]>([]);
+  const [allProductsData, setAllProductsData] = useState<any[]>([]); // For summary calculations
   const [categoriesData, setCategoriesData] = useState<any[]>([]);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -74,7 +75,7 @@ const ProductsReport = () => {
     try {
       setLoading(true);
       
-      // Load products data
+      // Load products data for table (with pagination)
       const productsParams = {
         page: pagination.page,
         limit: pagination.limit,
@@ -95,6 +96,11 @@ const ProductsReport = () => {
           pages: products.pagination.pages
         }));
       }
+      
+      // Load ALL products for summary calculations (without pagination)
+      const allProductsResponse = await productsAPI.getAll({ limit: 10000 }); // Large limit to get all
+      const allProducts = allProductsResponse.data || allProductsResponse;
+      setAllProductsData(Array.isArray(allProducts) ? allProducts : allProducts.data || []);
       
       // Load categories
       const categoriesResponse = await categoriesAPI.getAll();
@@ -123,17 +129,17 @@ const ProductsReport = () => {
     return format(new Date(date), 'MMM dd, yyyy');
   };
 
-  // Calculate summary statistics
+  // Calculate summary statistics using all products data
   const calculateSummary = () => {
-    if (!productsData.length) return null;
+    if (!allProductsData.length) return null;
     
-    const totalProducts = productsData.length;
-    const activeProducts = productsData.filter(product => product.isActive).length;
-    const lowStockProducts = productsData.filter(product => product.stockQuantity < 10).length;
-    const outOfStockProducts = productsData.filter(product => product.stockQuantity === 0).length;
-    const totalStockValue = productsData.reduce((sum, product) => 
+    const totalProducts = allProductsData.length;
+    const activeProducts = allProductsData.filter(product => product.isActive).length;
+    const lowStockProducts = allProductsData.filter(product => product.stockQuantity < 10).length;
+    const outOfStockProducts = allProductsData.filter(product => product.stockQuantity === 0).length;
+    const totalStockValue = allProductsData.reduce((sum, product) => 
       sum + (product.stockQuantity * product.costPrice || 0), 0);
-    const totalRetailValue = productsData.reduce((sum, product) => 
+    const totalRetailValue = allProductsData.reduce((sum, product) => 
       sum + (product.stockQuantity * product.sellingPrice || 0), 0);
     
     return {
@@ -150,11 +156,11 @@ const ProductsReport = () => {
 
   // Prepare chart data
   const getCategoryDistributionData = () => {
-    if (!productsData.length || !categoriesData.length) return { labels: [], datasets: [] };
+    if (!allProductsData.length || !categoriesData.length) return { labels: [], datasets: [] };
     
     const categoryCount = categoriesData.map(category => ({
       name: category.name,
-      count: productsData.filter(product => product.categoryId?._id === category._id).length
+      count: allProductsData.filter(product => product.categoryId?._id === category._id).length
     }));
     
     return {
@@ -177,13 +183,13 @@ const ProductsReport = () => {
   };
 
   const getStockLevelsData = () => {
-    if (!productsData.length) return { labels: [], datasets: [] };
+    if (!allProductsData.length) return { labels: [], datasets: [] };
     
     const stockRanges = [
-      { label: 'Out of Stock', count: productsData.filter(p => p.stockQuantity === 0).length },
-      { label: 'Low Stock (1-9)', count: productsData.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length },
-      { label: 'Medium Stock (10-50)', count: productsData.filter(p => p.stockQuantity >= 10 && p.stockQuantity <= 50).length },
-      { label: 'High Stock (50+)', count: productsData.filter(p => p.stockQuantity > 50).length },
+      { label: 'Out of Stock', count: allProductsData.filter(p => p.stockQuantity === 0).length },
+      { label: 'Low Stock (1-9)', count: allProductsData.filter(p => p.stockQuantity > 0 && p.stockQuantity < 10).length },
+      { label: 'Medium Stock (10-50)', count: allProductsData.filter(p => p.stockQuantity >= 10 && p.stockQuantity <= 50).length },
+      { label: 'High Stock (50+)', count: allProductsData.filter(p => p.stockQuantity > 50).length },
     ];
     
     return {

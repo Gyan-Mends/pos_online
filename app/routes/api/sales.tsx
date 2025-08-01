@@ -265,12 +265,21 @@ export async function action({ request }: { request: Request }) {
 
       const receiptNumber = await generateReceiptNumber();
 
+      // Enrich sale items with unit cost from products
+      const enrichedItems = saleData.items.map((item: any) => {
+        const product = products.find(p => p._id.toString() === item.productId);
+        return {
+          ...item,
+          unitCost: product ? product.costPrice : 0
+        };
+      });
+
       // Create the sale
       const sale = new Sale({
         receiptNumber,
         customerId: saleData.customerId || undefined,
         sellerId: saleData.sellerId,
-        items: saleData.items,
+        items: enrichedItems,
         subtotal: saleData.subtotal,
         taxAmount: saleData.taxAmount,
         discountAmount: saleData.discountAmount || 0,
@@ -467,8 +476,17 @@ async function handleRefund(request: Request, saleId: string) {
         );
       }
       
-      const itemRefundAmount = (originalItem.unitPrice * refundItem.quantity) - 
-        (originalItem.discount * refundItem.quantity / originalItem.quantity);
+      // Calculate proportional discount for refunded quantity
+      let itemDiscount = 0;
+      if (originalItem.discountType === 'percentage') {
+        // Percentage discount applies to unit price
+        itemDiscount = (originalItem.unitPrice * originalItem.discount / 100) * refundItem.quantity;
+      } else {
+        // Fixed discount is proportional to quantity
+        itemDiscount = (originalItem.discount * refundItem.quantity) / originalItem.quantity;
+      }
+      
+      const itemRefundAmount = (originalItem.unitPrice * refundItem.quantity) - itemDiscount;
       
       refundAmount += itemRefundAmount;
       
@@ -476,7 +494,7 @@ async function handleRefund(request: Request, saleId: string) {
         productId: refundItem.productId,
         quantity: refundItem.quantity,
         unitPrice: originalItem.unitPrice,
-        discount: originalItem.discount * refundItem.quantity / originalItem.quantity,
+        discount: itemDiscount,
         discountType: originalItem.discountType,
         totalPrice: itemRefundAmount
       });
