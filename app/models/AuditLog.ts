@@ -27,7 +27,7 @@ const AuditLogSchema = new mongoose.Schema({
       // Settings actions
       'settings_updated', 'backup_created', 'backup_restored',
       // System actions
-      'system_startup', 'system_shutdown', 'database_maintenance', 'page_hidden', 'page_visible', 'page_unload',
+      'system_startup', 'system_shutdown', 'database_maintenance',
       // Navigation actions
       'page_visited', 'navigation',
       // User interaction actions

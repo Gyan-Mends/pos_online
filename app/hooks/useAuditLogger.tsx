@@ -108,20 +108,58 @@ export const useAuditLogger = () => {
   // Log page navigation
   const logPageNavigation = useCallback((pathname: string, search?: string) => {
     const pageNames: Record<string, string> = {
-      '/': 'Dashboard',
-      '/pos': 'Point of Sale',
-      '/products': 'Products',
-      '/inventory': 'Inventory',
-      '/sales': 'Sales',
-      '/customers': 'Customers',
-      '/users': 'Users',
-      '/reports': 'Reports',
-      '/audit': 'Audit Trail',
-      '/settings': 'Settings',
-      '/profile': 'Profile'
+      '/': 'Dashboard - Main Overview',
+      '/dashboard': 'Dashboard - Main Overview',
+      '/pos': 'Point of Sale - Transaction Processing',
+      '/products': 'Products Management - Product Catalog',
+      '/products/create': 'Products - Create New Product',
+      '/products/edit': 'Products - Edit Product',
+      '/inventory': 'Inventory Management - Stock Overview',
+      '/inventory/movements': 'Inventory - Stock Movements',
+      '/inventory/adjustments': 'Inventory - Stock Adjustments',
+      '/sales': 'Sales Management - Transaction History',
+      '/sales/create': 'Sales - Create New Sale',
+      '/sales/reports': 'Sales - Reports & Analytics',
+      '/customers': 'Customer Management - Customer Database',
+      '/customers/create': 'Customers - Add New Customer',
+      '/users': 'User Management - Staff Administration',
+      '/reports': 'Reports & Analytics - Business Intelligence',
+      '/reports/sales': 'Reports - Sales Analytics',
+      '/reports/inventory': 'Reports - Inventory Analytics',
+      '/audit': 'Audit Trail - System Activity Logs',
+      '/settings': 'System Settings - Configuration',
+      '/settings/store': 'Settings - Store Configuration',
+      '/settings/tax': 'Settings - Tax Configuration',
+      '/profile': 'User Profile - Personal Settings',
+      '/login': 'Login Page - User Authentication',
+      '/logout': 'Logout - Session Termination'
     };
 
-    const pageName = pageNames[pathname] || pathname.replace('/', '').replace('-', ' ');
+    // Get more descriptive page name
+    let pageName = pageNames[pathname];
+    
+    // Handle dynamic routes
+    if (!pageName) {
+      if (pathname.startsWith('/products/')) {
+        pageName = 'Products - Product Details';
+      } else if (pathname.startsWith('/customers/')) {
+        pageName = 'Customers - Customer Profile';
+      } else if (pathname.startsWith('/sales/')) {
+        pageName = 'Sales - Sale Details';
+      } else if (pathname.startsWith('/users/')) {
+        pageName = 'Users - User Profile';
+      } else {
+        // Fallback: clean up pathname
+        pageName = pathname
+          .replace('/', '')
+          .replace(/[-_]/g, ' ')
+          .replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown Page';
+      }
+    }
+
+    // Get previous page name for context
+    const referrerPath = document.referrer ? new URL(document.referrer).pathname : null;
+    const previousPageName = referrerPath ? pageNames[referrerPath] || referrerPath : 'Direct Access';
     
     logAuditEvent({
       action: 'page_visited',
@@ -130,9 +168,15 @@ export const useAuditLogger = () => {
       details: {
         pageName,
         pathname,
+        fullUrl: window.location.href,
         search: search || window.location.search,
         previousPage: document.referrer,
-        loadTime: Date.now()
+        previousPageName,
+        navigationTime: new Date().toISOString(),
+        sessionDuration: Date.now() - parseInt(sessionStorage.getItem('sessionStartTime') || '0'),
+        userAgent: navigator.userAgent,
+        screenResolution: `${window.screen.width}x${window.screen.height}`,
+        viewportSize: `${window.innerWidth}x${window.innerHeight}`
       },
       severity: 'low',
       status: 'info',
@@ -142,41 +186,117 @@ export const useAuditLogger = () => {
 
   // Log user actions
   const logUserAction = useCallback((action: string, details?: any) => {
+    const enhancedDetails = {
+      ...details,
+      timestamp: new Date().toISOString(),
+      currentPage: window.location.pathname,
+      actionDescription: getUserActionDescription(action, details)
+    };
+
     logAuditEvent({
       action,
       resource: 'user',
-      details,
+      details: enhancedDetails,
       severity: 'low',
       status: 'success',
       source: 'web'
     });
   }, [logAuditEvent]);
 
+  // Helper function to get user action descriptions
+  const getUserActionDescription = (action: string, details?: any) => {
+    switch (action) {
+      case 'cart_cleared':
+        return `Cleared shopping cart (${details?.itemCount || 0} items, Total: ${details?.cartTotal || 'N/A'})`;
+      case 'login':
+        return `User logged in successfully (Method: ${details?.loginMethod || 'Unknown'})`;
+      case 'logout':
+        return `User logged out (Session duration: ${Math.round((details?.sessionDuration || 0) / 1000)}s)`;
+      case 'password_change':
+        return `User changed their password`;
+      case 'profile_updated':
+        return `User updated their profile information`;
+      default:
+        return `User action: ${action}`;
+    }
+  };
+
   // Log product actions
   const logProductAction = useCallback((action: string, productId?: string, details?: any) => {
+    // Create more descriptive details for product actions
+    const enhancedDetails = {
+      ...details,
+      timestamp: new Date().toISOString(),
+      currentPage: window.location.pathname,
+      actionDescription: getProductActionDescription(action, details)
+    };
+
     logAuditEvent({
       action,
       resource: 'product',
       resourceId: productId,
-      details,
+      details: enhancedDetails,
       severity: 'medium',
       status: 'success',
       source: 'web'
     });
   }, [logAuditEvent]);
 
+  // Helper function to get product action descriptions
+  const getProductActionDescription = (action: string, details?: any) => {
+    switch (action) {
+      case 'product_added_to_cart':
+        return `Added "${details?.productName || 'Unknown Product'}" to cart (Qty: ${details?.quantity || 1}, Price: ${details?.price || 'N/A'})`;
+      case 'product_created':
+        return `Created new product "${details?.productName || 'Unknown Product'}"`;
+      case 'product_updated':
+        return `Updated product "${details?.productName || 'Unknown Product'}"`;
+      case 'product_deleted':
+        return `Deleted product "${details?.productName || 'Unknown Product'}"`;
+      case 'stock_adjusted':
+        return `Adjusted stock for "${details?.productName || 'Unknown Product'}" (New Qty: ${details?.newQuantity || 'N/A'})`;
+      default:
+        return `Product action: ${action}`;
+    }
+  };
+
   // Log sale actions
   const logSaleAction = useCallback((action: string, saleId?: string, details?: any) => {
+    const enhancedDetails = {
+      ...details,
+      timestamp: new Date().toISOString(),
+      currentPage: window.location.pathname,
+      actionDescription: getSaleActionDescription(action, details)
+    };
+
     logAuditEvent({
       action,
       resource: 'sale',
       resourceId: saleId,
-      details,
+      details: enhancedDetails,
       severity: 'high',
       status: 'success',
       source: 'web'
     });
   }, [logAuditEvent]);
+
+  // Helper function to get sale action descriptions
+  const getSaleActionDescription = (action: string, details?: any) => {
+    switch (action) {
+      case 'sale_completed':
+        return `Completed sale #${details?.receiptNumber || 'Unknown'} - Total: ${details?.totalAmount || 'N/A'} (${details?.itemCount || 0} items, Payment: ${details?.paymentMethod || 'Unknown'}, Customer: ${details?.customerName || 'Walk-in'})`;
+      case 'sale_created':
+        return `Created new sale #${details?.receiptNumber || 'Unknown'}`;
+      case 'sale_updated':
+        return `Updated sale #${details?.receiptNumber || 'Unknown'}`;
+      case 'sale_refunded':
+        return `Refunded sale #${details?.receiptNumber || 'Unknown'} - Amount: ${details?.refundAmount || 'N/A'}`;
+      case 'sale_cancelled':
+        return `Cancelled sale #${details?.receiptNumber || 'Unknown'}`;
+      default:
+        return `Sale action: ${action}`;
+    }
+  };
 
   // Log security events
   const logSecurityEvent = useCallback((action: string, details?: any, severity: 'low' | 'medium' | 'high' | 'critical' = 'high') => {
@@ -216,47 +336,22 @@ export const useAuditLogger = () => {
 
   // Track page navigation changes
   useEffect(() => {
-    logPageNavigation(location.pathname, location.search);
+    console.log('🧭 Page navigation detected:', location.pathname, location.search);
+    
+    // Small delay to ensure the page has loaded
+    const timer = setTimeout(() => {
+      logPageNavigation(location.pathname, location.search);
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [location.pathname, location.search, logPageNavigation]);
 
-  // Track page visibility changes
+  // Store session start time (for session duration tracking)
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        logSystemEvent('page_hidden', {
-          page: location.pathname,
-          timestamp: new Date().toISOString()
-        });
-      } else {
-        logSystemEvent('page_visible', {
-          page: location.pathname,
-          timestamp: new Date().toISOString()
-        });
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [location.pathname, logSystemEvent]);
-
-  // Track beforeunload (page closing)
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      logSystemEvent('page_unload', {
-        page: location.pathname,
-        timestamp: new Date().toISOString(),
-        sessionDuration: Date.now() - parseInt(sessionStorage.getItem('sessionStartTime') || '0')
-      });
-    };
-
-    // Store session start time
     if (!sessionStorage.getItem('sessionStartTime')) {
       sessionStorage.setItem('sessionStartTime', Date.now().toString());
     }
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [location.pathname, logSystemEvent]);
+  }, []);
 
   return {
     logAuditEvent,

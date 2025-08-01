@@ -280,6 +280,56 @@ export default function AuditPage() {
     }
   };
 
+  // Get activity description based on log data
+  const getActivityDescription = (log: AuditLog) => {
+    // First check if we have a pre-computed description
+    if (log.details?.actionDescription) {
+      return log.details.actionDescription;
+    }
+
+    // Fallback to generating description based on action and resource
+    switch (log.action) {
+      case 'page_visited':
+        return log.details?.pageName || `Visited ${log.resourceId || 'Unknown Page'}`;
+      case 'login':
+        return 'User logged into the system';
+      case 'logout':
+        return 'User logged out of the system';
+      case 'product_added_to_cart':
+        return `Added ${log.details?.productName || 'product'} to cart`;
+      case 'sale_completed':
+        return `Completed sale #${log.details?.receiptNumber || 'Unknown'}`;
+      case 'cart_cleared':
+        return 'Cleared shopping cart';
+      default:
+        return log.action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+  };
+
+  // Get activity subtext with additional context
+  const getActivitySubtext = (log: AuditLog) => {
+    switch (log.action) {
+      case 'page_visited':
+        const previousPage = log.details?.previousPageName;
+        return previousPage && previousPage !== 'Direct Access' 
+          ? `From: ${previousPage}` 
+          : `Path: ${log.details?.pathname || log.resourceId || 'unknown'}`;
+      case 'login':
+        return `Method: ${log.details?.loginMethod || 'Unknown'}`;
+      case 'logout':
+        const duration = log.details?.sessionDuration;
+        return duration ? `Session: ${Math.round(duration / 1000)}s` : 'Session ended';
+      case 'product_added_to_cart':
+        return `Qty: ${log.details?.quantity || 1}, Price: ${log.details?.price || 'N/A'}`;
+      case 'sale_completed':
+        return `Total: ${log.details?.totalAmount || 'N/A'}, Items: ${log.details?.itemCount || 0}`;
+      case 'cart_cleared':
+        return `${log.details?.itemCount || 0} items, Total: ${log.details?.cartTotal || 'N/A'}`;
+      default:
+        return log.details?.pathname || log.resourceId || `${log.resource} activity`;
+    }
+  };
+
   // Define columns for DataTable
   const columns: Column<AuditLog>[] = [
     {
@@ -319,16 +369,18 @@ export default function AuditPage() {
     },
     {
       key: 'action',
-      title: 'Action',
+      title: 'Activity',
       sortable: true,
       searchable: true,
-      width: '160px',
+      width: '400px',
       render: (value, record) => (
-        <div className="flex items-center space-x-2">
-          {getResourceIcon(record.resource)}
-          <span className="text-sm font-medium">
-            {formatAction(value)}
-          </span>
+        <div className="text-sm">
+          <div className="font-medium text-gray-900 dark:text-white mb-1">
+            {getActivityDescription(record)}
+          </div>
+          <div className="text-gray-500 dark:text-gray-400 text-xs">
+            {getActivitySubtext(record)}
+          </div>
         </div>
       )
     },

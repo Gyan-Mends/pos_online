@@ -44,7 +44,7 @@ export async function loader({ request }: { request: Request }) {
     if (currentUserRole !== 'admin') {
       query.userId = currentUserId;
     }
-    
+
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -52,11 +52,25 @@ export async function loader({ request }: { request: Request }) {
     }
     
     if (userId && currentUserRole === 'admin') query.userId = userId; // Only admins can filter by specific user
-    if (action) query.action = action;
     if (resource) query.resource = resource;
     if (severity) query.severity = severity;
     if (status) query.status = status;
     if (source) query.source = source;
+
+    // Handle action filtering - exclude system activities but allow specific action filters
+    const excludedActions = ['page_hidden', 'page_visible', 'page_unload', 'system_startup', 'system_shutdown'];
+    if (action) {
+      // If filtering by specific action, only show that action (unless it's excluded)
+      if (!excludedActions.includes(action)) {
+        query.action = action;
+      } else {
+        // If trying to filter by excluded action, return no results
+        query.action = { $in: [] };
+      }
+    } else {
+      // If no action filter, exclude system activities
+      query.action = { $nin: excludedActions };
+    }
     
     // Text search across multiple fields
     if (search) {
