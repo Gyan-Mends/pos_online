@@ -23,7 +23,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       return corsResponse({ 
         success: false, 
         message: "Either userId or sessionId is required" 
-      }, { status: 400 });
+      }, { status: 400 }, request);
     }
 
     const query = userId 
@@ -56,13 +56,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
         items: [],
         itemCount: 0
       }
-    });
+    }, {}, request);
   } catch (error) {
     console.error("Error fetching wishlist:", error);
     return corsResponse({ 
       success: false, 
       message: "Failed to fetch wishlist" 
-    }, { status: 500 });
+    }, { status: 500 }, request);
   }
 }
 
@@ -74,28 +74,28 @@ export async function action({ request }: ActionFunctionArgs) {
     
     switch (method) {
       case "POST":
-        return await addToWishlist(formData);
+        return await addToWishlist(formData, request);
       case "DELETE":
-        return await removeFromWishlist(formData);
+        return await removeFromWishlist(formData, request);
       case "PUT":
-        return await toggleWishlistItem(formData);
+        return await toggleWishlistItem(formData, request);
       default:
         return corsResponse({ 
           success: false, 
           message: "Method not allowed" 
-        }, { status: 405 });
+        }, { status: 405 }, request);
     }
   } catch (error) {
     console.error("Error in wishlist action:", error);
     return corsResponse({ 
       success: false, 
       message: "Internal server error" 
-    }, { status: 500 });
+    }, { status: 500 }, request);
   }
 }
 
 // Add item to wishlist
-async function addToWishlist(formData: FormData) {
+async function addToWishlist(formData: FormData, request: Request) {
   // Import server-only modules
   await import('../../mongoose.server');
   const mongoose = await import('mongoose');
@@ -110,14 +110,14 @@ async function addToWishlist(formData: FormData) {
     return corsResponse({ 
       success: false, 
       message: "Product ID is required" 
-    }, { status: 400 });
+    }, { status: 400 }, request);
   }
 
   if (!userId && !sessionId) {
     return corsResponse({ 
       success: false, 
       message: "Either userId or sessionId is required" 
-    }, { status: 400 });
+    }, { status: 400 }, request);
   }
 
   // Verify product exists
@@ -126,7 +126,7 @@ async function addToWishlist(formData: FormData) {
     return corsResponse({ 
       success: false, 
       message: "Product not found" 
-    }, { status: 404 });
+    }, { status: 404 }, request);
   }
 
   const query = userId 
@@ -152,7 +152,7 @@ async function addToWishlist(formData: FormData) {
     return corsResponse({
       success: false,
       message: "Product already in wishlist"
-    }, { status: 400 });
+    }, { status: 400 }, request);
   }
 
   // Add new item
@@ -188,11 +188,16 @@ async function addToWishlist(formData: FormData) {
       createdAt: updatedWishlist!.createdAt,
       updatedAt: updatedWishlist!.updatedAt
     }
-  });
+  }, {}, request);
 }
 
 // Remove item from wishlist
-async function removeFromWishlist(formData: FormData) {
+async function removeFromWishlist(formData: FormData, request: Request) {
+  // Import server-only modules
+  await import('../../mongoose.server');
+  const mongoose = await import('mongoose');
+  const { Wishlist } = await import("../../models/Wishlist");
+  
   const userId = formData.get("userId") as string;
   const sessionId = formData.get("sessionId") as string;
   const productId = formData.get("productId") as string;
@@ -201,14 +206,14 @@ async function removeFromWishlist(formData: FormData) {
     return corsResponse({ 
       success: false, 
       message: "Product ID is required" 
-    }, { status: 400 });
+    }, { status: 400 }, request);
   }
 
   if (!userId && !sessionId) {
     return corsResponse({ 
       success: false, 
       message: "Either userId or sessionId is required" 
-    }, { status: 400 });
+    }, { status: 400 }, request);
   }
 
   const query = userId 
@@ -221,7 +226,7 @@ async function removeFromWishlist(formData: FormData) {
     return corsResponse({
       success: false,
       message: "Wishlist not found"
-    }, { status: 404 });
+    }, { status: 404 }, request);
   }
 
   // Remove item
@@ -234,7 +239,7 @@ async function removeFromWishlist(formData: FormData) {
     return corsResponse({
       success: false,
       message: "Product not found in wishlist"
-    }, { status: 404 });
+    }, { status: 404 }, request);
   }
 
   await wishlist.save();
@@ -245,11 +250,17 @@ async function removeFromWishlist(formData: FormData) {
     data: {
       itemCount: wishlist.items.length
     }
-  });
+  }, {}, request);
 }
 
 // Toggle item in wishlist (add if not present, remove if present)
-async function toggleWishlistItem(formData: FormData) {
+async function toggleWishlistItem(formData: FormData, request: Request) {
+  // Import server-only modules
+  await import('../../mongoose.server');
+  const mongoose = await import('mongoose');
+  const { Wishlist } = await import("../../models/Wishlist");
+  const { default: Product } = await import("../../models/Product");
+  
   const userId = formData.get("userId") as string;
   const sessionId = formData.get("sessionId") as string;
   const productId = formData.get("productId") as string;
@@ -258,14 +269,14 @@ async function toggleWishlistItem(formData: FormData) {
     return corsResponse({ 
       success: false, 
       message: "Product ID is required" 
-    }, { status: 400 });
+    }, { status: 400 }, request);
   }
 
   if (!userId && !sessionId) {
     return corsResponse({ 
       success: false, 
       message: "Either userId or sessionId is required" 
-    }, { status: 400 });
+    }, { status: 400 }, request);
   }
 
   // Verify product exists
@@ -274,7 +285,7 @@ async function toggleWishlistItem(formData: FormData) {
     return corsResponse({ 
       success: false, 
       message: "Product not found" 
-    }, { status: 404 });
+    }, { status: 404 }, request);
   }
 
   const query = userId 
@@ -324,5 +335,5 @@ async function toggleWishlistItem(formData: FormData) {
       inWishlist: action === "added",
       itemCount: wishlist.items.length
     }
-  });
+  }, {}, request);
 }

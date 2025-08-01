@@ -102,10 +102,13 @@ CartSchema.pre('save', function(this: ICart) {
 
 // Helper method to add item to cart
 CartSchema.methods.addItem = function(productId: string, quantity: number, price: number, variations?: any[]) {
-  const existingItemIndex = this.items.findIndex(item => 
-    item.product.toString() === productId && 
-    JSON.stringify(item.variations) === JSON.stringify(variations)
-  );
+  const existingItemIndex = this.items.findIndex(item => {
+    const productMatch = item.product.toString() === productId;
+    const variationsMatch = variations ? 
+      JSON.stringify(item.variations) === JSON.stringify(variations) : 
+      (!item.variations || item.variations.length === 0);
+    return productMatch && variationsMatch;
+  });
   
   if (existingItemIndex >= 0) {
     this.items[existingItemIndex].quantity += quantity;
@@ -121,10 +124,13 @@ CartSchema.methods.addItem = function(productId: string, quantity: number, price
 
 // Helper method to update item quantity
 CartSchema.methods.updateItemQuantity = function(productId: string, quantity: number, variations?: any[]) {
-  const itemIndex = this.items.findIndex(item => 
-    item.product.toString() === productId && 
-    JSON.stringify(item.variations) === JSON.stringify(variations)
-  );
+  const itemIndex = this.items.findIndex(item => {
+    const productMatch = item.product.toString() === productId;
+    const variationsMatch = variations ? 
+      JSON.stringify(item.variations) === JSON.stringify(variations) : 
+      (!item.variations || item.variations.length === 0);
+    return productMatch && variationsMatch;
+  });
   
   if (itemIndex >= 0) {
     if (quantity <= 0) {
@@ -137,10 +143,13 @@ CartSchema.methods.updateItemQuantity = function(productId: string, quantity: nu
 
 // Helper method to remove item from cart
 CartSchema.methods.removeItem = function(productId: string, variations?: any[]) {
-  this.items = this.items.filter(item => 
-    !(item.product.toString() === productId && 
-      JSON.stringify(item.variations) === JSON.stringify(variations))
-  );
+  this.items = this.items.filter(item => {
+    const productMatch = item.product.toString() === productId;
+    const variationsMatch = variations ? 
+      JSON.stringify(item.variations) === JSON.stringify(variations) : 
+      (!item.variations || item.variations.length === 0);
+    return !(productMatch && variationsMatch);
+  });
 };
 
 // Helper method to clear cart
