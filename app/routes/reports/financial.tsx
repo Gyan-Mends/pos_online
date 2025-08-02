@@ -231,6 +231,7 @@ const FinancialReport = () => {
       console.log('No sales data available');
       return {
         totalRevenue: 0,
+        totalRefunds: 0,
         totalCosts: 0,
         totalExpenses: 0,
         grossProfit: 0,
@@ -242,12 +243,16 @@ const FinancialReport = () => {
       };
     }
     
-    // Revenue calculations - only include positive sales (exclude refunds)
-    // Total revenue represents the value of sales made, regardless of subsequent refunds
+    // Separate positive sales and refunds
     const positiveSales = salesData.filter(sale => (sale.totalAmount || 0) > 0);
-    const totalRevenue = positiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const refundSales = salesData.filter(sale => (sale.totalAmount || 0) < 0);
+    
+    // Revenue calculations - include all positive sales
+    const grossRevenue = positiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const totalRefunds = Math.abs(refundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
+    const totalRevenue = grossRevenue - totalRefunds; // Net revenue after refunds
     const totalSales = positiveSales.length;
-    const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
+    const avgOrderValue = totalSales > 0 ? grossRevenue / totalSales : 0;
     
     console.log('Financial summary calculations:', {
       totalRevenue,
@@ -310,6 +315,7 @@ const FinancialReport = () => {
     
     return {
       totalRevenue,
+      totalRefunds,
       totalCosts,
       totalExpenses,
       grossProfit,
@@ -344,18 +350,21 @@ const FinancialReport = () => {
       const daySales = salesData.filter(sale => {
         const saleDate = new Date(sale.saleDate || sale.createdAt);
         const isInRange = saleDate >= dayStart && saleDate <= dayEnd;
-        const isPositiveSale = (sale.totalAmount || 0) > 0; // Exclude refunds
         
         // Debug first few iterations
         if (days.indexOf(day) < 3) {
-          console.log(`Day ${format(day, 'yyyy-MM-dd')} - Sale date: ${format(saleDate, 'yyyy-MM-dd')} - In range: ${isInRange} - Positive: ${isPositiveSale}`);
+          console.log(`Day ${format(day, 'yyyy-MM-dd')} - Sale date: ${format(saleDate, 'yyyy-MM-dd')} - In range: ${isInRange}`);
         }
         
-        return isInRange && isPositiveSale;
+        return isInRange;
       });
       
-      const revenue = daySales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-      const count = daySales.length;
+      const positiveSales = daySales.filter(sale => (sale.totalAmount || 0) > 0);
+      const refundSales = daySales.filter(sale => (sale.totalAmount || 0) < 0);
+      const grossRevenue = positiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+      const refunds = Math.abs(refundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
+      const revenue = grossRevenue - refunds;
+      const count = positiveSales.length;
       
       return {
         date: format(day, 'yyyy-MM-dd'),
@@ -384,12 +393,15 @@ const FinancialReport = () => {
       const monthSales = salesData.filter(sale => {
         const saleDate = new Date(sale.saleDate || sale.createdAt);
         const isInRange = saleDate >= monthStart && saleDate <= monthEnd;
-        const isPositiveSale = (sale.totalAmount || 0) > 0; // Exclude refunds
-        return isInRange && isPositiveSale;
+        return isInRange;
       });
       
-      const revenue = monthSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-      const count = monthSales.length;
+      const positiveSales = monthSales.filter(sale => (sale.totalAmount || 0) > 0);
+      const refundSales = monthSales.filter(sale => (sale.totalAmount || 0) < 0);
+      const grossRevenue = positiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+      const refunds = Math.abs(refundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
+      const revenue = grossRevenue - refunds;
+      const count = positiveSales.length;
       
       return {
         month: format(month, 'yyyy-MM'),
@@ -638,7 +650,7 @@ const FinancialReport = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card>
           <CardBody className="p-6">
             <div className="flex items-center justify-between">
@@ -656,6 +668,29 @@ const FinancialReport = () => {
               <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
                 <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Total Refunds
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {formatCurrency(summary.totalRefunds)}
+                </p>
+                <p className="text-sm text-red-500">
+                  {salesData.filter(sale => (sale.totalAmount || 0) < 0).length} refunds
+                </p>
+              </div>
+              <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m5 14-3-3m3 3l3-3" />
                 </svg>
               </div>
             </div>
