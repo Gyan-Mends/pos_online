@@ -204,10 +204,10 @@ const StoreSettingsPage = () => {
         </div>
         <div className="flex items-center space-x-3">
           {hasChanges && (
-            <Chip size="sm" color="warning" variant="flat">
+            <div className="flex items-center space-x-2 border border-2 border-[#06b6d4] text-[#06b6d4] px-2 py-2 rounded-xl ">
               <AlertCircle className="w-3 h-3 mr-1" />
-              Unsaved changes
-            </Chip>
+              <p className="text-sm">Unsaved changes</p>
+            </div>
           )}
           <Button
             color="primary"

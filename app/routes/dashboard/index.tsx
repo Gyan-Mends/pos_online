@@ -274,8 +274,8 @@ export default function Dashboard() {
     ],
   };
 
-  const todayChange = formatPercentage(dashboardData.todayStats.revenueChange);
-  const monthlyChange = formatPercentage(dashboardData.monthlyStats.revenueChange);
+  const todayChange = formatPercentage(dashboardData.todayStats?.revenueChange || 0);
+  const monthlyChange = formatPercentage(dashboardData.monthlyStats?.revenueChange || 0);
 
   // Define columns for recent sales data table
   const recentSalesColumns: Column<any>[] = [
@@ -415,7 +415,7 @@ export default function Dashboard() {
                   Today's Revenue
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(dashboardData.todayStats.revenue)}
+                  {formatCurrency(dashboardData.todayStats?.revenue || 0)}
                 </p>
                 <div className={`flex items-center space-x-1 text-sm ${todayChange.color}`}>
                   <todayChange.icon className="w-3 h-3" />
@@ -439,13 +439,13 @@ export default function Dashboard() {
                   Today's Sales
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {dashboardData.todayStats.count}
+                  {dashboardData.todayStats?.count || 0}
                 </p>
                 <div className={`flex items-center space-x-1 text-sm ${
-                  formatPercentage(dashboardData.todayStats.countChange).color
+                  formatPercentage(dashboardData.todayStats?.countChange || 0).color
                 }`}>
-                  {formatPercentage(dashboardData.todayStats.countChange).icon({ className: "w-3 h-3" })}
-                  <span>{formatPercentage(dashboardData.todayStats.countChange).value}</span>
+                  {formatPercentage(dashboardData.todayStats?.countChange || 0).icon({ className: "w-3 h-3" })}
+                  <span>{formatPercentage(dashboardData.todayStats?.countChange || 0).value}</span>
                   <span className="text-gray-500">vs yesterday</span>
                 </div>
               </div>
@@ -465,7 +465,7 @@ export default function Dashboard() {
                   Monthly Revenue
                 </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(dashboardData.monthlyStats.revenue)}
+                  {formatCurrency(dashboardData.monthlyStats?.revenue || 0)}
                 </p>
                 <div className={`flex items-center space-x-1 text-sm ${monthlyChange.color}`}>
                   <monthlyChange.icon className="w-3 h-3" />
@@ -509,7 +509,7 @@ export default function Dashboard() {
                     Monthly Sales
                   </p>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {dashboardData.monthlyStats.count}
+                    {dashboardData.monthlyStats?.count || 0}
                   </p>
                   <p className="text-sm text-gray-500">Sales this month</p>
                 </div>

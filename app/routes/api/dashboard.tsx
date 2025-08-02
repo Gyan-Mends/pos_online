@@ -180,6 +180,18 @@ export async function loader({ request }: { request: Request }) {
     const monthlyRevenueChange = lastMonthRevenue === 0 ? 0 : 
       ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100;
     
+    // Calculate total revenue for all users (with role-based filtering)
+    const totalRevenueQuery = currentUserRole === 'cashier' && currentUserId 
+      ? { sellerId: currentUserId, status: 'completed', totalAmount: { $gt: 0 } }
+      : { status: 'completed', totalAmount: { $gt: 0 } };
+    
+    const totalRevenue = await Sale.aggregate([
+      { $match: totalRevenueQuery },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+    ]).then(result => result[0]?.total || 0);
+
+    const totalSalesCount = await Sale.countDocuments(totalRevenueQuery);
+    
     // Admin-specific data
     let adminData = {};
     if (currentUserRole === 'admin') {
@@ -195,12 +207,7 @@ export async function loader({ request }: { request: Request }) {
         totalCustomers,
         totalProducts,
         totalUsers,
-        lowStockProducts,
-        totalSales: await Sale.countDocuments({ status: 'completed' }),
-        totalRevenue: await Sale.aggregate([
-          { $match: { status: 'completed' } },
-          { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-        ]).then(result => result[0]?.total || 0)
+        lowStockProducts
       };
     }
     
@@ -213,13 +220,15 @@ export async function loader({ request }: { request: Request }) {
       },
       monthlyStats: {
         revenue: monthlyRevenue,
-        count: monthlySales.length,
+        count: monthlyPositiveSales.length,
         revenueChange: monthlyRevenueChange
       },
       weeklyTrend,
       monthlyTrend,
       recentSales: recentSales.slice(0, 5),
       topProducts,
+      totalRevenue,
+      totalSales: totalSalesCount,
       ...adminData
     };
     
