@@ -178,27 +178,40 @@ export async function loader({ request }: { request: Request }) {
       });
     }
     
-    // Recent sales
-    const recentSales = await Sale.find(salesQuery)
+    // Recent sales - only show positive sales (exclude refunds)
+    const recentSalesQuery = {
+      ...salesQuery,
+      status: { $in: ['completed', 'partially_refunded'] },
+      totalAmount: { $gt: 0 } // Only positive amounts (exclude refunds)
+    };
+    
+    const recentSales = await Sale.find(recentSalesQuery)
       .populate('customerId', 'firstName lastName')
       .populate('sellerId', 'firstName lastName')
       .sort({ createdAt: -1 })
       .limit(10)
       .lean();
     
-    // Top products (for admins) or cashier's top products
+    // Top products (for admins) or cashier's top products - include all sales including refunds
     const topProductsQuery = currentUserRole === 'cashier' && currentUserId 
-      ? { sellerId: currentUserId, status: { $in: ['completed', 'partially_refunded'] } }
-      : { status: { $in: ['completed', 'partially_refunded'] } };
+      ? { sellerId: currentUserId, status: { $in: ['completed', 'partially_refunded', 'refunded'] } }
+      : { status: { $in: ['completed', 'partially_refunded', 'refunded'] } };
     
     const topProductsSales = await Sale.find({
       ...topProductsQuery,
       saleDate: { $gte: startOfMonth, $lt: endOfMonth }
     }).populate('items.productId', 'name sku').lean();
     
-    // Calculate top products
+    // Calculate top products - use same logic as revenue calculations
     const productSales = new Map();
     topProductsSales.forEach(sale => {
+      const isRefund = (sale.totalAmount || 0) < 0;
+      const multiplier = isRefund ? -1 : 1; // Subtract for refunds, add for sales
+      
+      // Calculate each item's proportional share of the sale's totalAmount
+      const saleSubtotal = sale.subtotal || 0;
+      const saleTotalAmount = sale.totalAmount || 0;
+      
       sale.items?.forEach(item => {
         const productId = item.productId?._id?.toString();
         const productName = item.productId?.name || 'Unknown Product';
@@ -208,14 +221,22 @@ export async function loader({ request }: { request: Request }) {
             quantity: 0, 
             revenue: 0 
           };
-          existing.quantity += item.quantity || 0;
-          existing.revenue += (item.quantity || 0) * (item.unitPrice || 0);
+          
+          // Calculate item's proportional share of the total sale amount (including tax)
+          const itemSubtotal = item.totalPrice || 0;
+          const itemProportionalRevenue = saleSubtotal > 0 
+            ? (itemSubtotal / saleSubtotal) * Math.abs(saleTotalAmount)
+            : 0;
+          
+          existing.quantity += (item.quantity || 0) * multiplier;
+          existing.revenue += itemProportionalRevenue * multiplier;
           productSales.set(productId, existing);
         }
       });
     });
     
     const topProducts = Array.from(productSales.values())
+      .filter(product => product.quantity > 0 && product.revenue > 0) // Only include products with net positive sales
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
     
