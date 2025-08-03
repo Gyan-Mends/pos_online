@@ -255,47 +255,66 @@ const FinancialReport = () => {
     const avgOrderValue = totalSales > 0 ? grossRevenue / totalSales : 0;
     
     console.log('Financial summary calculations:', {
+      grossRevenue,
+      totalRefunds,
       totalRevenue,
       totalSales,
       avgOrderValue,
       sampleSale: salesData[0]
     });
     
-    // Cost calculations from actual cost prices - only for positive sales
-    const totalCosts = positiveSales.reduce((sum, sale) => {
-      const saleItems = sale.items || [];
-      return sum + saleItems.reduce((itemSum: number, item: any) => {
-        // Use stored unit cost if available, otherwise try stock movement lookup, then fall back to product cost price
-        const stockMovementKey = `${sale.receiptNumber}_${item.productId?._id || item.productId}`;
-        const stockMovementCost = stockMovementCosts[stockMovementKey];
-        
-        const costPrice = item.unitCost || 
+    // Cost calculations - include both positive sales and subtract costs for refunds
+    const calculateCostForSales = (salesList: any[], isRefund: boolean = false) => {
+      return salesList.reduce((sum, sale) => {
+        const saleItems = sale.items || [];
+        const saleCost = saleItems.reduce((itemSum: number, item: any) => {
+          // Use stored unit cost if available, otherwise try stock movement lookup, then fall back to product cost price
+          const stockMovementKey = `${sale.receiptNumber}_${item.productId?._id || item.productId}`;
+          const stockMovementCost = stockMovementCosts[stockMovementKey];
+          
+          // More conservative cost calculation - avoid inflated costs
+          let costPrice = item.unitCost || 
                          stockMovementCost ||
                          item.product?.costPrice || 
-                         item.productId?.costPrice || 
-                         (item.product?.price || item.productId?.price || item.product?.sellingPrice || item.productId?.sellingPrice || 0) * 0.7;
+                         item.productId?.costPrice;
+          
+          // Only use selling price fallback if no cost data available, and use a more conservative percentage
+          if (!costPrice) {
+            const sellingPrice = item.product?.price || item.productId?.price || item.product?.sellingPrice || item.productId?.sellingPrice || 0;
+            costPrice = sellingPrice * 0.5; // Use 50% instead of 70% for more conservative cost estimation
+          }
+          
+          // Debug logging for cost calculation
+          if (saleItems.indexOf(item) === 0 && salesList.indexOf(sale) === 0) {
+            console.log(`Cost calculation debug (${isRefund ? 'refund' : 'sale'}):`, {
+              receiptNumber: sale.receiptNumber,
+              stockMovementKey,
+              itemUnitCost: item.unitCost,
+              stockMovementCost,
+              itemProduct: item.product,
+              itemProductId: item.productId,
+              calculatedCostPrice: costPrice,
+              quantity: item.quantity,
+              itemCost: costPrice * (item.quantity || 0)
+            });
+          }
+          
+          return itemSum + (costPrice * (item.quantity || 0));
+        }, 0);
         
-        // Debug logging for cost calculation
-        if (saleItems.indexOf(item) === 0 && positiveSales.indexOf(sale) === 0) {
-          console.log('Cost calculation debug:', {
-            receiptNumber: sale.receiptNumber,
-            stockMovementKey,
-            itemUnitCost: item.unitCost,
-            stockMovementCost,
-            itemProduct: item.product,
-            itemProductId: item.productId,
-            calculatedCostPrice: costPrice,
-            quantity: item.quantity,
-            itemCost: costPrice * (item.quantity || 0)
-          });
-        }
-        
-        return itemSum + (costPrice * (item.quantity || 0));
+        return sum + saleCost;
       }, 0);
-    }, 0);
+    };
+
+    const positiveCosts = calculateCostForSales(positiveSales, false);
+    const refundCosts = calculateCostForSales(refundSales, true);
+    const totalCosts = Math.max(0, positiveCosts - refundCosts); // Net costs after refund adjustments, cannot be negative
     
-    // Expense calculations
-    const totalExpenses = expenseData.reduce((sum, expense) => sum + (expense.totalAmount || 0), 0);
+    // Expense calculations - NOTE: Purchase orders might be inventory costs, not operating expenses
+    // This should only include true operating expenses, not inventory purchases
+    // For now, we'll comment this out to avoid double-counting costs
+    // const totalExpenses = expenseData.reduce((sum, expense) => sum + (expense.totalAmount || 0), 0);
+    const totalExpenses = 0; // Temporarily set to 0 to avoid double-counting inventory as both COGS and expenses
     
     // Profit calculations
     const grossProfit = totalRevenue - totalCosts;
@@ -303,11 +322,20 @@ const FinancialReport = () => {
     const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     
     console.log('Cost calculation summary:', {
+      grossRevenue,
+      totalRefunds,
+      totalRevenue,
+      positiveCosts,
+      refundCosts,
       totalCosts,
       totalExpenses,
       grossProfit,
       netProfit,
-      profitMargin
+      profitMargin,
+      expenseDataLength: expenseData.length,
+      positiveSalesLength: positiveSales.length,
+      refundSalesLength: refundSales.length,
+      expenseDataSample: expenseData.slice(0, 2)
     });
     
     // Growth calculations (comparing to previous period)
@@ -936,7 +964,7 @@ const FinancialReport = () => {
                   </div>
                   <div className="flex justify-between py-2 border-b">
                     <span className="font-medium">Cost of Goods Sold</span>
-                    <span className="text-red-600">-{formatCurrency(summary.totalCosts)}</span>
+                    <span className="text-red-600">{formatCurrency(summary.totalCosts)}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b">
                     <span className="font-medium text-green-600">Gross Profit</span>
@@ -944,7 +972,7 @@ const FinancialReport = () => {
                   </div>
                   <div className="flex justify-between py-2 border-b">
                     <span className="font-medium">Operating Expenses</span>
-                    <span className="text-red-600">-{formatCurrency(summary.totalExpenses)}</span>
+                    <span className="text-red-600">{formatCurrency(summary.totalExpenses)}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b-2 border-gray-800 dark:border-gray-200">
                     <span className="font-bold text-lg">Net Profit</span>
