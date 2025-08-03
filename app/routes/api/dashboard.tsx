@@ -30,17 +30,45 @@ export async function loader({ request }: { request: Request }) {
       salesQuery.sellerId = currentUserId;
     }
     
-    // Today's sales
+    // Today's sales - include completed and partially_refunded sales
     const todaySalesQuery = { 
       ...salesQuery,
       saleDate: { $gte: startOfDay, $lt: endOfDay },
-      status: 'completed'
+      status: { $in: ['completed', 'partially_refunded'] }
     };
     
     const todaySales = await Sale.find(todaySalesQuery);
     const todayPositiveSales = todaySales.filter(sale => (sale.totalAmount || 0) > 0);
     const todayRevenue = todayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
     const todayCount = todayPositiveSales.length;
+    
+    // Also try with createdAt field in case saleDate is not set
+    const todaySalesQueryAlt = { 
+      ...salesQuery,
+      createdAt: { $gte: startOfDay, $lt: endOfDay },
+      status: { $in: ['completed', 'partially_refunded'] }
+    };
+    
+    const todaySalesAlt = await Sale.find(todaySalesQueryAlt);
+    
+    console.log('Dashboard Debug:', {
+      todaySalesQuery,
+      todaySalesFound: todaySales.length,
+      todaySalesQueryAlt,
+      todaySalesAltFound: todaySalesAlt.length,
+      todayPositiveSales: todayPositiveSales.length,
+      todayRevenue,
+      todayCount,
+      startOfDay,
+      endOfDay,
+      sampleSale: todaySales[0] || todaySalesAlt[0]
+    });
+    
+    // Use whichever query found more sales
+    const effectiveTodaySales = todaySales.length > 0 ? todaySales : todaySalesAlt;
+    const effectiveTodayPositiveSales = effectiveTodaySales.filter(sale => (sale.totalAmount || 0) > 0);
+    const effectiveTodayRevenue = effectiveTodayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const effectiveTodayCount = effectiveTodayPositiveSales.length;
     
     // Yesterday's sales for comparison
     const yesterdayStart = new Date(startOfDay);
@@ -51,7 +79,7 @@ export async function loader({ request }: { request: Request }) {
     const yesterdaySales = await Sale.find({
       ...salesQuery,
       saleDate: { $gte: yesterdayStart, $lt: yesterdayEnd },
-      status: 'completed'
+      status: { $in: ['completed', 'partially_refunded'] }
     });
     const yesterdayPositiveSales = yesterdaySales.filter(sale => (sale.totalAmount || 0) > 0);
     const yesterdayRevenue = yesterdayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
@@ -61,7 +89,7 @@ export async function loader({ request }: { request: Request }) {
     const monthlySalesQuery = { 
       ...salesQuery,
       saleDate: { $gte: startOfMonth, $lt: endOfMonth },
-      status: 'completed'
+      status: { $in: ['completed', 'partially_refunded'] }
     };
     
     const monthlySales = await Sale.find(monthlySalesQuery);
@@ -76,7 +104,7 @@ export async function loader({ request }: { request: Request }) {
     const lastMonthSales = await Sale.find({
       ...salesQuery,
       saleDate: { $gte: lastMonthStart, $lt: lastMonthEnd },
-      status: 'completed'
+      status: { $in: ['completed', 'partially_refunded'] }
     });
     const lastMonthPositiveSales = lastMonthSales.filter(sale => (sale.totalAmount || 0) > 0);
     const lastMonthRevenue = lastMonthPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
@@ -94,7 +122,7 @@ export async function loader({ request }: { request: Request }) {
       const daySales = await Sale.find({
         ...salesQuery,
         saleDate: { $gte: dayStart, $lt: dayEnd },
-        status: 'completed'
+        status: { $in: ['completed', 'partially_refunded'] }
       });
       
       const dayPositiveSales = daySales.filter(sale => (sale.totalAmount || 0) > 0);
@@ -116,7 +144,7 @@ export async function loader({ request }: { request: Request }) {
       const monthSales = await Sale.find({
         ...salesQuery,
         saleDate: { $gte: monthStart, $lt: monthEnd },
-        status: 'completed'
+        status: { $in: ['completed', 'partially_refunded'] }
       });
       
       const monthPositiveSales = monthSales.filter(sale => (sale.totalAmount || 0) > 0);
@@ -139,8 +167,8 @@ export async function loader({ request }: { request: Request }) {
     
     // Top products (for admins) or cashier's top products
     const topProductsQuery = currentUserRole === 'cashier' && currentUserId 
-      ? { sellerId: currentUserId, status: 'completed' }
-      : { status: 'completed' };
+      ? { sellerId: currentUserId, status: { $in: ['completed', 'partially_refunded'] } }
+      : { status: { $in: ['completed', 'partially_refunded'] } };
     
     const topProductsSales = await Sale.find({
       ...topProductsQuery,
@@ -182,8 +210,8 @@ export async function loader({ request }: { request: Request }) {
     
     // Calculate total revenue for all users (with role-based filtering)
     const totalRevenueQuery = currentUserRole === 'cashier' && currentUserId 
-      ? { sellerId: currentUserId, status: 'completed', totalAmount: { $gt: 0 } }
-      : { status: 'completed', totalAmount: { $gt: 0 } };
+      ? { sellerId: currentUserId, status: { $in: ['completed', 'partially_refunded'] }, totalAmount: { $gt: 0 } }
+      : { status: { $in: ['completed', 'partially_refunded'] }, totalAmount: { $gt: 0 } };
     
     const totalRevenue = await Sale.aggregate([
       { $match: totalRevenueQuery },
@@ -213,8 +241,8 @@ export async function loader({ request }: { request: Request }) {
     
     const dashboardData = {
       todayStats: {
-        revenue: todayRevenue,
-        count: todayCount,
+        revenue: effectiveTodayRevenue,
+        count: effectiveTodayCount,
         revenueChange: todayRevenueChange,
         countChange: todayCountChange
       },

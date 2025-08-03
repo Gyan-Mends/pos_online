@@ -145,8 +145,11 @@ export default function Dashboard() {
     try {
       setLoading(true);
       const response = await dashboardAPI.getStats();
-      console.log('Dashboard data:', response);
-      setDashboardData((response as any)?.data || response);
+      console.log('Dashboard response:', response);
+      console.log('Dashboard response data:', response?.data);
+      console.log('Dashboard today stats:', response?.data?.data?.todayStats);
+      console.log('Dashboard monthly stats:', response?.data?.data?.monthlyStats);
+      setDashboardData((response as any)?.data?.data || (response as any)?.data || response);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       errorToast('Failed to load dashboard data');
@@ -417,14 +420,11 @@ export default function Dashboard() {
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {formatCurrency(dashboardData.todayStats?.revenue || 0)}
                 </p>
-                <div className={`flex items-center space-x-1 text-sm ${todayChange.color}`}>
-                  <todayChange.icon className="w-3 h-3" />
-                  <span>{todayChange.value}</span>
-                  <span className="text-gray-500">vs yesterday</span>
-                </div>
               </div>
-              <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                <DollarSignIcon className="w-6 h-6 text-blue-600" />
+              <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
               </div>
             </div>
           </CardBody>
@@ -441,16 +441,11 @@ export default function Dashboard() {
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {dashboardData.todayStats?.count || 0}
                 </p>
-                <div className={`flex items-center space-x-1 text-sm ${
-                  formatPercentage(dashboardData.todayStats?.countChange || 0).color
-                }`}>
-                  {formatPercentage(dashboardData.todayStats?.countChange || 0).icon({ className: "w-3 h-3" })}
-                  <span>{formatPercentage(dashboardData.todayStats?.countChange || 0).value}</span>
-                  <span className="text-gray-500">vs yesterday</span>
-                </div>
               </div>
-              <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                <ShoppingCartIcon className="w-6 h-6 text-green-600" />
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
               </div>
             </div>
           </CardBody>
@@ -467,20 +462,17 @@ export default function Dashboard() {
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {formatCurrency(dashboardData.monthlyStats?.revenue || 0)}
                 </p>
-                <div className={`flex items-center space-x-1 text-sm ${monthlyChange.color}`}>
-                  <monthlyChange.icon className="w-3 h-3" />
-                  <span>{monthlyChange.value}</span>
-                  <span className="text-gray-500">vs last month</span>
-                </div>
               </div>
-              <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-                <DollarSignIcon className="w-6 h-6 text-purple-600" />
+              <div className="p-3 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
               </div>
             </div>
           </CardBody>
         </Card>
 
-        {/* Admin-specific or Cashier-specific stat */}
+        {/* Fourth Card - Admin-specific or Cashier-specific stat */}
         {user?.role === 'admin' ? (
           <Card>
             <CardBody className="p-6">
@@ -492,10 +484,11 @@ export default function Dashboard() {
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {dashboardData.lowStockProducts || 0}
                   </p>
-                  <p className="text-sm text-gray-500">Products need restocking</p>
                 </div>
                 <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
-                  <AlertTriangleIcon className="w-6 h-6 text-orange-600" />
+                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.502 0L4.732 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
                 </div>
               </div>
             </CardBody>
@@ -511,10 +504,11 @@ export default function Dashboard() {
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {dashboardData.monthlyStats?.count || 0}
                   </p>
-                  <p className="text-sm text-gray-500">Sales this month</p>
                 </div>
                 <div className="p-3 bg-indigo-100 dark:bg-indigo-900/20 rounded-lg">
-                  <ShoppingCartIcon className="w-6 h-6 text-indigo-600" />
+                  <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 2.5M7 13l2.5 2.5M17 21a2 2 0 100-4 2 2 0 000 4zM9 21a2 2 0 100-4 2 2 0 000 4z" />
+                  </svg>
                 </div>
               </div>
             </CardBody>
