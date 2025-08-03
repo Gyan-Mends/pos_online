@@ -67,7 +67,13 @@ export async function loader({ request }: { request: Request }) {
     // Use whichever query found more sales
     const effectiveTodaySales = todaySales.length > 0 ? todaySales : todaySalesAlt;
     const effectiveTodayPositiveSales = effectiveTodaySales.filter(sale => (sale.totalAmount || 0) > 0);
-    const effectiveTodayRevenue = effectiveTodayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    
+    // Calculate revenue after deducting refunds (using same logic as financial report)
+    const effectiveTodayRefundSales = effectiveTodaySales.filter(sale => (sale.totalAmount || 0) < 0);
+    const effectiveTodayGrossRevenue = effectiveTodayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const effectiveTodayRefunds = Math.abs(effectiveTodayRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
+    const effectiveTodayRevenue = effectiveTodayGrossRevenue - effectiveTodayRefunds;
+    
     const effectiveTodayCount = effectiveTodayPositiveSales.length;
     
     // Yesterday's sales for comparison
@@ -82,7 +88,10 @@ export async function loader({ request }: { request: Request }) {
       status: { $in: ['completed', 'partially_refunded'] }
     });
     const yesterdayPositiveSales = yesterdaySales.filter(sale => (sale.totalAmount || 0) > 0);
-    const yesterdayRevenue = yesterdayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const yesterdayRefundSales = yesterdaySales.filter(sale => (sale.totalAmount || 0) < 0);
+    const yesterdayGrossRevenue = yesterdayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const yesterdayRefunds = Math.abs(yesterdayRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
+    const yesterdayRevenue = yesterdayGrossRevenue - yesterdayRefunds;
     const yesterdayCount = yesterdayPositiveSales.length;
     
     // Monthly sales
@@ -94,7 +103,10 @@ export async function loader({ request }: { request: Request }) {
     
     const monthlySales = await Sale.find(monthlySalesQuery);
     const monthlyPositiveSales = monthlySales.filter(sale => (sale.totalAmount || 0) > 0);
-    const monthlyRevenue = monthlyPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const monthlyRefundSales = monthlySales.filter(sale => (sale.totalAmount || 0) < 0);
+    const monthlyGrossRevenue = monthlyPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const monthlyRefunds = Math.abs(monthlyRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
+    const monthlyRevenue = monthlyGrossRevenue - monthlyRefunds;
     
     // Last month for comparison
     const lastMonthStart = new Date(startOfMonth);
@@ -107,7 +119,10 @@ export async function loader({ request }: { request: Request }) {
       status: { $in: ['completed', 'partially_refunded'] }
     });
     const lastMonthPositiveSales = lastMonthSales.filter(sale => (sale.totalAmount || 0) > 0);
-    const lastMonthRevenue = lastMonthPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const lastMonthRefundSales = lastMonthSales.filter(sale => (sale.totalAmount || 0) < 0);
+    const lastMonthGrossRevenue = lastMonthPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const lastMonthRefunds = Math.abs(lastMonthRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
+    const lastMonthRevenue = lastMonthGrossRevenue - lastMonthRefunds;
     
     // Weekly sales trend (last 7 days)
     const weeklyTrend = [];
@@ -126,7 +141,10 @@ export async function loader({ request }: { request: Request }) {
       });
       
       const dayPositiveSales = daySales.filter(sale => (sale.totalAmount || 0) > 0);
-      const dayRevenue = dayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+      const dayRefundSales = daySales.filter(sale => (sale.totalAmount || 0) < 0);
+      const dayGrossRevenue = dayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+      const dayRefunds = Math.abs(dayRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
+      const dayRevenue = dayGrossRevenue - dayRefunds;
       
       weeklyTrend.push({
         date: dayStart.toISOString().split('T')[0],
@@ -148,7 +166,10 @@ export async function loader({ request }: { request: Request }) {
       });
       
       const monthPositiveSales = monthSales.filter(sale => (sale.totalAmount || 0) > 0);
-      const monthRevenue = monthPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+      const monthRefundSales = monthSales.filter(sale => (sale.totalAmount || 0) < 0);
+      const monthGrossRevenue = monthPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+      const monthRefunds = Math.abs(monthRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
+      const monthRevenue = monthGrossRevenue - monthRefunds;
       
       monthlyTrend.push({
         month: monthStart.toISOString().substring(0, 7),
@@ -208,15 +229,18 @@ export async function loader({ request }: { request: Request }) {
     const monthlyRevenueChange = lastMonthRevenue === 0 ? 0 : 
       ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100;
     
-    // Calculate total revenue for all users (with role-based filtering)
+    // Calculate total revenue for all users (with role-based filtering) - include both positive and negative amounts
     const totalRevenueQuery = currentUserRole === 'cashier' && currentUserId 
-      ? { sellerId: currentUserId, status: { $in: ['completed', 'partially_refunded'] }, totalAmount: { $gt: 0 } }
-      : { status: { $in: ['completed', 'partially_refunded'] }, totalAmount: { $gt: 0 } };
+      ? { sellerId: currentUserId, status: { $in: ['completed', 'partially_refunded', 'refunded'] } }
+      : { status: { $in: ['completed', 'partially_refunded', 'refunded'] } };
     
-    const totalRevenue = await Sale.aggregate([
-      { $match: totalRevenueQuery },
-      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-    ]).then(result => result[0]?.total || 0);
+    // Calculate total revenue using same logic as financial report
+    const allSales = await Sale.find(totalRevenueQuery);
+    const allPositiveSales = allSales.filter(sale => (sale.totalAmount || 0) > 0);
+    const allRefundSales = allSales.filter(sale => (sale.totalAmount || 0) < 0);
+    const allGrossRevenue = allPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const allRefunds = Math.abs(allRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
+    const totalRevenue = allGrossRevenue - allRefunds;
 
     const totalSalesCount = await Sale.countDocuments(totalRevenueQuery);
     
