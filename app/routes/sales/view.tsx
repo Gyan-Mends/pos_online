@@ -30,6 +30,7 @@ import type { Sale } from '../../types';
 export default function SaleViewPage() {
   const { id } = useParams();
   const [sale, setSale] = useState<Sale | null>(null);
+  const [refunds, setRefunds] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,12 +45,150 @@ export default function SaleViewPage() {
       const response = await salesAPI.getById(saleId);
       const saleData = (response as any)?.data || response;
       setSale(saleData);
+      
+      // Load refunds for this sale
+      await loadRefunds(saleData.receiptNumber);
     } catch (error) {
       errorToast('Failed to load sale details');
       console.error('Error loading sale:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadRefunds = async (receiptNumber: string) => {
+    try {
+      const response = await salesAPI.getAll({ limit: 1000 });
+      const allSales = (response as any)?.data || response || [];
+      
+      // Find refunds that reference this sale
+      const saleRefunds = allSales.filter((sale: Sale) => {
+        // Primary method: Check for negative amounts with notes referencing the original sale
+        const isNegativeRefund = (sale.totalAmount || 0) < 0 && 
+          sale.notes?.includes(`Refund for ${receiptNumber}`);
+        
+        // Secondary method: Check payment reference
+        const hasRefundPayment = sale.payments?.some((payment: any) => 
+          payment.method === 'refund' && payment.reference === receiptNumber
+        );
+        
+        console.log('🔍 Checking sale for refunds:', {
+          receiptNumber: sale.receiptNumber,
+          totalAmount: sale.totalAmount,
+          isNegativeRefund,
+          hasRefundPayment,
+          notes: sale.notes
+        });
+        
+        return isNegativeRefund || hasRefundPayment;
+      });
+      
+      console.log('🔍 Loading refunds for receipt:', receiptNumber);
+      console.log('📊 All sales count:', allSales.length);
+      console.log('💰 Found refunds:', saleRefunds.length);
+      console.log('📋 Refunds details:', saleRefunds.map(r => ({
+        receiptNumber: r.receiptNumber,
+        totalAmount: r.totalAmount,
+        payments: r.payments,
+        items: r.items?.length || 0,
+        notes: r.notes
+      })));
+      
+      setRefunds(saleRefunds);
+    } catch (error) {
+      console.error('Error loading refunds:', error);
+    }
+  };
+
+  // Calculate refunded quantities for each item
+  const getRefundedQuantities = () => {
+    const refundedQuantities: { [productId: string]: number } = {};
+    
+    console.log('🔄 Calculating refunded quantities...');
+    console.log('📦 Refunds to process:', refunds.length);
+    
+    refunds.forEach(refund => {
+      console.log('💰 Processing refund:', refund.receiptNumber, 'Total amount:', refund.totalAmount);
+      refund.items?.forEach(item => {
+        // Handle both string and ObjectId product IDs
+        const productId = item.productId?._id || item.productId;
+        const productIdString = typeof productId === 'object' ? productId.toString() : productId;
+        const quantity = Math.abs(item.quantity);
+        refundedQuantities[productIdString] = (refundedQuantities[productIdString] || 0) + quantity;
+        console.log('📦 Product refunded:', productIdString, 'Quantity:', quantity, 'Running total:', refundedQuantities[productIdString]);
+      });
+    });
+    
+    console.log('📊 Final refunded quantities:', refundedQuantities);
+    return refundedQuantities;
+  };
+
+  // Calculate total refund amount
+  const getTotalRefundAmount = () => {
+    return refunds.reduce((total, refund) => {
+      return total + Math.abs(refund.totalAmount || 0);
+    }, 0);
+  };
+
+  // Get adjusted items with remaining quantities
+  const getAdjustedItems = () => {
+    if (!sale?.items) return [];
+    
+    const refundedQuantities = getRefundedQuantities();
+    
+    console.log('🛍️ Original sale items:', sale.items.map(item => ({
+      productId: item.productId._id || item.productId,
+      name: item.product?.name || 'Unknown',
+      originalQuantity: item.quantity
+    })));
+    
+    return sale.items.map(item => {
+      // Handle both string and ObjectId product IDs
+      const productId = item.productId._id || item.productId;
+      const productIdString = typeof productId === 'object' ? productId.toString() : productId;
+      const refundedQty = refundedQuantities[productIdString] || 0;
+      const remainingQty = Math.max(0, item.quantity - refundedQty);
+      
+      console.log('📦 Item calculation:', {
+        productId: productIdString,
+        name: item.product?.name || 'Unknown',
+        originalQuantity: item.quantity,
+        refundedQuantity: refundedQty,
+        remainingQuantity: remainingQty
+      });
+      
+      return {
+        ...item,
+        originalQuantity: item.quantity,
+        refundedQuantity: refundedQty,
+        remainingQuantity: remainingQty,
+        adjustedTotalPrice: remainingQty * item.unitPrice
+      };
+    });
+  };
+
+  // Calculate adjusted totals
+  const getAdjustedTotals = () => {
+    const adjustedItems = getAdjustedItems();
+    const subtotal = adjustedItems.reduce((total, item) => total + item.adjustedTotalPrice, 0);
+    
+    // Calculate proportional tax
+    const originalSubtotal = sale?.subtotal || 0;
+    const originalTax = sale?.taxAmount || 0;
+    const taxRatio = originalSubtotal > 0 ? subtotal / originalSubtotal : 0;
+    const adjustedTax = originalTax * taxRatio;
+    
+    const total = subtotal + adjustedTax;
+    const refundAmount = getTotalRefundAmount();
+    const amountPaid = (sale?.amountPaid || 0) - refundAmount;
+    
+    return {
+      subtotal,
+      taxAmount: adjustedTax,
+      totalAmount: total,
+      amountPaid,
+      refundAmount
+    };
   };
 
   const formatCurrency = (amount: number) => {
@@ -399,59 +538,64 @@ export default function SaleViewPage() {
             </div>
           </div>
 
-          {/* Items */}
-          <div className="">
-            <div className="p-6">
-              <div className="flex items-center space-x-2 mb-4">
-                <Package className="w-5 h-5 text-gray-400" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Items ({sale.items?.length || 0})
-                </h3>
-              </div>
-
-              <div className="space-y-3">
-                {(sale.items || []).map((item, index) => (
-                  <div key={index} className="flex justify-between items-center p-4 bg-gray-50 customed-dark-card !border-none shadow-sm rounded-lg">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900 dark:text-white">
-                        {item.product?.name || 'Unknown Product'}
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        SKU: {item.product?.sku || 'N/A'}
-                      </p>
-                      <div className="flex items-center space-x-4 mt-1">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Qty: {item.quantity}
-                        </span>
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Unit Price: {formatCurrency(item.unitPrice)}
-                        </span>
-                        {item.discount > 0 && (
-                          <span className="text-sm text-green-600 dark:text-green-400">
-                            Discount: {item.discountType === 'percentage' ? `${item.discount}%` : formatCurrency(item.discount)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(item.quantity * item.unitPrice)}
-                      </p>
-                      {item.discount > 0 && (
-                        <p className="text-sm text-green-600 dark:text-green-400">
-                          -{formatCurrency(
-                            item.discountType === 'percentage' 
-                              ? (item.quantity * item.unitPrice * item.discount) / 100
-                              : item.discount * item.quantity
-                          )}
-                        </p>
-                      )}
-                    </div>
+                        {/* Items */}
+              <div className="">
+                <div className="p-6">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Package className="w-5 h-5 text-gray-400" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Items ({getAdjustedItems().length || 0})
+                    </h3>
                   </div>
-                ))}
+
+                  <div className="space-y-3">
+                    {getAdjustedItems().map((item, index) => (
+                      <div key={index} className="flex justify-between items-center p-4 bg-gray-50 customed-dark-card !border-none shadow-sm rounded-lg">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white">
+                            {item.product?.name || 'Unknown Product'}
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            SKU: {item.product?.sku || 'N/A'}
+                          </p>
+                          <div className="flex items-center space-x-4 mt-1">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              Qty: {item.remainingQuantity}
+                            </span>
+                            {item.refundedQuantity > 0 && (
+                              <span className="text-sm text-red-600 dark:text-red-400">
+                                Refunded: {item.refundedQuantity}
+                              </span>
+                            )}
+                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                              Unit Price: {formatCurrency(item.unitPrice)}
+                            </span>
+                            {item.discount > 0 && (
+                              <span className="text-sm text-green-600 dark:text-green-400">
+                                Discount: {item.discountType === 'percentage' ? `${item.discount}%` : formatCurrency(item.discount)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            {formatCurrency(item.adjustedTotalPrice)}
+                          </p>
+                          {item.discount > 0 && (
+                            <p className="text-sm text-green-600 dark:text-green-400">
+                              {formatCurrency(
+                                item.discountType === 'percentage' 
+                                  ? (item.adjustedTotalPrice * item.discount) / 100
+                                  : item.discount * item.remainingQuantity
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
          
         </div>
@@ -468,7 +612,7 @@ export default function SaleViewPage() {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
-                  <span className="font-medium">{formatCurrency(sale.subtotal)}</span>
+                  <span className="font-medium">{formatCurrency(getAdjustedTotals().subtotal)}</span>
                 </div>
                 
                 {sale.discountAmount > 0 && (
@@ -480,22 +624,29 @@ export default function SaleViewPage() {
                 
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Tax:</span>
-                  <span className="font-medium">{formatCurrency(sale.taxAmount)}</span>
+                  <span className="font-medium">{formatCurrency(getAdjustedTotals().taxAmount)}</span>
                 </div>
                 
                 <Divider />
                 
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total:</span>
-                  <span className={sale.totalAmount < 0 ? 'text-red-600' : 'text-gray-900 dark:text-white'}>
-                    {sale.totalAmount < 0 ? '-' : ''}{formatCurrency(sale.totalAmount)}
+                  <span className={getAdjustedTotals().totalAmount < 0 ? 'text-red-600' : 'text-gray-900 dark:text-white'}>
+                    {getAdjustedTotals().totalAmount < 0 ? '-' : ''}{formatCurrency(getAdjustedTotals().totalAmount)}
                   </span>
                 </div>
 
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Amount Paid:</span>
-                  <span className="font-medium">{formatCurrency(sale.amountPaid)}</span>
+                  <span className="font-medium">{formatCurrency(getAdjustedTotals().amountPaid)}</span>
                 </div>
+
+                {getAdjustedTotals().refundAmount > 0 && (
+                  <div className="flex justify-between text-red-600 dark:text-red-400">
+                    <span>Refunded:</span>
+                    <span>{formatCurrency(getAdjustedTotals().refundAmount)}</span>
+                  </div>
+                )}
               </div>
             </CardBody>
           </Card>
@@ -577,6 +728,59 @@ export default function SaleViewPage() {
               )}
             </CardBody>
           </Card>
+
+          {/* Refund Details */}
+          {refunds.length > 0 && (
+            <Card>
+              <CardBody className="p-6">
+                <div className="flex items-center space-x-2 mb-4">
+                  <RefreshCcw className="w-5 h-5 text-red-400" />
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Refund Details
+                  </h3>
+                </div>
+                
+                <div className="space-y-3">
+                  {refunds.map((refund, index) => (
+                    <div key={index} className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-medium text-red-800 dark:text-red-200">
+                            {refund.receiptNumber}
+                          </p>
+                          <p className="text-sm text-red-600 dark:text-red-400">
+                            {formatDate(refund.saleDate)}
+                          </p>
+                        </div>
+                        <p className="font-bold text-red-800 dark:text-red-200">
+                          {formatCurrency(Math.abs(refund.totalAmount || 0))}
+                        </p>
+                      </div>
+                      
+                      {refund.notes && (
+                        <p className="text-sm text-red-700 dark:text-red-300">
+                          {refund.notes}
+                        </p>
+                      )}
+                      
+                      <div className="mt-2 space-y-1">
+                        {refund.items?.map((item, itemIndex) => (
+                          <div key={itemIndex} className="flex justify-between text-sm">
+                            <span className="text-red-700 dark:text-red-300">
+                              {item.product?.name || 'Unknown Product'} (Qty: {Math.abs(item.quantity)})
+                            </span>
+                            <span className="text-red-700 dark:text-red-300">
+                              {formatCurrency(Math.abs(item.totalPrice || 0))}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardBody>
+            </Card>
+          )}
 
           {/* Notes */}
           {sale.notes && (
