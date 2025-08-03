@@ -675,9 +675,9 @@ export default function Dashboard() {
                       </p>
                     </div>
                   </div>
-                  <p className="font-semibold text-gray-900 dark:text-white">
+                  {/* <p className="font-semibold text-gray-900 dark:text-white">
                     {formatCurrency(product.revenue)}
-                  </p>
+                  </p> */}
                 </div>
               ))}
             </div>

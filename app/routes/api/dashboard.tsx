@@ -51,19 +51,6 @@ export async function loader({ request }: { request: Request }) {
     
     const todaySalesAlt = await Sale.find(todaySalesQueryAlt);
     
-    console.log('Dashboard Debug:', {
-      todaySalesQuery,
-      todaySalesFound: todaySales.length,
-      todaySalesQueryAlt,
-      todaySalesAltFound: todaySalesAlt.length,
-      todayPositiveSales: todayPositiveSales.length,
-      todayRevenue,
-      todayCount,
-      startOfDay,
-      endOfDay,
-      sampleSale: todaySales[0] || todaySalesAlt[0]
-    });
-    
     // Use whichever query found more sales
     const effectiveTodaySales = todaySales.length > 0 ? todaySales : todaySalesAlt;
     const effectiveTodayPositiveSales = effectiveTodaySales.filter(sale => (sale.totalAmount || 0) > 0);
@@ -73,6 +60,30 @@ export async function loader({ request }: { request: Request }) {
     const effectiveTodayGrossRevenue = effectiveTodayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
     const effectiveTodayRefunds = Math.abs(effectiveTodayRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
     const effectiveTodayRevenue = effectiveTodayGrossRevenue - effectiveTodayRefunds;
+    
+    console.log('Dashboard Debug:', {
+      todaySalesQuery,
+      todaySalesFound: todaySales.length,
+      todaySalesQueryAlt,
+      todaySalesAltFound: todaySalesAlt.length,
+      todayPositiveSales: todayPositiveSales.length,
+      oldTodayRevenue: todayRevenue,
+      todayCount,
+      startOfDay,
+      endOfDay,
+      sampleSale: todaySales[0] || todaySalesAlt[0],
+      effectiveTodayGrossRevenue,
+      effectiveTodayRefunds,
+      effectiveTodayRevenue,
+      revenueDifference: effectiveTodayRevenue - todayRevenue,
+      allSalesDetailed: effectiveTodaySales.map(sale => ({
+        receiptNumber: sale.receiptNumber,
+        totalAmount: sale.totalAmount,
+        status: sale.status,
+        saleDate: sale.saleDate,
+        createdAt: sale.createdAt
+      }))
+    });
     
     const effectiveTodayCount = effectiveTodayPositiveSales.length;
     
@@ -94,11 +105,11 @@ export async function loader({ request }: { request: Request }) {
     const yesterdayRevenue = yesterdayGrossRevenue - yesterdayRefunds;
     const yesterdayCount = yesterdayPositiveSales.length;
     
-    // Monthly sales
+    // Monthly sales - include all sales including refunds
     const monthlySalesQuery = { 
       ...salesQuery,
       saleDate: { $gte: startOfMonth, $lt: endOfMonth },
-      status: { $in: ['completed', 'partially_refunded'] }
+      status: { $in: ['completed', 'partially_refunded', 'refunded'] }
     };
     
     const monthlySales = await Sale.find(monthlySalesQuery);
@@ -202,15 +213,16 @@ export async function loader({ request }: { request: Request }) {
       saleDate: { $gte: startOfMonth, $lt: endOfMonth }
     }).populate('items.productId', 'name sku').lean();
     
-    // Calculate top products - use same logic as revenue calculations
+    // Calculate top products - include tax like revenue calculations
     const productSales = new Map();
     topProductsSales.forEach(sale => {
       const isRefund = (sale.totalAmount || 0) < 0;
       const multiplier = isRefund ? -1 : 1; // Subtract for refunds, add for sales
       
-      // Calculate each item's proportional share of the sale's totalAmount
+      // Calculate tax rate for this sale to apply proportionally to items
       const saleSubtotal = sale.subtotal || 0;
-      const saleTotalAmount = sale.totalAmount || 0;
+      const saleTaxAmount = sale.taxAmount || 0;
+      const taxRate = saleSubtotal > 0 ? saleTaxAmount / saleSubtotal : 0;
       
       sale.items?.forEach(item => {
         const productId = item.productId?._id?.toString();
@@ -222,14 +234,18 @@ export async function loader({ request }: { request: Request }) {
             revenue: 0 
           };
           
-          // Calculate item's proportional share of the total sale amount (including tax)
-          const itemSubtotal = item.totalPrice || 0;
-          const itemProportionalRevenue = saleSubtotal > 0 
-            ? (itemSubtotal / saleSubtotal) * Math.abs(saleTotalAmount)
-            : 0;
+          // Use the item's share of the total sale amount (same as revenue calculation)
+          const itemSubtotal = item.totalPrice || 0; // Selling price after discount
+          const saleSubtotalSum = sale.subtotal || 0;
+          const saleTotalAmount = Math.abs(sale.totalAmount || 0);
+          
+          // Calculate item's proportional share of the total sale amount
+          const itemRevenueWithTax = saleSubtotalSum > 0 
+            ? (itemSubtotal / saleSubtotalSum) * saleTotalAmount
+            : itemSubtotal;
           
           existing.quantity += (item.quantity || 0) * multiplier;
-          existing.revenue += itemProportionalRevenue * multiplier;
+          existing.revenue += itemRevenueWithTax * multiplier;
           productSales.set(productId, existing);
         }
       });
