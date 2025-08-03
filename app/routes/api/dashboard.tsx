@@ -30,11 +30,11 @@ export async function loader({ request }: { request: Request }) {
       salesQuery.sellerId = currentUserId;
     }
     
-    // Today's sales - include completed and partially_refunded sales
+    // Today's sales - include all sales including refunds
     const todaySalesQuery = { 
       ...salesQuery,
       saleDate: { $gte: startOfDay, $lt: endOfDay },
-      status: { $in: ['completed', 'partially_refunded'] }
+      status: { $in: ['completed', 'partially_refunded', 'refunded'] }
     };
     
     const todaySales = await Sale.find(todaySalesQuery);
@@ -46,7 +46,7 @@ export async function loader({ request }: { request: Request }) {
     const todaySalesQueryAlt = { 
       ...salesQuery,
       createdAt: { $gte: startOfDay, $lt: endOfDay },
-      status: { $in: ['completed', 'partially_refunded'] }
+      status: { $in: ['completed', 'partially_refunded', 'refunded'] }
     };
     
     const todaySalesAlt = await Sale.find(todaySalesQueryAlt);
@@ -96,7 +96,7 @@ export async function loader({ request }: { request: Request }) {
     const yesterdaySales = await Sale.find({
       ...salesQuery,
       saleDate: { $gte: yesterdayStart, $lt: yesterdayEnd },
-      status: { $in: ['completed', 'partially_refunded'] }
+      status: { $in: ['completed', 'partially_refunded', 'refunded'] }
     });
     const yesterdayPositiveSales = yesterdaySales.filter(sale => (sale.totalAmount || 0) > 0);
     const yesterdayRefundSales = yesterdaySales.filter(sale => (sale.totalAmount || 0) < 0);
@@ -127,7 +127,7 @@ export async function loader({ request }: { request: Request }) {
     const lastMonthSales = await Sale.find({
       ...salesQuery,
       saleDate: { $gte: lastMonthStart, $lt: lastMonthEnd },
-      status: { $in: ['completed', 'partially_refunded'] }
+      status: { $in: ['completed', 'partially_refunded', 'refunded'] }
     });
     const lastMonthPositiveSales = lastMonthSales.filter(sale => (sale.totalAmount || 0) > 0);
     const lastMonthRefundSales = lastMonthSales.filter(sale => (sale.totalAmount || 0) < 0);
