@@ -36,6 +36,7 @@ export default function RefundPage() {
   const [refundReason, setRefundReason] = useState('');
   const [processingRefund, setProcessingRefund] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [refunds, setRefunds] = useState<Sale[]>([]);
   
   const { isOpen: isConfirmOpen, onOpen: openConfirm, onOpenChange: onConfirmChange } = useDisclosure();
 
@@ -109,16 +110,8 @@ export default function RefundPage() {
 
       setSale(foundSale);
       
-      // Initialize refund items
-      setRefundItems(foundSale.items.map((item: any) => ({
-        productId: item.productId._id || item.productId,
-        product: item.product || item.productId,
-        originalQuantity: item.quantity,
-        refundQuantity: 0,
-        unitPrice: item.unitPrice,
-        discount: item.discount,
-        discountType: item.discountType
-      })));
+      // Load refunds for this sale to calculate remaining quantities
+      await loadRefunds(foundSale.receiptNumber);
       
       setRefundReason('');
       
@@ -130,10 +123,72 @@ export default function RefundPage() {
     }
   };
 
+  const loadRefunds = async (receiptNumber: string) => {
+    try {
+      const response = await salesAPI.getAll({ limit: 1000 });
+      const allSales = (response as any)?.data || response || [];
+      
+      // Find refunds that reference this sale
+      const saleRefunds = allSales.filter((sale: Sale) => {
+        const isNegativeRefund = (sale.totalAmount || 0) < 0 && 
+          sale.notes?.includes(`Refund for ${receiptNumber}`);
+        
+        const hasRefundPayment = sale.payments?.some((payment: any) => 
+          payment.method === 'refund' && payment.reference === receiptNumber
+        );
+        
+        return isNegativeRefund || hasRefundPayment;
+      });
+      
+      setRefunds(saleRefunds);
+      
+      // Initialize refund items with remaining quantities
+      if (sale) {
+        const refundedQuantities = getRefundedQuantities(saleRefunds);
+        setRefundItems(sale.items.map((item: any) => {
+          const productId = item.productId._id || item.productId;
+          const productIdString = typeof productId === 'object' ? productId.toString() : productId;
+          const refundedQty = refundedQuantities[productIdString] || 0;
+          const remainingQty = Math.max(0, item.quantity - refundedQty);
+          
+          return {
+            productId: item.productId._id || item.productId,
+            product: item.product || item.productId,
+            originalQuantity: item.quantity,
+            refundedQuantity: refundedQty,
+            remainingQuantity: remainingQty,
+            refundQuantity: 0,
+            unitPrice: item.unitPrice,
+            discount: item.discount,
+            discountType: item.discountType
+          };
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading refunds:', error);
+    }
+  };
+
+  // Calculate refunded quantities for each item
+  const getRefundedQuantities = (refundsList: Sale[]) => {
+    const refundedQuantities: { [productId: string]: number } = {};
+    
+    refundsList.forEach(refund => {
+      refund.items?.forEach(item => {
+        const productId = item.productId?._id || item.productId;
+        const productIdString = typeof productId === 'object' ? productId.toString() : productId;
+        const quantity = Math.abs(item.quantity);
+        refundedQuantities[productIdString] = (refundedQuantities[productIdString] || 0) + quantity;
+      });
+    });
+    
+    return refundedQuantities;
+  };
+
   const updateRefundQuantity = (productId: string, quantity: number) => {
     setRefundItems(prev => prev.map(item => 
       item.productId === productId 
-        ? { ...item, refundQuantity: Math.max(0, Math.min(quantity, item.originalQuantity)) }
+        ? { ...item, refundQuantity: Math.max(0, Math.min(quantity, item.remainingQuantity)) }
         : item
     ));
   };
@@ -141,7 +196,7 @@ export default function RefundPage() {
   const selectAllItems = () => {
     setRefundItems(prev => prev.map(item => ({
       ...item,
-      refundQuantity: item.originalQuantity
+      refundQuantity: item.remainingQuantity
     })));
   };
 
@@ -388,48 +443,64 @@ export default function RefundPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {refundItems.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 dark:text-white">
-                          {item.product?.name || 'Unknown Product'}
-                        </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {item.product?.sku} • {formatCurrency(item.unitPrice)} each
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          Original quantity: {item.originalQuantity}
-                        </p>
-                      </div>
-                      
-                      <div className="flex items-center space-x-4">
-                        <div className="text-right">
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Refund Quantity</p>
-                          <CustomInput
-                            type="number"
-                            placeholder="0"
-                            value={item.refundQuantity.toString()}
-                            onChange={(value) => updateRefundQuantity(item.productId, parseInt(value) || 0)}
-                            min="0"
-                            max={item.originalQuantity}
-                            className="w-20"
-                          />
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Refund Amount</p>
-                          <p className="font-medium text-red-600">
-                            {item.refundQuantity > 0 
-                              ? formatCurrency(item.unitPrice * item.refundQuantity - 
-                                  (item.discountType === 'percentage' 
-                                    ? (item.unitPrice * item.refundQuantity * item.discount) / 100
-                                    : item.discount * item.refundQuantity))
-                              : '$0.00'
-                            }
+                  {refundItems.filter(item => item.remainingQuantity > 0).length === 0 ? (
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                      <p className="text-gray-600 dark:text-gray-400">
+                        No items available for refund. All items have already been fully refunded.
+                      </p>
+                    </div>
+                  ) : (
+                    refundItems.filter(item => item.remainingQuantity > 0).map((item, index) => (
+                      <div key={index} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white">
+                            {item.product?.name || 'Unknown Product'}
+                          </h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {item.product?.sku} • {formatCurrency(item.unitPrice)} each
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Original quantity: {item.originalQuantity}
+                            {item.refundedQuantity > 0 && (
+                              <span className="text-orange-600 ml-2">
+                                • Already refunded: {item.refundedQuantity}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-sm text-green-600 dark:text-green-400">
+                            Available to refund: {item.remainingQuantity}
                           </p>
                         </div>
+                        
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Refund Quantity</p>
+                            <CustomInput
+                              type="number"
+                              placeholder="0"
+                              value={item.refundQuantity.toString()}
+                              onChange={(value) => updateRefundQuantity(item.productId, parseInt(value) || 0)}
+                              min="0"
+                              max={item.remainingQuantity}
+                              className="w-20"
+                            />
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">Refund Amount</p>
+                            <p className="font-medium text-red-600">
+                              {item.refundQuantity > 0 
+                                ? formatCurrency(item.unitPrice * item.refundQuantity - 
+                                    (item.discountType === 'percentage' 
+                                      ? (item.unitPrice * item.refundQuantity * item.discount) / 100
+                                      : item.discount * item.refundQuantity))
+                                : '$0.00'
+                              }
+                            </p>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 

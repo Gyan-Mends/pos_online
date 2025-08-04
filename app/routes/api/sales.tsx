@@ -447,6 +447,24 @@ async function handleRefund(request: Request, saleId: string) {
       );
     }
     
+    // Get all existing refunds for this sale to calculate remaining quantities
+    const existingRefunds = await Sale.find({
+      $or: [
+        { notes: { $regex: `Refund for ${sale.receiptNumber}` } },
+        { 'payments.reference': sale.receiptNumber, 'payments.method': 'refund' }
+      ]
+    }).populate('items.productId', 'name sku');
+    
+    // Calculate already refunded quantities
+    const refundedQuantities: { [productId: string]: number } = {};
+    existingRefunds.forEach(refund => {
+      refund.items?.forEach(item => {
+        const productId = item.productId._id.toString();
+        const quantity = Math.abs(item.quantity);
+        refundedQuantities[productId] = (refundedQuantities[productId] || 0) + quantity;
+      });
+    });
+    
     // Calculate refund amount and validate quantities
     let refundAmount = 0;
     const refundItemsWithDetails = [];
@@ -466,11 +484,15 @@ async function handleRefund(request: Request, saleId: string) {
         );
       }
       
-      if (refundItem.quantity > originalItem.quantity) {
+      // Check against remaining quantity (original - already refunded)
+      const alreadyRefunded = refundedQuantities[refundItem.productId] || 0;
+      const remainingQuantity = originalItem.quantity - alreadyRefunded;
+      
+      if (refundItem.quantity > remainingQuantity) {
         return data(
           {
             success: false,
-            message: `Cannot refund more than original quantity for ${originalItem.productId.name}`
+            message: `Cannot refund more than remaining quantity for ${originalItem.productId.name}. Remaining: ${remainingQuantity}, Requested: ${refundItem.quantity}`
           },
           { status: 400 }
         );

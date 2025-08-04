@@ -165,8 +165,24 @@ const SalesReport = () => {
     
     const totalSales = activeSales.length;
     
-    // Calculate revenue from active sales only
-    const totalRevenue = activeSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    // Calculate net revenue from active sales (accounting for partial refunds)
+    const totalRevenue = activeSales.reduce((sum, sale) => {
+      let saleRevenue = sale.totalAmount || 0;
+      
+      // For partially refunded sales, calculate the net amount
+      if (sale.status === 'partially_refunded' && sale.items && sale.items.length > 0) {
+        // Calculate total refunded amount from item refunded quantities
+        const refundedAmount = sale.items.reduce((refundSum: number, item: any) => {
+          const refundedQty = item.refundedQuantity || 0;
+          const itemPrice = item.price || item.unitPrice || item.sellingPrice || (item.totalPrice / item.quantity) || 0;
+          return refundSum + (refundedQty * itemPrice);
+        }, 0);
+        
+        saleRevenue -= refundedAmount;
+      }
+      
+      return sum + saleRevenue;
+    }, 0);
     
     // Calculate average order value from active sales only
     const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
