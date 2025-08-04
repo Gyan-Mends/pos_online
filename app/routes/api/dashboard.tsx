@@ -39,8 +39,9 @@ export async function loader({ request }: { request: Request }) {
     
     const todaySales = await Sale.find(todaySalesQuery);
     const todayPositiveSales = todaySales.filter(sale => (sale.totalAmount || 0) > 0);
+    const todayActiveSales = todayPositiveSales.filter(sale => sale.status !== 'refunded'); // Exclude fully refunded sales
     const todayRevenue = todayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-    const todayCount = todayPositiveSales.length;
+    const todayCount = todayActiveSales.length; // Count only active sales
     
     // Also try with createdAt field in case saleDate is not set
     const todaySalesQueryAlt = { 
@@ -54,6 +55,7 @@ export async function loader({ request }: { request: Request }) {
     // Use whichever query found more sales
     const effectiveTodaySales = todaySales.length > 0 ? todaySales : todaySalesAlt;
     const effectiveTodayPositiveSales = effectiveTodaySales.filter(sale => (sale.totalAmount || 0) > 0);
+    const effectiveTodayActiveSales = effectiveTodayPositiveSales.filter(sale => sale.status !== 'refunded'); // Exclude fully refunded sales
     
     // Calculate revenue after deducting refunds (using same logic as financial report)
     const effectiveTodayRefundSales = effectiveTodaySales.filter(sale => (sale.totalAmount || 0) < 0);
@@ -85,7 +87,7 @@ export async function loader({ request }: { request: Request }) {
       }))
     });
     
-    const effectiveTodayCount = effectiveTodayPositiveSales.length;
+    const effectiveTodayCount = effectiveTodayActiveSales.length; // Count only active sales, not refunded ones
     
     // Yesterday's sales for comparison
     const yesterdayStart = new Date(startOfDay);
@@ -99,11 +101,12 @@ export async function loader({ request }: { request: Request }) {
       status: { $in: ['completed', 'partially_refunded', 'refunded'] }
     });
     const yesterdayPositiveSales = yesterdaySales.filter(sale => (sale.totalAmount || 0) > 0);
+    const yesterdayActiveSales = yesterdayPositiveSales.filter(sale => sale.status !== 'refunded'); // Exclude fully refunded sales
     const yesterdayRefundSales = yesterdaySales.filter(sale => (sale.totalAmount || 0) < 0);
     const yesterdayGrossRevenue = yesterdayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
     const yesterdayRefunds = Math.abs(yesterdayRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
     const yesterdayRevenue = yesterdayGrossRevenue - yesterdayRefunds;
-    const yesterdayCount = yesterdayPositiveSales.length;
+    const yesterdayCount = yesterdayActiveSales.length; // Count only active sales
     
     // Monthly sales - include all sales including refunds
     const monthlySalesQuery = { 
@@ -114,6 +117,7 @@ export async function loader({ request }: { request: Request }) {
     
     const monthlySales = await Sale.find(monthlySalesQuery);
     const monthlyPositiveSales = monthlySales.filter(sale => (sale.totalAmount || 0) > 0);
+    const monthlyActiveSales = monthlyPositiveSales.filter(sale => sale.status !== 'refunded'); // Exclude fully refunded sales
     const monthlyRefundSales = monthlySales.filter(sale => (sale.totalAmount || 0) < 0);
     const monthlyGrossRevenue = monthlyPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
     const monthlyRefunds = Math.abs(monthlyRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
@@ -152,6 +156,7 @@ export async function loader({ request }: { request: Request }) {
       });
       
       const dayPositiveSales = daySales.filter(sale => (sale.totalAmount || 0) > 0);
+      const dayActiveSales = dayPositiveSales.filter(sale => sale.status !== 'refunded'); // Exclude fully refunded sales
       const dayRefundSales = daySales.filter(sale => (sale.totalAmount || 0) < 0);
       const dayGrossRevenue = dayPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
       const dayRefunds = Math.abs(dayRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
@@ -160,7 +165,7 @@ export async function loader({ request }: { request: Request }) {
       weeklyTrend.push({
         date: dayStart.toISOString().split('T')[0],
         revenue: dayRevenue,
-        count: dayPositiveSales.length
+        count: dayActiveSales.length // Count only active sales
       });
     }
     
@@ -177,6 +182,7 @@ export async function loader({ request }: { request: Request }) {
       });
       
       const monthPositiveSales = monthSales.filter(sale => (sale.totalAmount || 0) > 0);
+      const monthActiveSales = monthPositiveSales.filter(sale => sale.status !== 'refunded'); // Exclude fully refunded sales
       const monthRefundSales = monthSales.filter(sale => (sale.totalAmount || 0) < 0);
       const monthGrossRevenue = monthPositiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
       const monthRefunds = Math.abs(monthRefundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
@@ -185,7 +191,7 @@ export async function loader({ request }: { request: Request }) {
       monthlyTrend.push({
         month: monthStart.toISOString().substring(0, 7),
         revenue: monthRevenue,
-        count: monthPositiveSales.length
+        count: monthActiveSales.length // Count only active sales
       });
     }
     
@@ -309,7 +315,7 @@ export async function loader({ request }: { request: Request }) {
       },
       monthlyStats: {
         revenue: monthlyRevenue,
-        count: monthlyPositiveSales.length,
+        count: monthlyActiveSales.length, // Count only active sales, not refunded ones
         revenueChange: monthlyRevenueChange
       },
       weeklyTrend,

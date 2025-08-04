@@ -89,7 +89,7 @@ const FinancialReport = () => {
   // Helper function to load cost data from stock movements for sales missing unit costs
   const loadCostDataForSales = async (sales: any[]) => {
     try {
-      // Get all unique receipt numbers for sales missing unit costs
+      // Get all unique receipt numbers for sales missing unit still is uses
       const receiptNumbers = sales
         .filter(sale => (sale.totalAmount || 0) > 0)
         .filter(sale => {

@@ -153,13 +153,14 @@ const SalesReport = () => {
     
     const totalSales = activeSales.length;
     
-    // Calculate gross revenue from active sales
-    const grossRevenue = activeSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    // Calculate revenue properly by considering all transactions
+    // Get the gross revenue from ALL positive sales (including those later refunded)
+    const grossRevenue = actualSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
     
-    // Calculate total refund amount (refunds are negative, so we need to subtract them)
+    // Calculate total refund amount (refunds are negative)
     const totalRefunds = refunds.reduce((sum, refund) => sum + (refund.totalAmount || 0), 0); // This will be negative
     
-    // Net revenue = Gross revenue + refunds (since refunds are negative)
+    // Net revenue = Gross revenue + refunds (since refunds are negative, this subtracts them)
     const totalRevenue = grossRevenue + totalRefunds;
     
     // Calculate average order value based on net revenue and number of active sales
@@ -193,7 +194,8 @@ const SalesReport = () => {
       
       const dayData = salesByDate.get(date);
       dayData.revenue += sale.totalAmount || 0;
-      if ((sale.totalAmount || 0) > 0) {
+      // Only count positive sales that aren't fully refunded
+      if ((sale.totalAmount || 0) > 0 && sale.status !== 'refunded') {
         dayData.count += 1;
       }
     });
