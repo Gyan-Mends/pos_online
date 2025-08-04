@@ -20,7 +20,7 @@ import {
   CheckCircle,
   ArrowLeft
 } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useSearchParams, useNavigate } from 'react-router';
 import { successToast, errorToast } from '../../components/toast';
 import { salesAPI } from '../../utils/api';
 import CustomInput from '../../components/CustomInput';
@@ -29,6 +29,7 @@ import type { Sale } from '../../types';
 
 export default function RefundPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [receiptNumber, setReceiptNumber] = useState('');
   const [sale, setSale] = useState<Sale | null>(null);
   const [loading, setLoading] = useState(false);
@@ -96,7 +97,10 @@ export default function RefundPage() {
         return;
       }
 
+      console.log('🔍 Sale found - Receipt:', foundSale.receiptNumber, 'Status:', foundSale.status);
+      
       if (foundSale.status === 'refunded') {
+        console.log('❌ Blocking refund - sale is marked as fully refunded');
         errorToast('This sale has already been fully refunded');
         setSale(null);
         return;
@@ -108,10 +112,11 @@ export default function RefundPage() {
         return;
       }
 
+      console.log('🔍 Found sale:', foundSale.receiptNumber, 'Status:', foundSale.status);
       setSale(foundSale);
       
       // Load refunds for this sale to calculate remaining quantities
-      await loadRefunds(foundSale.receiptNumber);
+      await loadRefunds(foundSale.receiptNumber, foundSale);
       
       setRefundReason('');
       
@@ -123,7 +128,7 @@ export default function RefundPage() {
     }
   };
 
-  const loadRefunds = async (receiptNumber: string) => {
+  const loadRefunds = async (receiptNumber: string, currentSale?: Sale) => {
     try {
       const response = await salesAPI.getAll({ limit: 1000 });
       const allSales = (response as any)?.data || response || [];
@@ -141,11 +146,32 @@ export default function RefundPage() {
       });
       
       setRefunds(saleRefunds);
+      console.log('🔍 Found refunds for receipt:', receiptNumber, saleRefunds.length);
       
       // Initialize refund items with remaining quantities
-      if (sale) {
+      // Use the current sale from the parameter since state might not be updated yet
+      const saleToUse = currentSale || sale;
+      if (saleToUse) {
         const refundedQuantities = getRefundedQuantities(saleRefunds);
-        setRefundItems(sale.items.map((item: any) => {
+        console.log('📊 Refunded quantities:', refundedQuantities);
+        
+        // Check if all items are fully refunded
+        const allItemsRefunded = saleToUse.items.every((item: any) => {
+          const productId = item.productId._id || item.productId;
+          const productIdString = typeof productId === 'object' ? productId.toString() : productId;
+          const refundedQty = refundedQuantities[productIdString] || 0;
+          return refundedQty >= item.quantity;
+        });
+        
+        console.log('🔍 All items fully refunded?', allItemsRefunded);
+        console.log('🔍 Sale status:', saleToUse.status);
+        
+        // If all items are refunded but status is still partial, we have a mismatch
+        if (allItemsRefunded && saleToUse.status === 'partially_refunded') {
+          console.log('⚠️ Status mismatch detected - will be fixed when processing refunds');
+        }
+        
+        setRefundItems(saleToUse.items.map((item: any) => {
           const productId = item.productId._id || item.productId;
           const productIdString = typeof productId === 'object' ? productId.toString() : productId;
           const refundedQty = refundedQuantities[productIdString] || 0;
@@ -183,6 +209,31 @@ export default function RefundPage() {
     });
     
     return refundedQuantities;
+  };
+
+  // Force update sale status when there's a mismatch
+  const updateSaleStatus = async (saleId: string, status: string) => {
+    try {
+      console.log('🔄 Force updating sale status to:', status);
+      
+      // Call the update-status API endpoint
+      const response = await fetch(`/api/sales/${saleId}/update-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const result = await response.json();
+      console.log('✅ Status update result:', result);
+      
+      // Reload the sale data to reflect the updated status
+      if (sale) {
+        await searchSaleByReceipt(sale.receiptNumber);
+      }
+    } catch (error) {
+      console.error('Error updating sale status:', error);
+    }
   };
 
   const updateRefundQuantity = (productId: string, quantity: number) => {
@@ -262,12 +313,13 @@ export default function RefundPage() {
       
       successToast('Refund processed successfully');
       
-      // Reset form
-      setReceiptNumber('');
-      setSale(null);
-      setRefundItems([]);
-      setRefundReason('');
+      // Close the modal first
       onConfirmChange();
+      
+      // Redirect to sales page after successful refund
+      setTimeout(() => {
+        navigate('/sales');
+      }, 1500); // Give time for the success toast to be seen
       
     } catch (error: any) {
       console.error('❌ Refund API error:', error);

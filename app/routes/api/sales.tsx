@@ -163,6 +163,12 @@ export async function action({ request }: { request: Request }) {
         return await handleRefund(request, saleId);
       }
       
+      // Check for update-status endpoint
+      if (url.pathname.includes('/update-status') && pathParts.length >= 4) {
+        const saleId = pathParts[2]; // Get the sale ID
+        return await handleUpdateStatus(request, saleId);
+      }
+      
       // Regular sale creation
       const saleData = await request.json();
       
@@ -448,12 +454,18 @@ async function handleRefund(request: Request, saleId: string) {
     }
     
     // Get all existing refunds for this sale to calculate remaining quantities
+    console.log('🔍 Looking for existing refunds for receipt:', sale.receiptNumber);
     const existingRefunds = await Sale.find({
       $or: [
         { notes: { $regex: `Refund for ${sale.receiptNumber}` } },
         { 'payments.reference': sale.receiptNumber, 'payments.method': 'refund' }
       ]
     }).populate('items.productId', 'name sku');
+    
+    console.log('📊 Found existing refunds:', existingRefunds.length);
+    existingRefunds.forEach(refund => {
+      console.log('💰 Refund:', refund.receiptNumber, 'Items:', refund.items?.length || 0);
+    });
     
     // Calculate already refunded quantities
     const refundedQuantities: { [productId: string]: number } = {};
@@ -569,55 +581,119 @@ async function handleRefund(request: Request, saleId: string) {
     const taxRefund = (refundAmount / sale.subtotal) * sale.taxAmount;
     const totalRefund = refundAmount + taxRefund;
     
-    // Generate refund number
-    const generateRefundNumber = async () => {
-      const date = new Date();
-      const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-      const count = await Sale.countDocuments({
-        receiptNumber: { $regex: `^REF-${dateStr}` }
+    // Check if there's already a refund record for this sale
+    let refund = existingRefunds.length > 0 ? existingRefunds[0] : null;
+    
+    if (refund) {
+      // Update existing refund record
+      console.log('📝 Updating existing refund:', refund.receiptNumber);
+      
+      // Add new refund items to existing ones
+      const existingRefundItems = refund.items || [];
+      const updatedRefundItems = [...existingRefundItems];
+      
+      // Merge or add new refund items
+      refundItemsWithDetails.forEach(newItem => {
+        const existingItemIndex = updatedRefundItems.findIndex(existingItem => 
+          existingItem.productId.toString() === newItem.productId
+        );
+        
+        if (existingItemIndex >= 0) {
+          // Update existing item quantity and total
+          updatedRefundItems[existingItemIndex].quantity += newItem.quantity;
+          updatedRefundItems[existingItemIndex].totalPrice += newItem.totalPrice;
+        } else {
+          // Add new item
+          updatedRefundItems.push(newItem);
+        }
       });
-      return `REF-${dateStr}-${(count + 1).toString().padStart(4, '0')}`;
-    };
+      
+      // Update refund totals
+      refund.items = updatedRefundItems;
+      refund.subtotal -= refundAmount;
+      refund.taxAmount -= taxRefund;
+      refund.totalAmount -= totalRefund;
+      refund.amountPaid -= totalRefund;
+      refund.notes = `${refund.notes} | Additional refund: ${reason}`;
+      
+      // Update payment record
+      if (refund.payments && refund.payments.length > 0) {
+        refund.payments[0].amount -= totalRefund;
+      }
+      
+      await refund.save();
+    } else {
+      // Create new refund record
+      console.log('🆕 Creating new refund record');
+      
+      const generateRefundNumber = async () => {
+        const date = new Date();
+        const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+        const count = await Sale.countDocuments({
+          receiptNumber: { $regex: `^REF-${dateStr}` }
+        });
+        return `REF-${dateStr}-${(count + 1).toString().padStart(4, '0')}`;
+      };
+      
+      const refundNumber = await generateRefundNumber();
+      
+      refund = new Sale({
+        receiptNumber: refundNumber,
+        customerId: sale.customerId,
+        sellerId: processedBy,
+        items: refundItemsWithDetails,
+        subtotal: -refundAmount,
+        taxAmount: -taxRefund,
+        discountAmount: 0,
+        totalAmount: -totalRefund,
+        amountPaid: -totalRefund,
+        changeAmount: 0,
+        payments: [{
+          method: 'refund',
+          amount: -totalRefund,
+          reference: sale.receiptNumber,
+          status: 'completed'
+        }],
+        status: 'completed',
+        notes: `Refund for ${sale.receiptNumber}: ${reason}`,
+        saleDate: new Date()
+      });
+      
+      await refund.save();
+    }
     
-    const refundNumber = await generateRefundNumber();
-    
-    // Create refund record (as a sale with negative amounts)
-    const refund = new Sale({
-      receiptNumber: refundNumber,
-      customerId: sale.customerId,
-      sellerId: processedBy,
-      items: refundItemsWithDetails,
-      subtotal: -refundAmount,
-      taxAmount: -taxRefund,
-      discountAmount: 0,
-      totalAmount: -totalRefund,
-      amountPaid: -totalRefund,
-      changeAmount: 0,
-      payments: [{
-        method: 'refund',
-        amount: -totalRefund,
-        reference: sale.receiptNumber,
-        status: 'completed'
-      }],
-      status: 'completed',
-      notes: `Refund for ${sale.receiptNumber}: ${reason}`,
-      saleDate: new Date()
+    // Update original sale status based on total cumulative refunds
+    // Calculate new total refunded quantities after this refund
+    const updatedRefundedQuantities: { [productId: string]: number } = { ...refundedQuantities };
+    refundItemsWithDetails.forEach(refundItem => {
+      const productId = refundItem.productId;
+      updatedRefundedQuantities[productId] = (updatedRefundedQuantities[productId] || 0) + refundItem.quantity;
     });
     
-    await refund.save();
+    // Check if all items are now fully refunded
+    console.log('🔍 Checking refund status for sale:', sale.receiptNumber);
+    console.log('📊 Original items:', sale.items.map(item => ({
+      productId: item.productId._id.toString(),
+      quantity: item.quantity
+    })));
+    console.log('📊 Updated refunded quantities:', updatedRefundedQuantities);
     
-    // Update original sale status
-    const isFullRefund = refundItemsWithDetails.every(refundItem => {
-      const originalItem = sale.items.find(item => 
-        item.productId._id.toString() === refundItem.productId
-      );
-      return originalItem && refundItem.quantity === originalItem.quantity;
-    }) && refundItemsWithDetails.length === sale.items.length;
+    const isFullRefund = sale.items.every(originalItem => {
+      const productId = originalItem.productId._id.toString();
+      const totalRefunded = updatedRefundedQuantities[productId] || 0;
+      const isItemFullyRefunded = totalRefunded >= originalItem.quantity;
+      console.log(`📦 Item ${productId}: original=${originalItem.quantity}, refunded=${totalRefunded}, fullyRefunded=${isItemFullyRefunded}`);
+      return isItemFullyRefunded;
+    });
+    
+    console.log('✅ Is full refund?', isFullRefund);
     
     if (isFullRefund) {
       sale.status = 'refunded';
+      console.log('✅ Setting status to: refunded');
     } else {
       sale.status = 'partially_refunded';
+      console.log('⚠️ Setting status to: partially_refunded');
     }
     
     await sale.save();
@@ -656,6 +732,90 @@ async function handleRefund(request: Request, saleId: string) {
       {
         success: false,
         message: error.message || 'Failed to process refund'
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// Handle status update functionality
+async function handleUpdateStatus(request: Request, saleId: string) {
+  try {
+    // Import server-only modules
+    await import('../../mongoose.server');
+    const mongoose = await import('mongoose');
+    const { default: Sale } = await import('../../models/Sale');
+    
+    if (!mongoose.Types.ObjectId.isValid(saleId)) {
+      return data(
+        {
+          success: false,
+          message: 'Invalid sale ID'
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Find the original sale
+    const sale = await Sale.findById(saleId).populate('items.productId', 'name sku');
+    if (!sale) {
+      return data(
+        {
+          success: false,
+          message: 'Sale not found'
+        },
+        { status: 404 }
+      );
+    }
+    
+    // Get all existing refunds for this sale
+    const existingRefunds = await Sale.find({
+      $or: [
+        { notes: { $regex: `Refund for ${sale.receiptNumber}` } },
+        { 'payments.reference': sale.receiptNumber, 'payments.method': 'refund' }
+      ]
+    }).populate('items.productId', 'name sku');
+    
+    // Calculate refunded quantities
+    const refundedQuantities: { [productId: string]: number } = {};
+    existingRefunds.forEach(refund => {
+      refund.items?.forEach(item => {
+        const productId = item.productId._id.toString();
+        const quantity = Math.abs(item.quantity);
+        refundedQuantities[productId] = (refundedQuantities[productId] || 0) + quantity;
+      });
+    });
+    
+    // Check if all items are fully refunded
+    const isFullRefund = sale.items.every(originalItem => {
+      const productId = originalItem.productId._id.toString();
+      const totalRefunded = refundedQuantities[productId] || 0;
+      return totalRefunded >= originalItem.quantity;
+    });
+    
+    // Update status
+    const newStatus = isFullRefund ? 'refunded' : 'partially_refunded';
+    sale.status = newStatus;
+    await sale.save();
+    
+    console.log(`✅ Updated sale ${sale.receiptNumber} status to: ${newStatus}`);
+    
+    return data({
+      success: true,
+      data: { 
+        status: newStatus,
+        isFullRefund,
+        refundedQuantities
+      },
+      message: `Sale status updated to ${newStatus}`
+    });
+    
+  } catch (error: any) {
+    console.error('Error updating sale status:', error);
+    return data(
+      {
+        success: false,
+        message: error.message || 'Failed to update sale status'
       },
       { status: 500 }
     );

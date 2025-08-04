@@ -144,47 +144,25 @@ const SalesReport = () => {
   const calculateSummary = () => {
     if (!salesData.length) return null;
     
-    // Filter active sales using the same logic as the table
-    const activeSales = salesData.filter(sale => {
-      // Exclude sales with status 'refunded'
-      if (sale.status === 'refunded') return false;
-      
-      // Exclude refund transactions (negative amounts)
-      if ((sale.totalAmount || 0) <= 0) return false;
-      
-      // Exclude sales that are fully refunded (all items refunded)
-      if (sale.items && sale.items.length > 0) {
-        const allItemsRefunded = sale.items.every((item: any) => 
-          item.refundedQuantity >= item.quantity
-        );
-        if (allItemsRefunded) return false;
-      }
-      
-      return true;
-    });
+    // Separate sales and refunds
+    const actualSales = salesData.filter(sale => (sale.totalAmount || 0) > 0);
+    const refunds = salesData.filter(sale => (sale.totalAmount || 0) < 0);
+    
+    // Filter active sales (not fully refunded)
+    const activeSales = actualSales.filter(sale => sale.status !== 'refunded');
     
     const totalSales = activeSales.length;
     
-    // Calculate net revenue from active sales (accounting for partial refunds)
-    const totalRevenue = activeSales.reduce((sum, sale) => {
-      let saleRevenue = sale.totalAmount || 0;
-      
-      // For partially refunded sales, calculate the net amount
-      if (sale.status === 'partially_refunded' && sale.items && sale.items.length > 0) {
-        // Calculate total refunded amount from item refunded quantities
-        const refundedAmount = sale.items.reduce((refundSum: number, item: any) => {
-          const refundedQty = item.refundedQuantity || 0;
-          const itemPrice = item.price || item.unitPrice || item.sellingPrice || (item.totalPrice / item.quantity) || 0;
-          return refundSum + (refundedQty * itemPrice);
-        }, 0);
-        
-        saleRevenue -= refundedAmount;
-      }
-      
-      return sum + saleRevenue;
-    }, 0);
+    // Calculate gross revenue from active sales
+    const grossRevenue = activeSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
     
-    // Calculate average order value from active sales only
+    // Calculate total refund amount (refunds are negative, so we need to subtract them)
+    const totalRefunds = refunds.reduce((sum, refund) => sum + (refund.totalAmount || 0), 0); // This will be negative
+    
+    // Net revenue = Gross revenue + refunds (since refunds are negative)
+    const totalRevenue = grossRevenue + totalRefunds;
+    
+    // Calculate average order value based on net revenue and number of active sales
     const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
     
     // Calculate total items from active sales only

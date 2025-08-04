@@ -282,7 +282,7 @@ export default function SalesHistoryPage() {
   // Calculate summary statistics
   const totalSales = sales.filter(sale => sale.totalAmount > 0).length;
   const totalRefunds = sales.filter(sale => sale.totalAmount < 0).length;
-  const totalRevenue = sales.filter(sale => sale.totalAmount > 0).reduce((sum, sale) => sum + sale.totalAmount, 0);
+  const totalRevenue = sales.reduce((sum, sale) => sum + sale.totalAmount, 0); // Include both positive sales and negative refunds for net revenue
 
   return (
     <div className="space-y-6">
