@@ -245,13 +245,14 @@ const FinancialReport = () => {
     
     // Separate positive sales and refunds
     const positiveSales = salesData.filter(sale => (sale.totalAmount || 0) > 0);
+    const activeSales = positiveSales.filter(sale => sale.status !== 'refunded'); // Exclude fully refunded sales
     const refundSales = salesData.filter(sale => (sale.totalAmount || 0) < 0);
     
     // Revenue calculations - include all positive sales
     const grossRevenue = positiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
     const totalRefunds = Math.abs(refundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
     const totalRevenue = grossRevenue - totalRefunds; // Net revenue after refunds
-    const totalSales = positiveSales.length;
+    const totalSales = activeSales.length; // Count only active sales, not refunded ones
     const avgOrderValue = totalSales > 0 ? grossRevenue / totalSales : 0;
     
     console.log('Financial summary calculations:', {
@@ -388,11 +389,12 @@ const FinancialReport = () => {
       });
       
       const positiveSales = daySales.filter(sale => (sale.totalAmount || 0) > 0);
+      const activeSales = positiveSales.filter(sale => sale.status !== 'refunded'); // Exclude fully refunded sales
       const refundSales = daySales.filter(sale => (sale.totalAmount || 0) < 0);
       const grossRevenue = positiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
       const refunds = Math.abs(refundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
       const revenue = grossRevenue - refunds;
-      const count = positiveSales.length;
+      const count = activeSales.length; // Count only active sales, not refunded ones
       
       return {
         date: format(day, 'yyyy-MM-dd'),
@@ -425,11 +427,12 @@ const FinancialReport = () => {
       });
       
       const positiveSales = monthSales.filter(sale => (sale.totalAmount || 0) > 0);
+      const activeSales = positiveSales.filter(sale => sale.status !== 'refunded'); // Exclude fully refunded sales
       const refundSales = monthSales.filter(sale => (sale.totalAmount || 0) < 0);
       const grossRevenue = positiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
       const refunds = Math.abs(refundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
       const revenue = grossRevenue - refunds;
-      const count = positiveSales.length;
+      const count = activeSales.length; // Count only active sales, not refunded ones
       
       return {
         month: format(month, 'yyyy-MM'),
