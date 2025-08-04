@@ -92,14 +92,20 @@ UserSchema.index({ role: 1 });
 // Pre-save middleware to hash password
 UserSchema.pre('save', async function(next) {
   // Only hash the password if it has been modified (or is new)
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password')) {
+    console.log('Password not modified, skipping hash');
+    return next();
+  }
 
   try {
+    console.log('Password modified, hashing...');
     // Hash password with cost of 12
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
+    console.log('Password hashed successfully');
     next();
   } catch (error: any) {
+    console.error('Error hashing password:', error);
     next(error);
   }
 });

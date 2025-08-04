@@ -78,6 +78,8 @@ export default function ProfilePage() {
   const handleSave = async () => {
     if (!user) return;
 
+    const emailChanged = user.email !== formData.email;
+
     setSaving(true);
     try {
       const response = await profileAPI.updateProfile(formData);
@@ -86,7 +88,18 @@ export default function ProfilePage() {
         setUser(response.data);
       }
       setIsEditing(false);
-      successToast('Profile updated successfully');
+      
+      if (emailChanged) {
+        successToast('Email updated successfully. Logging out...');
+        // Clear localStorage and redirect to login after email change
+        setTimeout(() => {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          window.location.href = '/';
+        }, 1500);
+      } else {
+        successToast('Profile updated successfully');
+      }
     } catch (error: any) {
       console.error('Error updating profile:', error);
       errorToast(error.message || 'Failed to update profile');

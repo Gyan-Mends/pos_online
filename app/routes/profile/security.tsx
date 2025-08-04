@@ -88,13 +88,20 @@ export default function ProfileSecurityPage() {
         newPassword: passwordData.newPassword
       });
       
-      successToast('Password changed successfully');
+      successToast('Password changed successfully. Logging out...');
       setPasswordData({
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
       });
       onClose();
+      
+      // Clear localStorage and redirect to login
+      setTimeout(() => {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+      }, 1500);
     } catch (error: any) {
       console.error('Error changing password:', error);
       errorToast(error.message || 'Failed to change password');

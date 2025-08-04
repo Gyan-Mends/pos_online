@@ -151,7 +151,7 @@ export async function action({ request }: ActionFunctionArgs) {
           }
           
           // Find user with password to verify current password
-          const user = await User.findById(userId);
+          const user = await User.findById(userId).select('+password');
           if (!user) {
             return data(
               { success: false, error: 'User not found' },
@@ -169,8 +169,11 @@ export async function action({ request }: ActionFunctionArgs) {
           }
           
           // Update password
+          console.log('Updating password for user:', userId);
           user.password = newPassword;
+          console.log('Password set, saving user...');
           await user.save();
+          console.log('User saved successfully with new password');
           
           return data({
             success: true,
