@@ -1034,8 +1034,6 @@ const FinancialReport = () => {
               </div>
             </CardBody>
           </Card>
-
-         
         </div>
       )}
     </div>
