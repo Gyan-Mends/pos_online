@@ -144,11 +144,24 @@ const SalesReport = () => {
   const calculateSummary = () => {
     if (!salesData.length) return null;
     
+    // Separate positive sales and refunds (same logic as dashboard and financial reports)
     const positiveSales = salesData.filter(sale => (sale.totalAmount || 0) > 0);
-    const totalSales = positiveSales.length;
-    const totalRevenue = positiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
-    const averageOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
-    const totalItems = salesData.reduce((sum, sale) => sum + (sale.items?.length || 0), 0);
+    const refundSales = salesData.filter(sale => (sale.totalAmount || 0) < 0);
+    
+    // Calculate net sales (original sales minus fully refunded sales)
+    const originalSales = positiveSales.filter(sale => sale.status !== 'refunded');
+    const totalSales = originalSales.length;
+    
+    // Calculate revenue
+    const grossRevenue = positiveSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0);
+    const refunds = Math.abs(refundSales.reduce((sum, sale) => sum + (sale.totalAmount || 0), 0));
+    const totalRevenue = grossRevenue - refunds; // Net revenue after refunds
+    
+    // Calculate average order value from original sales only
+    const averageOrderValue = totalSales > 0 ? grossRevenue / totalSales : 0;
+    
+    // Calculate total items from original sales only (exclude refund items)
+    const totalItems = originalSales.reduce((sum, sale) => sum + (sale.items?.length || 0), 0);
     
     return {
       totalSales,
@@ -160,18 +173,36 @@ const SalesReport = () => {
 
   const summary = calculateSummary();
 
-  // Prepare chart data
+  // Calculate sales trend data from sales data
   const getSalesChartData = () => {
-    if (!dashboardData?.weeklyTrend) return { labels: [], datasets: [] };
+    if (!salesData.length) return { labels: [], datasets: [] };
+    
+    // Group sales by date
+    const salesByDate = new Map();
+    
+    salesData.forEach(sale => {
+      const date = format(new Date(sale.saleDate || sale.createdAt), 'yyyy-MM-dd');
+      if (!salesByDate.has(date)) {
+        salesByDate.set(date, { revenue: 0, count: 0 });
+      }
+      
+      const dayData = salesByDate.get(date);
+      dayData.revenue += sale.totalAmount || 0;
+      if ((sale.totalAmount || 0) > 0) {
+        dayData.count += 1;
+      }
+    });
+    
+    // Sort dates and create chart data
+    const sortedDates = Array.from(salesByDate.keys()).sort();
+    const last7Days = sortedDates.slice(-7);
     
     return {
-      labels: dashboardData.weeklyTrend.map((item: any) => 
-        format(parseISO(item.date), 'MMM dd')
-      ),
+      labels: last7Days.map(date => format(new Date(date), 'MMM dd')),
       datasets: [
         {
           label: 'Revenue',
-          data: dashboardData.weeklyTrend.map((item: any) => item.revenue),
+          data: last7Days.map(date => salesByDate.get(date)?.revenue || 0),
           borderColor: 'rgb(59, 130, 246)',
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
           borderWidth: 2,
@@ -180,7 +211,7 @@ const SalesReport = () => {
         },
         {
           label: 'Sales Count',
-          data: dashboardData.weeklyTrend.map((item: any) => item.count),
+          data: last7Days.map(date => salesByDate.get(date)?.count || 0),
           borderColor: 'rgb(16, 185, 129)',
           backgroundColor: 'rgba(16, 185, 129, 0.1)',
           borderWidth: 2,
@@ -192,14 +223,33 @@ const SalesReport = () => {
     };
   };
 
+  // Calculate top products from sales data
   const getTopProductsData = () => {
-    if (!dashboardData?.topProducts) return { labels: [], datasets: [] };
+    if (!salesData.length) return { labels: [], datasets: [] };
+    
+    // Group products by revenue (excluding refunds)
+    const productRevenue = new Map();
+    
+    salesData.forEach(sale => {
+      if ((sale.totalAmount || 0) > 0 && sale.status !== 'refunded') {
+        sale.items?.forEach((item: any) => {
+          const productName = item.productId?.name || 'Unknown Product';
+          const currentRevenue = productRevenue.get(productName) || 0;
+          productRevenue.set(productName, currentRevenue + (item.totalPrice || 0));
+        });
+      }
+    });
+    
+    // Get top 5 products
+    const topProducts = Array.from(productRevenue.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
     
     return {
-      labels: dashboardData.topProducts.map((item: any) => item.name),
+      labels: topProducts.map(([name]) => name),
       datasets: [
         {
-          data: dashboardData.topProducts.map((item: any) => item.revenue),
+          data: topProducts.map(([, revenue]) => revenue),
           backgroundColor: [
             'rgba(59, 130, 246, 0.8)',
             'rgba(16, 185, 129, 0.8)',
@@ -464,11 +514,11 @@ const SalesReport = () => {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Sales Transactions
           </h3>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              {salesData.length} of {pagination.total} sales
-            </span>
-          </div>
+                     <div className="flex items-center space-x-2">
+             <span className="text-sm text-gray-600 dark:text-gray-400">
+               {salesData.filter(sale => sale.status !== 'refunded').length} active sales
+             </span>
+           </div>
         </div>
         <div>
           <Table aria-label="Sales transactions ">
@@ -481,73 +531,74 @@ const SalesReport = () => {
               <TableColumn>AMOUNT</TableColumn>
               <TableColumn>STATUS</TableColumn>
             </TableHeader>
-            <TableBody>
-              {salesData.map((sale) => (
-                <TableRow key={sale._id}>
-                  <TableCell>
-                    <span className="font-mono text-sm">
-                      {sale.receiptNumber}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">
-                        {formatDate(sale.saleDate || sale.createdAt)}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {formatTime(sale.saleDate || sale.createdAt)}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {sale.customerId ? (
-                      <div>
-                        <div className="font-medium">
-                          {sale.customerId.firstName} {sale.customerId.lastName}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {sale.customerId.email}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-gray-500">Walk-in Customer</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {sale.sellerId ? (
-                      <div className="font-medium">
-                        {sale.sellerId.firstName} {sale.sellerId.lastName}
-                      </div>
-                    ) : (
-                      <span className="text-gray-500">Unknown</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-medium">
-                      {sale.items?.length || 0} items
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-semibold">
-                      {formatCurrency(sale.totalAmount)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="sm"
-                      color={
-                        sale.status === 'completed' ? 'success' :
-                        sale.status === 'refunded' ? 'danger' :
-                        sale.status === 'partially_refunded' ? 'warning' : 'default'
-                      }
-                      variant="flat"
-                    >
-                      {sale.status?.replace('_', ' ')}
-                    </Chip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
+                         <TableBody>
+               {salesData
+                 .filter(sale => sale.status !== 'refunded') // Only show active sales
+                 .map((sale) => (
+                 <TableRow key={sale._id}>
+                   <TableCell>
+                     <span className="font-mono text-sm">
+                       {sale.receiptNumber}
+                     </span>
+                   </TableCell>
+                   <TableCell>
+                     <div>
+                       <div className="font-medium">
+                         {formatDate(sale.saleDate || sale.createdAt)}
+                       </div>
+                       <div className="text-sm text-gray-500">
+                         {formatTime(sale.saleDate || sale.createdAt)}
+                       </div>
+                     </div>
+                   </TableCell>
+                   <TableCell>
+                     {sale.customerId ? (
+                       <div>
+                         <div className="font-medium">
+                           {sale.customerId.firstName} {sale.customerId.lastName}
+                         </div>
+                         <div className="text-sm text-gray-500">
+                           {sale.customerId.email}
+                         </div>
+                       </div>
+                     ) : (
+                       <span className="text-gray-500">Walk-in Customer</span>
+                     )}
+                   </TableCell>
+                   <TableCell>
+                     {sale.sellerId ? (
+                       <div className="font-medium">
+                         {sale.sellerId.firstName} {sale.sellerId.lastName}
+                       </div>
+                     ) : (
+                       <span className="text-gray-500">Unknown</span>
+                     )}
+                   </TableCell>
+                   <TableCell>
+                     <span className="font-medium">
+                       {sale.items?.length || 0} items
+                     </span>
+                   </TableCell>
+                   <TableCell>
+                     <span className="font-semibold">
+                       {formatCurrency(sale.totalAmount)}
+                     </span>
+                   </TableCell>
+                   <TableCell>
+                     <Chip
+                       size="sm"
+                       color={
+                         sale.status === 'completed' ? 'success' :
+                         sale.status === 'partially_refunded' ? 'warning' : 'default'
+                       }
+                       variant="flat"
+                     >
+                       {sale.status?.replace('_', ' ')}
+                     </Chip>
+                   </TableCell>
+                 </TableRow>
+               ))}
+             </TableBody>
           </Table>
           
           {pagination.pages > 1 && (

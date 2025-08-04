@@ -148,7 +148,7 @@ export async function loader({ request }: { request: Request }) {
       const daySales = await Sale.find({
         ...salesQuery,
         saleDate: { $gte: dayStart, $lt: dayEnd },
-        status: { $in: ['completed', 'partially_refunded'] }
+        status: { $in: ['completed', 'partially_refunded', 'refunded'] }
       });
       
       const dayPositiveSales = daySales.filter(sale => (sale.totalAmount || 0) > 0);
@@ -173,7 +173,7 @@ export async function loader({ request }: { request: Request }) {
       const monthSales = await Sale.find({
         ...salesQuery,
         saleDate: { $gte: monthStart, $lt: monthEnd },
-        status: { $in: ['completed', 'partially_refunded'] }
+        status: { $in: ['completed', 'partially_refunded', 'refunded'] }
       });
       
       const monthPositiveSales = monthSales.filter(sale => (sale.totalAmount || 0) > 0);
