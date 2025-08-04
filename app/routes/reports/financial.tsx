@@ -918,35 +918,7 @@ const FinancialReport = () => {
             </CardBody>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Revenue Details
-              </h3>
-            </CardHeader>
-            <CardBody>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                    {summary.totalSales}
-                  </p>
-                  <p className="text-gray-600 dark:text-gray-400">Total Sales</p>
-                </div>
-                <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                    {formatCurrency(summary.avgOrderValue)}
-                  </p>
-                  <p className="text-gray-600 dark:text-gray-400">Avg Order Value</p>
-                </div>
-                <div className="text-center p-6 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
-                    {formatPercentage(summary.revenueGrowth)}
-                  </p>
-                  <p className="text-gray-600 dark:text-gray-400">Growth Rate</p>
-                </div>
-              </div>
-            </CardBody>
-          </Card>
+          
         </div>
       )}
 
@@ -1063,38 +1035,7 @@ const FinancialReport = () => {
             </CardBody>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardBody className="p-6 text-center">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                  Total Cash In
-                </p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(summary.totalRevenue)}
-                </p>
-              </CardBody>
-            </Card>
-            <Card>
-              <CardBody className="p-6 text-center">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                  Total Cash Out
-                </p>
-                <p className="text-2xl font-bold text-red-600">
-                  {formatCurrency(summary.totalExpenses)}
-                </p>
-              </CardBody>
-            </Card>
-            <Card>
-              <CardBody className="p-6 text-center">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                  Net Cash Flow
-                </p>
-                <p className={`text-2xl font-bold ${summary.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(summary.netProfit)}
-                </p>
-              </CardBody>
-            </Card>
-          </div>
+         
         </div>
       )}
     </div>
