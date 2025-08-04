@@ -516,7 +516,23 @@ const SalesReport = () => {
           </h3>
                      <div className="flex items-center space-x-2">
              <span className="text-sm text-gray-600 dark:text-gray-400">
-               {salesData.filter(sale => sale.status !== 'refunded').length} active sales
+               {salesData.filter(sale => {
+                 // Exclude sales with status 'refunded'
+                 if (sale.status === 'refunded') return false;
+                 
+                 // Exclude refund transactions (negative amounts)
+                 if ((sale.totalAmount || 0) <= 0) return false;
+                 
+                 // Exclude sales that are fully refunded (all items refunded)
+                 if (sale.items && sale.items.length > 0) {
+                   const allItemsRefunded = sale.items.every((item: any) => 
+                     item.refundedQuantity >= item.quantity
+                   );
+                   if (allItemsRefunded) return false;
+                 }
+                 
+                 return true;
+               }).length} active sales
              </span>
            </div>
         </div>
@@ -533,7 +549,23 @@ const SalesReport = () => {
             </TableHeader>
                          <TableBody>
                {salesData
-                 .filter(sale => sale.status !== 'refunded') // Only show active sales
+                 .filter(sale => {
+                   // Exclude sales with status 'refunded'
+                   if (sale.status === 'refunded') return false;
+                   
+                   // Exclude refund transactions (negative amounts)
+                   if ((sale.totalAmount || 0) <= 0) return false;
+                   
+                   // Exclude sales that are fully refunded (all items refunded)
+                   if (sale.items && sale.items.length > 0) {
+                     const allItemsRefunded = sale.items.every((item: any) => 
+                       item.refundedQuantity >= item.quantity
+                     );
+                     if (allItemsRefunded) return false;
+                   }
+                   
+                   return true;
+                 })
                  .map((sale) => (
                  <TableRow key={sale._id}>
                    <TableCell>
