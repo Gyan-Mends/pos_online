@@ -168,16 +168,16 @@ const navigationSections: NavigationSection[] = [
           { name: "Process Refund", href: "/sales/refund" }
         ]
       },
-      { 
-        name: "Orders", 
-        icon: OrdersIcon, 
-        href: "/orders",
-        submenu: [
-          { name: "Order Management", href: "/orders" },
-          { name: "Tracking Dashboard", href: "/orders/dashboard" },
-          { name: "Order Tracking", href: "/orders/tracking" }
-        ]
-      }
+      // { 
+      //   name: "Orders", 
+      //   icon: OrdersIcon, 
+      //   href: "/orders",
+      //   submenu: [
+      //     { name: "Order Management", href: "/orders" },
+      //     { name: "Tracking Dashboard", href: "/orders/dashboard" },
+      //     { name: "Order Tracking", href: "/orders/tracking" }
+      //   ]
+      // }
     ]
   },
   {
@@ -243,7 +243,7 @@ const navigationSections: NavigationSection[] = [
         href: "/users",
         submenu: [
           { name: "All Users", href: "/users" },
-          { name: "Roles & Permissions", href: "/users/roles" }
+          // { name: "Roles & Permissions", href: "/users/roles" }
         ]
       },
       { 

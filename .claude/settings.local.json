@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npm run dev:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "WebSearch",
+      "WebFetch(domain:unsplash.com)",
+      "WebFetch(domain:dev.to)",
+      "WebFetch(domain:www.pexels.com)",
+      "WebFetch(domain:pngimg.com)",
+      "WebFetch(domain:pixabay.com)",
+      "Bash(node:*)"
     ],
     "deny": []
   }
